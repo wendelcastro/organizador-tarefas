@@ -80,7 +80,7 @@ CREATE TABLE IF NOT EXISTS tarefas (
 -- ==========================================
 CREATE TABLE IF NOT EXISTS historico (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  tarefa_id UUID REFERENCES tarefas(id) ON DELETE CASCADE,
+  tarefa_id UUID,  -- Sem FK para permitir registro de exclusoes no trigger
   acao TEXT NOT NULL,
   detalhes JSONB DEFAULT '{}',
   created_at TIMESTAMPTZ DEFAULT now()

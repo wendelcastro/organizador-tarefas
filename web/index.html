@@ -1270,13 +1270,20 @@ async function updateTask(id, updates) {
 
 // ========== SUPABASE: EXCLUIR TAREFA ==========
 async function removeTask(id) {
-  const { error } = await sb
+  const { data, error } = await sb
     .from('tarefas')
     .delete()
-    .eq('id', id);
+    .eq('id', id)
+    .select();
 
   if (error) {
-    console.error('Erro ao excluir tarefa:', error);
+    console.error('Erro ao excluir tarefa:', error.message, error.details, error.hint);
+    alert('Erro ao excluir: ' + error.message);
+    return false;
+  }
+  if (!data || data.length === 0) {
+    console.error('Delete retornou 0 linhas — possivel bloqueio RLS ou trigger');
+    alert('Erro: tarefa nao foi excluida no banco. Verifique o console.');
     return false;
   }
   return true;
