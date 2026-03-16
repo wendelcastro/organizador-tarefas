@@ -957,7 +957,16 @@ body::after {
   </div>
 </div>
 
+<!-- Supabase JS Client (CDN) -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+
 <script>
+// ========== SUPABASE CONNECTION ==========
+// A anon key e PUBLICA — seguranca e feita via RLS (policies no banco)
+const SUPABASE_URL = 'https://vhfuthaqonzuasgpbcrg.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZoZnV0aGFxb256dWFzZ3BiY3JnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2ODk4OTgsImV4cCI6MjA4OTI2NTg5OH0.uJgJL-qrJtPqGUCWMO3e1a1JwudGvfUab4FxNC8SsBM';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
 // ========== CONFIG ==========
 const CATEGORY_COLORS = {
   'Trabalho': 'var(--cat-trabalho)',
@@ -991,23 +1000,88 @@ function getMeetingBadgeHTML(url) {
   return `<a href="${url}" target="_blank" rel="noopener" class="meeting-badge ${platform.type}" onclick="event.stopPropagation()">${icon} ${platform.label}</a>`;
 }
 
-// ========== MOCK DATA ==========
-let tasks = [
-  { id: 1, titulo: 'Preparar aula de Inteligencia Artificial', categoria: 'Trabalho', prioridade: 'alta', status: 'pendente', prazo: '2026-03-18', horario: '08:00', meeting_link: '', notas: 'Modulo 3 - Redes Neurais', origem: 'telegram' },
-  { id: 2, titulo: 'Reuniao com equipe de dados', categoria: 'Consultoria', prioridade: 'alta', status: 'em_andamento', prazo: '2026-03-17', horario: '14:00', meeting_link: 'https://meet.google.com/abc-defg-hij', notas: 'Revisar pipeline de ETL', origem: 'telegram' },
-  { id: 3, titulo: 'Revisar proposta do novo curso', categoria: 'Grupo Ser', prioridade: 'media', status: 'pendente', prazo: '2026-03-19', horario: '', meeting_link: '', notas: 'Curso de Python para iniciantes', origem: 'dashboard' },
-  { id: 4, titulo: 'Agendar dentista', categoria: 'Pessoal', prioridade: 'baixa', status: 'pendente', prazo: '2026-03-21', horario: '', meeting_link: '', notas: '', origem: 'telegram' },
-  { id: 5, titulo: 'Gravar video sobre Claude Code', categoria: 'Pessoal', prioridade: 'alta', status: 'pendente', prazo: '2026-03-17', horario: '19:00', meeting_link: '', notas: 'Tutorial para o canal', origem: 'claude_code' },
-  { id: 6, titulo: 'Corrigir provas de Banco de Dados', categoria: 'Trabalho', prioridade: 'alta', status: 'em_andamento', prazo: '2026-03-16', horario: '', meeting_link: '', notas: 'Turmas A e B', origem: 'telegram' },
-  { id: 7, titulo: 'Enviar relatorio mensal', categoria: 'Consultoria', prioridade: 'media', status: 'concluida', prazo: '2026-03-15', horario: '', meeting_link: '', notas: 'Relatorio de marco', origem: 'telegram' },
-  { id: 8, titulo: 'Planejar conteudo da semana', categoria: 'Pessoal', prioridade: 'media', status: 'concluida', prazo: '2026-03-16', horario: '', meeting_link: '', notas: 'Instagram e YouTube', origem: 'dashboard' },
-  { id: 9, titulo: 'Alinhamento pedagogico semestral', categoria: 'Grupo Ser', prioridade: 'alta', status: 'pendente', prazo: '2026-03-20', horario: '10:00', meeting_link: 'https://teams.microsoft.com/l/meetup-join/abc123', notas: 'Participantes: coordenacao + professores', origem: 'telegram' },
-  { id: 10, titulo: 'Configurar bot do Telegram', categoria: 'Pessoal', prioridade: 'alta', status: 'em_andamento', prazo: '2026-03-18', horario: '', meeting_link: '', notas: 'Projeto organizador de tarefas', origem: 'claude_code' },
-  { id: 11, titulo: 'Feedback para alunos do TCC', categoria: 'Trabalho', prioridade: 'media', status: 'pendente', prazo: '2026-03-19', horario: '16:00', meeting_link: 'https://zoom.us/j/123456789', notas: '3 alunos aguardando retorno', origem: 'telegram' },
-  { id: 12, titulo: 'Comprar presente aniversario Mae', categoria: 'Pessoal', prioridade: 'media', status: 'pendente', prazo: '2026-03-22', horario: '', meeting_link: '', notas: '', origem: 'telegram' },
-];
-
+// ========== DATA ==========
+let tasks = [];
 let currentFilters = { category: 'all', priority: 'all', status: 'all' };
+
+// ========== SUPABASE: CARREGAR TAREFAS ==========
+async function loadTasks() {
+  const { data, error } = await sb
+    .from('tarefas')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Erro ao carregar tarefas:', error);
+    document.getElementById('taskList').innerHTML =
+      '<div class="empty-state"><p>Erro ao conectar ao banco. Verifique o console.</p></div>';
+    return;
+  }
+
+  // Converter formato do banco para formato do dashboard
+  tasks = (data || []).map(t => ({
+    ...t,
+    horario: t.horario ? t.horario.substring(0, 5) : '', // "14:00:00" -> "14:00"
+  }));
+
+  renderTasks();
+  renderCalendar();
+}
+
+// ========== SUPABASE: CRIAR TAREFA ==========
+async function createTask(taskData) {
+  const { data, error } = await sb
+    .from('tarefas')
+    .insert(taskData)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Erro ao criar tarefa:', error);
+    alert('Erro ao salvar tarefa. Tente novamente.');
+    return null;
+  }
+  return data;
+}
+
+// ========== SUPABASE: ATUALIZAR TAREFA ==========
+async function updateTask(id, updates) {
+  const { error } = await sb
+    .from('tarefas')
+    .update(updates)
+    .eq('id', id);
+
+  if (error) {
+    console.error('Erro ao atualizar tarefa:', error);
+    return false;
+  }
+  return true;
+}
+
+// ========== SUPABASE: EXCLUIR TAREFA ==========
+async function removeTask(id) {
+  const { error } = await sb
+    .from('tarefas')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    console.error('Erro ao excluir tarefa:', error);
+    return false;
+  }
+  return true;
+}
+
+// ========== SUPABASE: REALTIME ==========
+// Quando QUALQUER coisa muda no banco (ex: bot do Telegram criou tarefa),
+// o dashboard atualiza automaticamente — sem recarregar a pagina!
+function setupRealtime() {
+  sb.channel('tarefas-changes')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'tarefas' }, () => {
+      loadTasks(); // Recarrega tudo quando algo muda
+    })
+    .subscribe();
+}
 
 // ========== HELPERS ==========
 function formatDate(dateStr) {
@@ -1052,21 +1126,17 @@ function updateStats() {
   const overdue = tasks.filter(t => isOverdue(t)).length;
   const meetings = tasks.filter(t => t.meeting_link && t.status !== 'concluida').length;
 
-  // Desktop sidebar
-  const ds = id => { const el = document.getElementById(id); if (el) el.textContent = arguments[1]; };
   document.getElementById('statTotal').textContent = total;
   document.getElementById('statPending').textContent = pending;
   document.getElementById('statDone').textContent = done;
   document.getElementById('statOverdue').textContent = overdue;
 
-  // Mobile stats bar
   document.getElementById('mStatTotal').textContent = total;
   document.getElementById('mStatPending').textContent = pending;
   document.getElementById('mStatDone').textContent = done;
   document.getElementById('mStatOverdue').textContent = overdue;
   document.getElementById('mStatMeetings').textContent = meetings;
 
-  // Category counts
   document.getElementById('countAll').textContent = total;
   document.getElementById('countTrabalho').textContent = tasks.filter(t => t.categoria === 'Trabalho').length;
   document.getElementById('countConsultoria').textContent = tasks.filter(t => t.categoria === 'Consultoria').length;
@@ -1077,9 +1147,7 @@ function updateStats() {
 // ========== FILTERS ==========
 function filterCategory(cat) {
   currentFilters.category = cat;
-  // Update mobile chips
   document.querySelectorAll('.chip[data-category]').forEach(el => el.classList.toggle('active', el.dataset.category === cat));
-  // Update desktop sidebar
   document.querySelectorAll('.category-item').forEach(el => el.classList.toggle('active', el.dataset.category === cat));
   renderTasks();
 }
@@ -1121,23 +1189,25 @@ function renderTasks() {
   });
 
   if (filtered.length === 0) {
-    container.innerHTML = '<div class="empty-state"><p>Nenhuma tarefa encontrada</p></div>';
+    container.innerHTML = '<div class="empty-state"><p>Nenhuma tarefa ainda. Toque em + para criar a primeira!</p></div>';
     updateStats();
     return;
   }
 
   container.innerHTML = filtered.map((task, i) => {
-    const catColor = CATEGORY_COLORS[task.categoria];
-    const catBg = CATEGORY_BG[task.categoria];
+    const catColor = CATEGORY_COLORS[task.categoria] || 'var(--text-muted)';
+    const catBg = CATEGORY_BG[task.categoria] || 'rgba(255,255,255,0.05)';
     const priColor = PRIORITY_COLORS[task.prioridade];
     const completed = task.status === 'concluida' ? 'completed' : '';
     const overdueClass = isOverdue(task) ? 'overdue' : '';
     const meetingHTML = getMeetingBadgeHTML(task.meeting_link);
-    const timeStr = task.horario ? task.horario : '';
+    const timeStr = task.horario || '';
+    // IDs do Supabase sao UUID (string), entao usamos aspas
+    const taskId = typeof task.id === 'string' ? `'${task.id}'` : task.id;
 
     return `
       <div class="task-card ${completed}" style="--cat-color:${catColor}; animation-delay:${i * 0.04}s">
-        <div class="task-check" onclick="toggleTask(${task.id})"></div>
+        <div class="task-check" onclick="toggleTask(${taskId})"></div>
         <div class="task-info">
           <div class="task-title-row">
             <span class="task-title">${task.titulo}</span>
@@ -1153,7 +1223,7 @@ function renderTasks() {
         <div class="task-date-badge ${overdueClass}">
           ${task.prazo ? formatDate(task.prazo) : ''}
           <div class="task-actions" style="display:none">
-            <button class="task-action-btn" onclick="event.stopPropagation();deleteTask(${task.id})" title="Excluir">
+            <button class="task-action-btn" onclick="event.stopPropagation();deleteTask(${taskId})" title="Excluir">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6"/><path d="M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
             </button>
           </div>
@@ -1161,7 +1231,6 @@ function renderTasks() {
       </div>`;
   }).join('');
 
-  // Show delete on desktop hover
   if (window.innerWidth >= 1024) {
     document.querySelectorAll('.task-actions').forEach(el => el.style.display = 'flex');
   }
@@ -1169,17 +1238,40 @@ function renderTasks() {
   updateStats();
 }
 
-// ========== ACTIONS ==========
-function toggleTask(id) {
+// ========== ACTIONS (agora salvam no Supabase!) ==========
+async function toggleTask(id) {
   const task = tasks.find(t => t.id === id);
   if (!task) return;
-  task.status = task.status === 'concluida' ? 'pendente' : 'concluida';
+  const newStatus = task.status === 'concluida' ? 'pendente' : 'concluida';
+
+  // Atualiza localmente primeiro (resposta instantanea)
+  task.status = newStatus;
   renderTasks();
+
+  // Depois salva no banco
+  const ok = await updateTask(id, { status: newStatus });
+  if (!ok) {
+    // Se falhou, reverte
+    task.status = task.status === 'concluida' ? 'pendente' : 'concluida';
+    renderTasks();
+  }
 }
 
-function deleteTask(id) {
+async function deleteTask(id) {
+  if (!confirm('Excluir esta tarefa?')) return;
+
+  // Remove localmente primeiro
+  const backup = [...tasks];
   tasks = tasks.filter(t => t.id !== id);
   renderTasks();
+  renderCalendar();
+
+  // Depois exclui no banco
+  const ok = await removeTask(id);
+  if (!ok) {
+    tasks = backup;
+    renderTasks();
+  }
 }
 
 // ========== CALENDAR ==========
@@ -1209,7 +1301,6 @@ function renderCalendar() {
       </div>`;
   }).join('');
 
-  // Scroll to today on mobile
   if (window.innerWidth < 1024) {
     setTimeout(() => {
       const today = container.querySelector('.today');
@@ -1250,24 +1341,35 @@ function closeModal(event) {
   document.getElementById('taskForm').reset();
 }
 
-function saveTask(event) {
+async function saveTask(event) {
   event.preventDefault();
-  const newTask = {
-    id: Date.now(),
+
+  const meetingLink = document.getElementById('inputMeetingLink').value || '';
+  const platform = detectMeetingPlatform(meetingLink);
+
+  const taskData = {
     titulo: document.getElementById('inputTitle').value,
     categoria: document.getElementById('inputCategory').value,
     prioridade: document.getElementById('inputPriority').value,
     status: 'pendente',
     prazo: document.getElementById('inputDate').value || null,
-    horario: document.getElementById('inputTime').value || '',
-    meeting_link: document.getElementById('inputMeetingLink').value || '',
+    horario: document.getElementById('inputTime').value || null,
+    meeting_link: meetingLink,
+    meeting_platform: platform ? platform.type : null,
     notas: document.getElementById('inputNotes').value,
     origem: 'dashboard'
   };
-  tasks.unshift(newTask);
+
+  // Fecha modal e mostra feedback
   closeModal();
-  renderTasks();
-  renderCalendar();
+
+  const created = await createTask(taskData);
+  if (created) {
+    // Adiciona localmente e renderiza
+    tasks.unshift({ ...created, horario: created.horario ? created.horario.substring(0, 5) : '' });
+    renderTasks();
+    renderCalendar();
+  }
 }
 
 // ========== KEYBOARD ==========
@@ -1278,8 +1380,8 @@ document.addEventListener('keydown', (e) => {
 
 // ========== INIT ==========
 updateHeaderDate();
-renderTasks();
-renderCalendar();
+loadTasks();       // Carrega tarefas do Supabase
+setupRealtime();   // Escuta mudancas em tempo real
 </script>
 </body>
 </html>
