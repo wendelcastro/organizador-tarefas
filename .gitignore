@@ -1,0 +1,30 @@
+# Segredos - NUNCA subir para o GitHub
+.env
+.env.local
+.env.production
+
+# Dependencias (reinstala com npm install)
+node_modules/
+
+# Cache e build
+.cache/
+dist/
+build/
+
+# Sistema operacional
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+
+# Python
+__pycache__/
+*.pyc
+venv/
+.venv/
+
+# Logs
+*.log
