@@ -403,6 +403,37 @@ body::after {
   border-radius: 0 var(--radius) var(--radius) 0;
 }
 
+/* ========== TASK ACTIONS ========== */
+.task-actions {
+  display: flex;
+  gap: 0.3rem;
+  align-items: center;
+  margin-top: 0.3rem;
+}
+
+.task-action-btn {
+  width: 28px; height: 28px;
+  display: flex;
+  align-items: center; justify-content: center;
+  background: var(--bg-glass);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: var(--transition);
+  padding: 0;
+}
+.task-action-btn:hover, .task-action-btn:active {
+  color: var(--text-primary);
+  border-color: var(--border-hover);
+  background: rgba(255,255,255,0.08);
+}
+.task-action-btn.delete:hover, .task-action-btn.delete:active {
+  color: var(--pri-alta);
+  border-color: rgba(239,68,68,0.3);
+  background: rgba(239,68,68,0.1);
+}
+
 /* ========== CALENDAR VIEW ========== */
 .calendar-view { display: none; animation: fadeIn 0.4s ease; }
 .calendar-view.active { display: block; }
@@ -784,7 +815,7 @@ body::after {
   }
   .calendar-day { flex: none; min-height: 160px; }
 
-  .task-actions { display: flex; opacity: 0; transition: var(--transition); }
+  .task-actions { opacity: 0; transition: var(--transition); }
   .task-card:hover .task-actions { opacity: 1; }
 }
 
@@ -1202,13 +1233,11 @@ function renderTasks() {
     const overdueClass = isOverdue(task) ? 'overdue' : '';
     const meetingHTML = getMeetingBadgeHTML(task.meeting_link);
     const timeStr = task.horario || '';
-    // IDs do Supabase sao UUID (string), entao usamos aspas
-    const taskId = typeof task.id === 'string' ? `'${task.id}'` : task.id;
 
     return `
-      <div class="task-card ${completed}" style="--cat-color:${catColor}; animation-delay:${i * 0.04}s">
-        <div class="task-check" onclick="toggleTask(${taskId})"></div>
-        <div class="task-info">
+      <div class="task-card ${completed}" data-task-id="${task.id}" style="--cat-color:${catColor}; animation-delay:${i * 0.04}s">
+        <div class="task-check" data-action="toggle"></div>
+        <div class="task-info" data-action="edit">
           <div class="task-title-row">
             <span class="task-title">${task.titulo}</span>
             <span class="task-category-badge" style="background:${catBg};color:${catColor}">${task.categoria}</span>
@@ -1222,8 +1251,11 @@ function renderTasks() {
         </div>
         <div class="task-date-badge ${overdueClass}">
           ${task.prazo ? formatDate(task.prazo) : ''}
-          <div class="task-actions" style="display:none">
-            <button class="task-action-btn" onclick="event.stopPropagation();deleteTask(${taskId})" title="Excluir">
+          <div class="task-actions">
+            <button class="task-action-btn" data-action="edit" title="Editar">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            </button>
+            <button class="task-action-btn delete" data-action="delete" title="Excluir">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6"/><path d="M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
             </button>
           </div>
@@ -1231,27 +1263,38 @@ function renderTasks() {
       </div>`;
   }).join('');
 
-  if (window.innerWidth >= 1024) {
-    document.querySelectorAll('.task-actions').forEach(el => el.style.display = 'flex');
-  }
-
   updateStats();
 }
 
+// ========== EVENT DELEGATION (resolve problemas de UUID nos onclick) ==========
+document.getElementById('taskList').addEventListener('click', function(e) {
+  const card = e.target.closest('.task-card');
+  if (!card) return;
+  const taskId = card.dataset.taskId;
+  if (!taskId) return;
+
+  const actionEl = e.target.closest('[data-action]');
+  if (!actionEl) return;
+
+  const action = actionEl.dataset.action;
+  if (action === 'toggle') toggleTask(taskId);
+  else if (action === 'delete') deleteTask(taskId);
+  else if (action === 'edit') editTask(taskId);
+});
+
 // ========== ACTIONS (agora salvam no Supabase!) ==========
+let editingTaskId = null; // ID da tarefa sendo editada (null = criando nova)
+
 async function toggleTask(id) {
-  const task = tasks.find(t => t.id === id);
+  const task = tasks.find(t => String(t.id) === String(id));
   if (!task) return;
   const newStatus = task.status === 'concluida' ? 'pendente' : 'concluida';
 
-  // Atualiza localmente primeiro (resposta instantanea)
   task.status = newStatus;
   renderTasks();
 
-  // Depois salva no banco
   const ok = await updateTask(id, { status: newStatus });
   if (!ok) {
-    // Se falhou, reverte
     task.status = task.status === 'concluida' ? 'pendente' : 'concluida';
     renderTasks();
   }
@@ -1260,18 +1303,35 @@ async function toggleTask(id) {
 async function deleteTask(id) {
   if (!confirm('Excluir esta tarefa?')) return;
 
-  // Remove localmente primeiro
   const backup = [...tasks];
-  tasks = tasks.filter(t => t.id !== id);
+  tasks = tasks.filter(t => String(t.id) !== String(id));
   renderTasks();
   renderCalendar();
 
-  // Depois exclui no banco
   const ok = await removeTask(id);
   if (!ok) {
     tasks = backup;
     renderTasks();
   }
+}
+
+function editTask(id) {
+  const task = tasks.find(t => String(t.id) === String(id));
+  if (!task) return;
+
+  editingTaskId = id;
+  document.getElementById('inputTitle').value = task.titulo || '';
+  document.getElementById('inputCategory').value = task.categoria || 'Trabalho';
+  document.getElementById('inputPriority').value = task.prioridade || 'media';
+  document.getElementById('inputDate').value = task.prazo || '';
+  document.getElementById('inputTime').value = task.horario || '';
+  document.getElementById('inputMeetingLink').value = task.meeting_link || '';
+  document.getElementById('inputNotes').value = task.notas || '';
+
+  document.querySelector('.modal h2').textContent = 'Editar tarefa';
+  document.querySelector('.btn-save').textContent = 'Atualizar';
+  document.getElementById('modalOverlay').classList.add('active');
+  setTimeout(() => document.getElementById('inputTitle').focus(), 300);
 }
 
 // ========== CALENDAR ==========
@@ -1329,6 +1389,9 @@ function switchView(view) {
 
 // ========== MODAL ==========
 function openModal() {
+  editingTaskId = null;
+  document.querySelector('.modal h2').textContent = 'Nova tarefa';
+  document.querySelector('.btn-save').textContent = 'Salvar';
   document.getElementById('modalOverlay').classList.add('active');
   setTimeout(() => document.getElementById('inputTitle').focus(), 300);
   const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
@@ -1339,6 +1402,9 @@ function closeModal(event) {
   if (event && event.target !== event.currentTarget) return;
   document.getElementById('modalOverlay').classList.remove('active');
   document.getElementById('taskForm').reset();
+  editingTaskId = null;
+  document.querySelector('.modal h2').textContent = 'Nova tarefa';
+  document.querySelector('.btn-save').textContent = 'Salvar';
 }
 
 async function saveTask(event) {
@@ -1351,24 +1417,38 @@ async function saveTask(event) {
     titulo: document.getElementById('inputTitle').value,
     categoria: document.getElementById('inputCategory').value,
     prioridade: document.getElementById('inputPriority').value,
-    status: 'pendente',
     prazo: document.getElementById('inputDate').value || null,
     horario: document.getElementById('inputTime').value || null,
     meeting_link: meetingLink,
     meeting_platform: platform ? platform.type : null,
     notas: document.getElementById('inputNotes').value,
-    origem: 'dashboard'
   };
 
-  // Fecha modal e mostra feedback
   closeModal();
 
-  const created = await createTask(taskData);
-  if (created) {
-    // Adiciona localmente e renderiza
-    tasks.unshift({ ...created, horario: created.horario ? created.horario.substring(0, 5) : '' });
-    renderTasks();
-    renderCalendar();
+  if (editingTaskId) {
+    // EDITANDO tarefa existente
+    const ok = await updateTask(editingTaskId, taskData);
+    if (ok) {
+      const task = tasks.find(t => String(t.id) === String(editingTaskId));
+      if (task) {
+        Object.assign(task, taskData);
+        task.horario = taskData.horario ? taskData.horario.substring(0, 5) : '';
+      }
+      renderTasks();
+      renderCalendar();
+    }
+    editingTaskId = null;
+  } else {
+    // CRIANDO nova tarefa
+    taskData.status = 'pendente';
+    taskData.origem = 'dashboard';
+    const created = await createTask(taskData);
+    if (created) {
+      tasks.unshift({ ...created, horario: created.horario ? created.horario.substring(0, 5) : '' });
+      renderTasks();
+      renderCalendar();
+    }
   }
 }
 
