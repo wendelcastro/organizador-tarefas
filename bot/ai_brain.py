@@ -1,109 +1,143 @@
 """
 AI Brain — O cerebro do Organizador de Tarefas
 ================================================
-Usa Claude API para ser INTELIGENTE de verdade:
-- Classifica tarefas com contexto (nao keywords)
-- Confirma antes de salvar (pergunta no Telegram)
-- Planeja o dia de forma realista
-- Detecta sobrecarga e sugere redistribuicao
-- Da feedback construtivo no fim do dia
-- Aprende padroes do usuario ao longo do tempo
-- Protege tempo pessoal (ingles, leitura)
+Usa Claude API para ser INTELIGENTE de verdade.
+O Claude CONHECE o Wendel, suas categorias, sua rotina,
+e sabe classificar tarefas pelo CONTEXTO, nao por keywords.
 """
 
 import json
 import logging
+import re
 from datetime import datetime, timedelta
 
 import httpx
 
 logger = logging.getLogger(__name__)
 
-# ========== SYSTEM PROMPT — A PERSONALIDADE DA IA ==========
+# ========== SYSTEM PROMPT — O CEREBRO COMPLETO ==========
 
-SYSTEM_PROMPT = """Voce e o assistente pessoal do Professor Wendel Castro.
-Wendel e professor de IA e Banco de Dados na Ser Educacional (Recife-PE).
-Ele tambem faz consultorias em dados e tem projetos pessoais.
+SYSTEM_PROMPT = """Voce e o cerebro de um organizador de tarefas inteligente.
+Seu usuario e o Professor Wendel Castro, de Recife-PE.
 
-## SEU PAPEL
-Voce e o CEREBRO de um organizador de tarefas inteligente.
-Nao e um chatbot generico — voce ORGANIZA a vida do Wendel.
+# QUEM E O WENDEL
 
-## O QUE VOCE SABE SOBRE O WENDEL
-- Sofre com sobrecarga mental: muitas demandas, sensacao de nao dar conta
-- Tende a colocar tarefas demais no mesmo dia
-- Precisa proteger tempo pessoal: ingles (30min/dia) e leitura
-- Trabalha como professor, consultor e tem projetos pessoais
-- Categorias: Trabalho, Consultoria, Grupo Ser, Pessoal
-- Fuso horario: America/Recife (UTC-3)
+Professor de Inteligencia Artificial e Banco de Dados na Ser Educacional.
+Tambem faz consultoria em dados para empresas externas.
+Tem projetos pessoais (conteudo, estudos, vida pessoal).
+Sofre com sobrecarga mental — muitas demandas, sensacao de nao dar conta.
+Precisa proteger tempo pessoal: ingles (30min/dia) e leitura.
+Fuso horario: America/Recife (UTC-3).
 
-## COMO VOCE FUNCIONA
+# AS 4 CATEGORIAS (DECORE ISSO)
 
-### Quando recebe uma tarefa nova:
-1. Analise o texto e extraia: titulo limpo, categoria, prioridade, prazo, horario
-2. SEMPRE responda em formato JSON com a classificacao E uma pergunta de confirmacao
-3. Seja inteligente: "reuniao com coordenacao" = Grupo Ser + alta prioridade
-4. Se nao conseguir inferir prazo, PERGUNTE
-5. Se o dia ja esta cheio, ALERTE sobre sobrecarga
+## TRABALHO (professor no dia a dia)
+Tudo relacionado a dar aulas, corrigir, preparar material, atender alunos.
+Exemplos: preparar aula, corrigir prova, montar plano de ensino, feedback TCC,
+lancar notas, preparar slide, gravar videoaula, atender aluno.
+Palavras-chave: aula, prova, aluno, TCC, corrigir, nota, disciplina, slide,
+plano de ensino, videoaula, laboratorio, turma.
 
-### Quando recebe pedido de planejamento do dia:
-1. Olhe todas as tarefas pendentes para o dia
-2. Distribua de forma REALISTA com margens de tempo
-3. Inclua pausas (almoco, cafe)
-4. PROTEJA ingles e leitura — nao podem ser cortados
-5. Se tem tarefas demais, sugira redistribuir
+## CONSULTORIA (projetos externos de dados)
+Trabalhos de consultoria para empresas/clientes FORA da Ser Educacional.
+Exemplos: reuniao com cliente, entregar relatorio, pipeline de dados,
+dashboard para empresa X, proposta comercial.
+Palavras-chave: cliente, consultoria, pipeline, dashboard externo,
+relatorio para empresa, proposta, projeto externo, entrega, dados para empresa.
 
-### Quando recebe pedido de feedback:
-1. Resuma o que foi concluido no dia
-2. Destaque o que ficou pendente sem julgamento
-3. De feedback CONSTRUTIVO — Wendel precisa de apoio, nao pressao
-4. Sugira ajustes para o dia seguinte
+## GRUPO SER (institucional — Ser Educacional como empresa)
+Tudo que envolve a INSTITUICAO Ser Educacional como empresa:
+coordenacao, alinhamento pedagogico, reunioes institucionais, novos cursos,
+comites, decisoes administrativas, contato com gestores da Ser.
+Exemplos: reuniao com coordenacao, alinhamento pedagogico, proposta de curso novo,
+reuniao com Carlos (gestor), comite academico, avaliacao institucional.
+Palavras-chave: grupo ser, ser educacional, coordenacao, pedagogico,
+institucional, curso novo, comite, NDE, CPA, colegiado, gestor, diretor,
+Carlos, alinhamento, avaliacao institucional.
+IMPORTANTE: Se mencionar alguem do "Grupo Ser" ou "Ser Educacional" ou
+pessoas que sao gestores/coordenadores = SEMPRE Grupo Ser.
 
-## REGRAS DE PRIORIZACAO
-- Nao e so alta/media/baixa
-- Considere: prazo (urgencia) + impacto (importancia) + contexto
-- Aula amanha = URGENTE E IMPORTANTE
-- Comprar presente com prazo longe = pode esperar
-- Reuniao com coordenacao = alta (impacto institucional)
+## PESSOAL (vida fora do trabalho)
+Tudo que NAO e trabalho: estudos pessoais, saude, familia, compras, lazer,
+projetos pessoais, conteudo para redes sociais.
+Exemplos: estudar ingles, comprar presente, ir ao medico, gravar video pro YouTube,
+projeto pessoal, academia, leitura.
+Palavras-chave: pessoal, casa, familia, medico, comprar, estudar por conta,
+YouTube, conteudo pessoal, academia, leitura, ingles.
 
-## TOM DE VOZ
-- Portugues BR, informal mas respeitoso
-- Direto e objetivo — Wendel nao quer textao
-- Use emojis com moderacao
-- Seja honesto: se tem tarefa demais, DIGA
-- Nunca seja passivo-agressivo ou robótico
+# REGRA DE OURO PARA CLASSIFICACAO
+1. Leia o texto INTEIRO antes de classificar
+2. Procure PISTAS de contexto (nomes de pessoas, mencao a instituicoes, tipo de atividade)
+3. Se mencionar "Grupo Ser", "Ser Educacional", coordenacao, nomes de gestores → GRUPO SER
+4. Se mencionar clientes externos, consultoria, pipeline → CONSULTORIA
+5. Se mencionar aula, alunos, provas, TCC → TRABALHO
+6. Somente se NAO se encaixar em nenhuma das 3 acima → PESSOAL
+7. NA DUVIDA, pergunte na mensagem de confirmacao ao inves de chutar
 
-## FORMATO DE RESPOSTA PARA CLASSIFICACAO DE TAREFA
-Quando classificar uma tarefa, responda APENAS com JSON valido:
+# PRIORIDADE INTELIGENTE
+- Reuniao amanha = ALTA (urgente + importante)
+- Reuniao com gestores/coordenacao = ALTA (impacto institucional)
+- Aula amanha = ALTA (nao pode falhar)
+- Entrega com prazo proximo = ALTA
+- Tarefa sem prazo definido = MEDIA
+- "Quando puder", "sem pressa" = BAIXA
+- Comprar algo com prazo longe = BAIXA
+
+# FORMATO DE RESPOSTA (CLASSIFICACAO)
+Quando classificar uma tarefa, responda SOMENTE com este JSON:
 {
-  "titulo": "titulo limpo e claro da tarefa",
+  "titulo": "titulo limpo e claro (reescreva se necessario)",
   "categoria": "Trabalho|Consultoria|Grupo Ser|Pessoal",
   "prioridade": "alta|media|baixa",
-  "prazo": "YYYY-MM-DD ou null",
+  "prazo": "YYYY-MM-DD ou null se nao souber",
   "horario": "HH:MM ou null",
   "meeting_link": "url ou null",
   "meeting_platform": "zoom|meet|teams|null",
   "tempo_estimado_min": 30,
-  "mensagem": "mensagem curta de confirmacao para o Wendel",
+  "mensagem": "pergunta curta de confirmacao pro Wendel",
   "alerta_sobrecarga": false,
   "alerta_msg": null
 }
+
+IMPORTANTE:
+- Responda APENAS o JSON, sem texto antes ou depois
+- O campo "mensagem" deve ser uma frase curta e natural
+- Se nao tem certeza da categoria, PERGUNTE na mensagem
+- Se nao tem prazo, coloque null e pergunte na mensagem
+- "amanha" = dia seguinte da data atual
+- Dias da semana = proximo dia com esse nome
 """
 
-CONFIRM_PROMPT = """O usuario esta CONFIRMANDO ou AJUSTANDO uma tarefa.
-A tarefa pendente de confirmacao e:
+CONFIRM_PROMPT = """O usuario esta respondendo sobre uma tarefa que voce classificou.
+
+A tarefa classificada foi:
 {tarefa_json}
 
-Se o usuario confirmar (ex: "ok", "sim", "confirma", "isso", "salva", "pode ser"):
-Responda com: {{"acao": "salvar"}}
+O historico da conversa ate aqui:
+{historico}
 
-Se o usuario quiser ajustar (ex: "muda pra sexta", "prioridade baixa", "e trabalho"):
-Responda com a tarefa atualizada no mesmo formato JSON de classificacao.
+A mensagem mais recente do usuario: "{resposta}"
 
-Se o usuario cancelar (ex: "cancela", "nao", "esquece"):
-Responda com: {{"acao": "cancelar"}}
+## O QUE FAZER:
 
-Responda APENAS com JSON valido.
+SE o usuario CONFIRMAR (ex: "ok", "sim", "confirma", "isso", "salva", "pode ser", "bora"):
+→ Responda: {{"acao": "salvar"}}
+
+SE o usuario pedir AJUSTE (ex: "muda pra trabalho", "e grupo ser", "prioridade alta", "muda o prazo"):
+→ Pegue a tarefa original e aplique o ajuste pedido
+→ Responda com o JSON COMPLETO da tarefa atualizada (mesmo formato de classificacao)
+→ IMPORTANTE: copie TODOS os campos da tarefa original e so mude o que o usuario pediu
+
+SE o usuario CANCELAR (ex: "cancela", "esquece", "nao"):
+→ Responda: {{"acao": "cancelar"}}
+
+EXEMPLOS DE AJUSTE:
+- Usuario: "e do grupo ser" → mude categoria para "Grupo Ser", mantenha todo o resto
+- Usuario: "prioridade alta" → mude prioridade para "alta", mantenha todo o resto
+- Usuario: "muda pra sexta" → mude prazo para a proxima sexta, mantenha todo o resto
+- Usuario: "coloca as 14h" → mude horario para "14:00", mantenha todo o resto
+
+Responda APENAS com JSON valido, sem texto antes ou depois.
 """
 
 PLANNING_PROMPT = """Planeje o dia do Wendel de forma REALISTA.
@@ -148,14 +182,11 @@ Responda em texto formatado para Telegram (Markdown).
 Maximo 15 linhas — conciso e impactante.
 """
 
-CHAT_PROMPT = """O usuario esta conversando sobre o feedback ou sobre organizacao.
-Historico recente:
-{historico}
-
-Responda como o assistente pessoal dele.
+CHAT_PROMPT = """O usuario esta conversando sobre organizacao, feedback ou planejamento.
+Voce e o assistente pessoal dele.
 Seja direto, util e mantenha o foco em organizacao/produtividade.
 Se ele quiser discutir, discuta. Se quiser ajustar algo, ajuste.
-Responda em texto formatado para Telegram (Markdown).
+Responda em texto formatado para Telegram (Markdown). Seja conciso.
 """
 
 
@@ -171,35 +202,11 @@ class AIBrain:
                 "anthropic-version": "2023-06-01",
                 "content-type": "application/json",
             },
-            timeout=30,
+            timeout=45,
         )
 
-    def _call_claude(self, system: str, user_message: str, max_tokens: int = 1024) -> str:
-        """Chama a Claude API e retorna a resposta como texto."""
-        try:
-            resp = self.client.post(
-                "/v1/messages",
-                json={
-                    "model": "claude-sonnet-4-20250514",
-                    "max_tokens": max_tokens,
-                    "system": system,
-                    "messages": [{"role": "user", "content": user_message}],
-                },
-            )
-
-            if resp.status_code != 200:
-                logger.error(f"Claude API erro {resp.status_code}: {resp.text}")
-                return None
-
-            data = resp.json()
-            return data["content"][0]["text"]
-
-        except Exception as e:
-            logger.error(f"Erro ao chamar Claude: {e}")
-            return None
-
-    def _call_claude_with_history(self, system: str, messages: list, max_tokens: int = 1024) -> str:
-        """Chama Claude com historico de mensagens."""
+    def _call_claude(self, system: str, messages: list, max_tokens: int = 1024) -> str:
+        """Chama a Claude API com historico de mensagens."""
         try:
             resp = self.client.post(
                 "/v1/messages",
@@ -227,19 +234,27 @@ class AIBrain:
         if not text:
             return None
         # Tenta extrair JSON de dentro de ```json ... ``` ou direto
-        import re
         match = re.search(r'```json\s*(.*?)\s*```', text, re.DOTALL)
         if match:
             text = match.group(1)
         else:
-            # Tenta encontrar o primeiro { ... }
-            match = re.search(r'\{.*\}', text, re.DOTALL)
-            if match:
-                text = match.group(0)
+            # Tenta encontrar o primeiro { ... } (mais externo)
+            depth = 0
+            start = None
+            for i, c in enumerate(text):
+                if c == '{':
+                    if depth == 0:
+                        start = i
+                    depth += 1
+                elif c == '}':
+                    depth -= 1
+                    if depth == 0 and start is not None:
+                        text = text[start:i+1]
+                        break
         try:
             return json.loads(text)
         except json.JSONDecodeError:
-            logger.error(f"Erro ao parsear JSON: {text[:200]}")
+            logger.error(f"Erro ao parsear JSON: {text[:300]}")
             return None
 
     # ========== FUNCOES PUBLICAS ==========
@@ -250,19 +265,31 @@ class AIBrain:
         Retorna dict com classificacao + mensagem de confirmacao.
         """
         hoje = datetime.now()
-        contexto = f"Data/hora atual: {hoje.strftime('%Y-%m-%d %H:%M')} ({hoje.strftime('%A')})\n"
-        contexto += f"Texto do usuario: {texto}\n"
+        dias_semana = {
+            0: "Segunda-feira", 1: "Terca-feira", 2: "Quarta-feira",
+            3: "Quinta-feira", 4: "Sexta-feira", 5: "Sabado", 6: "Domingo"
+        }
+        dia_nome = dias_semana.get(hoje.weekday(), "")
+
+        contexto = f"Data/hora atual: {hoje.strftime('%Y-%m-%d %H:%M')} ({dia_nome})\n"
+        contexto += f"Amanha: {(hoje + timedelta(days=1)).strftime('%Y-%m-%d')}\n\n"
+        contexto += f"Texto do usuario: \"{texto}\"\n"
 
         if tarefas_do_dia:
-            contexto += f"\nTarefas ja no dia de hoje ({len(tarefas_do_dia)}):\n"
+            contexto += f"\nTarefas ja agendadas para hoje ({len(tarefas_do_dia)}):\n"
             for t in tarefas_do_dia:
-                contexto += f"- {t.get('titulo', '')} ({t.get('horario', 'sem horario')})\n"
+                contexto += f"  - {t.get('titulo', '')} | {t.get('categoria', '')} | {t.get('horario', 'sem horario')}\n"
+            if len(tarefas_do_dia) >= 5:
+                contexto += "\n⚠️ O dia ja esta cheio! Considere alertar sobre sobrecarga.\n"
 
-        resposta = self._call_claude(SYSTEM_PROMPT, contexto)
+        messages = [{"role": "user", "content": contexto}]
+        resposta = self._call_claude(SYSTEM_PROMPT, messages)
+
+        logger.info(f"Claude respondeu: {resposta[:200] if resposta else 'None'}...")
         result = self._parse_json(resposta)
 
-        if not result:
-            # Fallback: retorna classificacao basica
+        if not result or "titulo" not in result:
+            logger.warning(f"Classificacao falhou, usando fallback. Resposta: {resposta}")
             return {
                 "titulo": texto,
                 "categoria": "Pessoal",
@@ -272,49 +299,117 @@ class AIBrain:
                 "meeting_link": None,
                 "meeting_platform": None,
                 "tempo_estimado_min": 30,
-                "mensagem": "Nao consegui classificar automaticamente. Confirma como esta ou ajusta?",
+                "mensagem": "Nao consegui classificar automaticamente. Em qual categoria voce colocaria? (Trabalho, Consultoria, Grupo Ser, Pessoal)",
                 "alerta_sobrecarga": False,
                 "alerta_msg": None,
             }
 
+        # Garantir que todos os campos existem
+        defaults = {
+            "titulo": texto,
+            "categoria": "Pessoal",
+            "prioridade": "media",
+            "prazo": None,
+            "horario": None,
+            "meeting_link": None,
+            "meeting_platform": None,
+            "tempo_estimado_min": 30,
+            "mensagem": "Confirma essa classificacao?",
+            "alerta_sobrecarga": False,
+            "alerta_msg": None,
+        }
+        for k, v in defaults.items():
+            if k not in result or result[k] is None and v is not None:
+                if k not in result:
+                    result[k] = v
+
         return result
 
-    def processar_confirmacao(self, resposta_usuario: str, tarefa_pendente: dict) -> dict:
+    def processar_confirmacao(self, resposta_usuario: str, tarefa_pendente: dict,
+                               historico_conversa: list = None) -> dict:
         """
         Processa a resposta do usuario ao pedido de confirmacao.
-        Retorna: {"acao": "salvar"}, {"acao": "cancelar"}, ou tarefa atualizada.
+        Usa historico completo da conversa para entender o contexto.
         """
+        hist_str = ""
+        if historico_conversa:
+            for msg in historico_conversa:
+                papel = "Wendel" if msg.get("role") == "user" else "Assistente"
+                hist_str += f"{papel}: {msg.get('content', '')}\n"
+
         system = SYSTEM_PROMPT + "\n\n" + CONFIRM_PROMPT.format(
-            tarefa_json=json.dumps(tarefa_pendente, ensure_ascii=False)
+            tarefa_json=json.dumps(tarefa_pendente, ensure_ascii=False, indent=2),
+            historico=hist_str or "(primeira interacao)",
+            resposta=resposta_usuario,
         )
-        resposta = self._call_claude(system, resposta_usuario)
+
+        messages = [{"role": "user", "content": resposta_usuario}]
+        resposta = self._call_claude(system, messages)
+
+        logger.info(f"Confirmacao - Claude respondeu: {resposta[:200] if resposta else 'None'}...")
         result = self._parse_json(resposta)
 
         if not result:
-            # Se nao entendeu, assume confirmacao
-            return {"acao": "salvar"}
+            logger.warning(f"Parse falhou na confirmacao. Resposta: {resposta}")
+            # Se nao entendeu, tenta detectar intent manualmente
+            lower = resposta_usuario.lower().strip() if resposta_usuario else ""
+            if any(w in lower for w in ["sim", "ok", "confirma", "isso", "salva", "pode", "bora", "manda"]):
+                return {"acao": "salvar"}
+            if any(w in lower for w in ["nao", "cancela", "esquece", "deixa"]):
+                return {"acao": "cancelar"}
+            # Ultima tentativa: assume que e um ajuste, retorna com as mudancas que conseguir detectar
+            return self._tentar_ajuste_manual(resposta_usuario, tarefa_pendente)
+
+        # Se retornou acao, retorna direto
+        if "acao" in result:
+            return result
+
+        # Se retornou tarefa atualizada, garante campos completos
+        for k, v in tarefa_pendente.items():
+            if k not in result:
+                result[k] = v
 
         return result
 
+    def _tentar_ajuste_manual(self, texto: str, tarefa: dict) -> dict:
+        """Tenta fazer ajuste manual se Claude nao retornou JSON valido."""
+        lower = texto.lower().strip()
+        updated = dict(tarefa)
+
+        # Detectar mudanca de categoria
+        if "trabalho" in lower:
+            updated["categoria"] = "Trabalho"
+        elif "consultoria" in lower:
+            updated["categoria"] = "Consultoria"
+        elif "grupo ser" in lower or "ser educacional" in lower:
+            updated["categoria"] = "Grupo Ser"
+        elif "pessoal" in lower:
+            updated["categoria"] = "Pessoal"
+
+        # Detectar mudanca de prioridade
+        if "alta" in lower or "urgente" in lower:
+            updated["prioridade"] = "alta"
+        elif "baixa" in lower:
+            updated["prioridade"] = "baixa"
+        elif "media" in lower:
+            updated["prioridade"] = "media"
+
+        return updated
+
     def planejar_dia(self, tarefas: list, data: str = None) -> str:
-        """
-        Gera planejamento do dia.
-        Retorna texto formatado para Telegram.
-        """
+        """Gera planejamento do dia."""
         if not data:
             data = datetime.now().strftime("%Y-%m-%d")
 
         tarefas_json = json.dumps(tarefas, ensure_ascii=False, indent=2)
         prompt = PLANNING_PROMPT.format(data=data, tarefas_json=tarefas_json)
 
-        resposta = self._call_claude(SYSTEM_PROMPT, prompt, max_tokens=2048)
+        messages = [{"role": "user", "content": prompt}]
+        resposta = self._call_claude(SYSTEM_PROMPT, messages, max_tokens=2048)
         return resposta or "Nao consegui gerar o planejamento. Tente novamente."
 
     def feedback_dia(self, concluidas: list, pendentes: list, data: str = None) -> str:
-        """
-        Gera feedback do dia.
-        Retorna texto formatado para Telegram.
-        """
+        """Gera feedback do dia."""
         if not data:
             data = datetime.now().strftime("%Y-%m-%d")
 
@@ -324,23 +419,19 @@ class AIBrain:
             pendentes_json=json.dumps(pendentes, ensure_ascii=False, indent=2),
         )
 
-        resposta = self._call_claude(SYSTEM_PROMPT, prompt, max_tokens=2048)
+        messages = [{"role": "user", "content": prompt}]
+        resposta = self._call_claude(SYSTEM_PROMPT, messages, max_tokens=2048)
         return resposta or "Nao consegui gerar o feedback. Tente novamente."
 
     def conversar(self, mensagem: str, historico: list) -> str:
-        """
-        Conversa livre sobre organizacao/feedback.
-        Usa historico para manter contexto.
-        """
-        system = SYSTEM_PROMPT + "\n\n" + CHAT_PROMPT.format(
-            historico=json.dumps(historico[-6:], ensure_ascii=False)  # ultimas 6 msgs
-        )
+        """Conversa livre sobre organizacao/feedback."""
+        system = SYSTEM_PROMPT + "\n\n" + CHAT_PROMPT
 
         messages = []
-        for msg in historico[-6:]:
+        for msg in historico[-8:]:
             role = "user" if msg.get("role") == "user" else "assistant"
             messages.append({"role": role, "content": msg.get("content", "")})
         messages.append({"role": "user", "content": mensagem})
 
-        resposta = self._call_claude_with_history(system, messages, max_tokens=1024)
+        resposta = self._call_claude(system, messages, max_tokens=1024)
         return resposta or "Desculpa, tive um problema. Tenta de novo?"

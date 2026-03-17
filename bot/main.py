@@ -393,22 +393,28 @@ def transcrever_audio(caminho_audio):
 async def processar_nova_tarefa(update, context, texto):
     """
     Processa texto como nova tarefa.
-    COM IA: classifica + pede confirmacao
+    COM IA: classifica + pede confirmacao (guarda historico)
     SEM IA: classifica por keywords + salva direto
     """
     if ai_brain:
         # === MODO INTELIGENTE ===
+        msg = await update.message.reply_text("🧠 Analisando...")
+
         tarefas_hoje = listar_tarefas_do_dia()
 
         # Claude classifica
         classificacao = ai_brain.classificar_tarefa(texto, tarefas_hoje)
 
-        # Salva como pendente de confirmacao
-        set_state(context, STATE_CONFIRMING, pending_task=classificacao)
+        # Salva como pendente + historico da conversa
+        confirm_msg = formatar_confirmacao(classificacao)
+        set_state(context, STATE_CONFIRMING,
+                  pending_task=classificacao,
+                  confirm_history=[
+                      {"role": "user", "content": texto},
+                      {"role": "assistant", "content": confirm_msg},
+                  ])
 
-        # Mostra e pede confirmacao
-        msg = formatar_confirmacao(classificacao)
-        await update.message.reply_text(msg, parse_mode="Markdown", disable_web_page_preview=True)
+        await msg.edit_text(confirm_msg, parse_mode="Markdown", disable_web_page_preview=True)
 
     else:
         # === MODO BASICO (sem IA) ===
@@ -429,16 +435,19 @@ async def processar_nova_tarefa(update, context, texto):
 
 
 async def processar_confirmacao(update, context, texto):
-    """Processa resposta de confirmacao/ajuste de tarefa."""
+    """Processa resposta de confirmacao/ajuste de tarefa (com historico)."""
     pending = context.user_data.get("pending_task")
     if not pending:
         clear_state(context)
         return
 
-    result = ai_brain.processar_confirmacao(texto, pending)
+    # Pegar historico da conversa sobre esta tarefa
+    historico = context.user_data.get("confirm_history", [])
+    historico.append({"role": "user", "content": texto})
+
+    result = ai_brain.processar_confirmacao(texto, pending, historico)
 
     if not result:
-        # Nao entendeu — assume confirmacao
         result = {"acao": "salvar"}
 
     acao = result.get("acao")
@@ -449,11 +458,18 @@ async def processar_confirmacao(update, context, texto):
         return
 
     if acao == "salvar":
-        # Salvar a tarefa pendente
+        # Salvar a tarefa pendente tal como esta
         tarefa_data = pending
+    elif "titulo" in result:
+        # Claude retornou tarefa ATUALIZADA — mostrar e pedir confirmacao de novo
+        context.user_data["pending_task"] = result
+        confirm_msg = formatar_confirmacao(result)
+        historico.append({"role": "assistant", "content": confirm_msg})
+        context.user_data["confirm_history"] = historico
+        await update.message.reply_text(confirm_msg, parse_mode="Markdown", disable_web_page_preview=True)
+        return  # NAO salva ainda — espera outra confirmacao
     else:
-        # Claude retornou tarefa atualizada
-        tarefa_data = result
+        tarefa_data = pending
 
     # Criar no Supabase
     tarefa = criar_tarefa(
