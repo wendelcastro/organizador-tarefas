@@ -85,6 +85,8 @@ A IA:
 | Frontend | HTML/CSS/JS (vanilla) | Dashboard single-file |
 | Hospedagem web | GitHub Pages | Dashboard publico gratuito |
 | Agendamento | APScheduler (via PTB JobQueue) | Lembretes, resumo matinal, relatorio |
+| Health Check | http.server (stdlib Python) | Responde OK para PaaS (Koyeb) |
+| Deploy | Koyeb (Docker) ou Oracle Cloud (systemd) | Bot rodando 24/7 gratuito |
 
 ---
 
@@ -159,17 +161,51 @@ Cada script cria tabelas, triggers e views necessarias.
 
 ### Passo 7: Obter chaves de API
 
-**Claude API (obrigatorio para modo inteligente):**
-1. Acesse [console.anthropic.com](https://console.anthropic.com)
-2. Crie uma conta e adicione creditos ($5 minimo)
-3. Va em **API Keys** > **Create Key**
-4. Copie a chave (formato: `sk-ant-api03-...`)
+Voce precisa de 4 chaves. Aqui esta onde gerar cada uma, passo a passo:
 
-**Groq API (opcional — para transcricao de audio):**
+**A) Token do Bot Telegram (TELEGRAM_BOT_TOKEN):**
+1. Abra o Telegram e busque `@BotFather`
+2. Envie `/newbot`
+3. Escolha um nome (ex: "Organizador Wendel")
+4. Escolha um username unico (ex: `organizador_wendel_bot`) — precisa terminar com `bot`
+5. O BotFather retorna um token no formato `1234567890:ABCdefGHI...`
+6. Copie esse token — e o `TELEGRAM_BOT_TOKEN`
+
+**B) URL e Chave do Supabase (SUPABASE_URL + SUPABASE_ANON_KEY):**
+1. Acesse [supabase.com](https://supabase.com) e faca login
+2. Selecione seu projeto (ou crie um novo — Passo 5)
+3. No menu lateral, va em **Settings** (icone de engrenagem)
+4. Clique em **API** (dentro de Settings)
+5. Na secao "Project URL", copie a URL — e o `SUPABASE_URL` (formato: `https://xxxxx.supabase.co`)
+6. Na secao "Project API keys", copie a chave **anon public** — e o `SUPABASE_ANON_KEY` (formato: `eyJhbGci...`)
+7. **NAO** copie a chave "service_role" — ela da acesso total ao banco
+
+**C) Chave da Claude API (ANTHROPIC_API_KEY):**
+1. Acesse [console.anthropic.com](https://console.anthropic.com)
+2. Crie uma conta (se nao tem)
+3. Adicione creditos: **Settings > Billing > Add credits** ($5 minimo — dura meses com uso pessoal)
+4. Va em **Settings > API Keys** > clique **Create Key**
+5. De um nome (ex: "organizador-tarefas")
+6. Copie a chave (formato: `sk-ant-api03-...`) — e o `ANTHROPIC_API_KEY`
+7. **IMPORTANTE**: A chave so aparece uma vez. Se perder, crie outra.
+
+**D) Chave do Groq (GROQ_API_KEY) — opcional, para transcricao de audio:**
 1. Acesse [console.groq.com](https://console.groq.com)
-2. Crie uma conta (gratis)
-3. Va em **API Keys** > **Create API Key**
-4. Copie a chave
+2. Crie uma conta (gratis, nao precisa de cartao)
+3. No menu lateral, va em **API Keys**
+4. Clique **Create API Key**
+5. De um nome (ex: "organizador")
+6. Copie a chave (formato: `gsk_...`) — e o `GROQ_API_KEY`
+7. Se nao configurar, o bot funciona normalmente mas nao transcreve audios
+
+**Resumo das chaves:**
+| Variavel | Onde gerar | Custo | Formato |
+|----------|-----------|-------|---------|
+| `TELEGRAM_BOT_TOKEN` | Telegram > @BotFather > /newbot | Gratis | `1234567890:ABC...` |
+| `SUPABASE_URL` | supabase.com > Settings > API | Gratis | `https://xxx.supabase.co` |
+| `SUPABASE_ANON_KEY` | supabase.com > Settings > API | Gratis | `eyJhbGci...` |
+| `ANTHROPIC_API_KEY` | console.anthropic.com > API Keys | ~R$5-15/mes | `sk-ant-api03-...` |
+| `GROQ_API_KEY` | console.groq.com > API Keys | Gratis | `gsk_...` |
 
 ### Passo 8: Configurar variaveis de ambiente
 
@@ -230,23 +266,83 @@ O bot para quando voce fecha o terminal. Para rodar permanentemente, use uma das
 
 Koyeb e uma plataforma de deploy que oferece **1 instancia gratuita** (512MB RAM, 0.1 vCPU).
 
-1. Crie conta em [koyeb.com](https://www.koyeb.com) (nao precisa de cartao)
-2. Clique em **Create Service > Web Service**
-3. Conecte ao seu GitHub e selecione o repositorio
-4. Configure:
-   - **Builder**: Dockerfile
-   - **Instance type**: Free
-   - **Region**: Frankfurt ou Washington
-5. Adicione as variaveis de ambiente (mesmas do .env):
-   - `TELEGRAM_BOT_TOKEN`
-   - `SUPABASE_URL`
-   - `SUPABASE_ANON_KEY`
-   - `ANTHROPIC_API_KEY`
-   - `GROQ_API_KEY`
-6. Clique **Deploy**
-7. Pronto! O bot roda 24/7 e reinicia automaticamente se cair.
+**IMPORTANTE**: O plano gratuito do Koyeb so oferece Web Service (nao Worker). Por isso, o bot inclui um **mini servidor HTTP de health check** integrado que responde "OK" na porta 8000. O Koyeb faz health checks periodicos nessa porta e o bot continua rodando normalmente em paralelo.
 
-O projeto ja inclui um `Dockerfile` pronto para o Koyeb.
+#### Passo a passo detalhado:
+
+**1. Crie conta no Koyeb**
+- Acesse [koyeb.com](https://www.koyeb.com) e crie conta com GitHub (mais facil)
+- Nao precisa de cartao de credito
+
+**2. ANTES de deployar: pare o bot local**
+- Se voce tem o bot rodando no seu PC (`python bot/main.py`), pare com `Ctrl+C`
+- Dois bots NAO podem usar o mesmo token ao mesmo tempo — o Telegram rejeita um deles
+
+**3. Confirme que as migrations SQL foram executadas**
+- No Supabase Dashboard > SQL Editor, rode (se ainda nao fez):
+  1. `supabase/001_criar_tabelas.sql`
+  2. `supabase/002_fix_delete_trigger.sql`
+  3. `supabase/003_melhorias_inteligentes.sql`
+
+**4. Crie o servico no Koyeb**
+1. No painel, clique **Create Service**
+2. Selecione **GitHub** como source
+3. Autorize o Koyeb a acessar seu GitHub
+4. Selecione o repositorio `organizador-tarefas`
+5. Branch: `main`
+6. Builder: **Dockerfile** (ele detecta o Dockerfile na raiz automaticamente)
+7. Instance type: **Free**
+8. Region: **Washington DC** ou **Frankfurt**
+
+**5. Configure as variaveis de ambiente**
+
+Na secao "Environment variables", adicione uma por uma:
+
+| Variavel | Onde pegar | Exemplo |
+|----------|-----------|---------|
+| `TELEGRAM_BOT_TOKEN` | @BotFather no Telegram | `1234567890:ABCdef...` |
+| `SUPABASE_URL` | Supabase > Settings > API > Project URL | `https://abc123.supabase.co` |
+| `SUPABASE_ANON_KEY` | Supabase > Settings > API > anon public | `eyJhbGci...` |
+| `ANTHROPIC_API_KEY` | console.anthropic.com > API Keys | `sk-ant-api03-...` |
+| `GROQ_API_KEY` | console.groq.com > API Keys (opcional) | `gsk_...` |
+| `PORT` | (deixe 8000 ou o padrao do Koyeb) | `8000` |
+
+**6. Configure a porta do health check**
+- Na secao de configuracao do servico, garanta que a porta HTTP esta como **8000**
+- O Koyeb fara health checks nessa porta e o bot responde "OK"
+
+**7. Deploy**
+- Clique **Deploy**
+- Aguarde 2-3 minutos para build e startup
+- Nos **Logs**, procure as mensagens:
+  ```
+  Health check server rodando na porta 8000
+  Bot v2 rodando! Mande /start no Telegram.
+  Jobs programados: resumo 7:30, relatorio sex 17:00, recorrentes 6:00
+  ```
+
+**8. Pronto!**
+O bot agora:
+- Roda 24/7 na nuvem
+- Reinicia automaticamente se cair
+- Atualiza sozinho quando voce faz `git push` no GitHub
+- Envia resumo matinal as 7:30
+- Envia relatorio semanal toda sexta as 17h
+- Envia lembretes 15min antes de reunioes
+- Cria tarefas recorrentes as 6:00
+
+**9. Troubleshooting Koyeb**
+
+| Problema | Solucao |
+|----------|---------|
+| Build falhou | Verifique se `Dockerfile` e `bot/requirements.txt` estao no repo |
+| Bot nao responde no Telegram | Confira as variaveis de ambiente no painel do Koyeb |
+| Health check falhando | Verifique se a porta no Koyeb esta como 8000 |
+| Erro de conexao Supabase | Verifique SUPABASE_URL (deve comecar com `https://`) |
+| Audio nao funciona | GROQ_API_KEY pode estar vazia |
+| Bot duplicado / conflito | Mate o bot local antes de deployar na nuvem |
+
+O projeto ja inclui `Dockerfile` + health check integrado, prontos para o Koyeb.
 
 ### Opcao B: Oracle Cloud Always Free (mais robusto)
 
@@ -385,7 +481,7 @@ organizador-tarefas/
 | GitHub Pages | Gratis | Hospedagem do dashboard |
 | Groq (Whisper) | Gratis | Transcricao de audio |
 | Claude API (Sonnet) | ~R$0,01/tarefa | ~R$5-15/mes com uso pessoal |
-| Koyeb (deploy) | Gratis | 1 instancia, 512MB RAM |
+| Koyeb (deploy 24/7) | Gratis | 1 instancia, 512MB RAM, health check integrado |
 | **Total estimado** | **~R$5-15/mes** | Apenas a Claude API tem custo |
 
 ---
@@ -412,7 +508,10 @@ Este projeto foi construido do zero com a ajuda do Claude Code. Cada etapa ensin
 - **Variaveis de ambiente (.env)**: Seguranca de chaves de API
 - **Migrations SQL**: Evolucao incremental do banco de dados (001, 002, 003)
 - **Triggers e Views**: Automatizacao no banco (historico, resumo)
-- **Deploy 24/7**: Systemd services, Docker, PaaS
+- **Docker**: Container com Dockerfile para deploy consistente
+- **Health Check HTTP**: Mini servidor integrado para satisfazer PaaS (Koyeb) que exige resposta HTTP
+- **Deploy 24/7**: Koyeb (PaaS gratuito) ou Oracle Cloud (VM + systemd service)
+- **Thread daemon**: Health check roda em thread separada sem interferir no bot
 
 ### Conceitos de Produto
 - **Mobile-first**: Dashboard projetado para celular primeiro

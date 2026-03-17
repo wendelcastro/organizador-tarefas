@@ -10,7 +10,8 @@ armazena no Supabase e visualiza num dashboard web.
 - **IA**: Claude API (Sonnet) — cerebro que classifica, planeja e da feedback
 - **Backend**: Supabase (PostgreSQL + API REST + Realtime)
 - **Frontend**: HTML/CSS/JS (vanilla) hospedado no GitHub Pages
-- **Deploy**: GitHub Pages (frontend) + Koyeb ou Oracle Cloud (bot)
+- **Deploy**: Koyeb (bot 24/7, Web Service com health check na porta 8000) + GitHub Pages (frontend)
+- **Health Check**: http.server em thread daemon (porta 8000) — satisfaz Koyeb que exige resposta HTTP
 
 ## Categorias de Tarefas
 - Trabalho (dar aulas, corrigir, preparar material)
@@ -27,10 +28,12 @@ armazena no Supabase e visualiza num dashboard web.
 ```
 
 ## Arquivos Chave
-- `bot/main.py` — Ponto de entrada, handlers, jobs programados (resumo 7:30, relatorio sex 17h)
+- `bot/main.py` — Ponto de entrada, handlers, jobs programados, health check HTTP (porta 8000)
 - `bot/ai_brain.py` — Cerebro IA: classificacao, resolucao temporal, sobrecarga, multiplas tarefas
 - `web/index.html` — Dashboard completo (3 views, filtros, calendario, realtime)
 - `supabase/003_melhorias_inteligentes.sql` — Migration v2 (tempo estimado, recorrencia, delegacao, contexto IA)
+- `Dockerfile` — Build para Koyeb (python:3.11-slim + ffmpeg, EXPOSE 8000)
+- `Procfile` — Declaracao de worker para PaaS
 
 ## Comandos do Bot
 /start, /tarefas, /planejar, /feedback, /resumo, /concluir, /editar, /relatorio, /foco, /cancelar

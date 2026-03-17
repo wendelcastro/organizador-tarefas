@@ -15,6 +15,7 @@ Melhorias v2:
 - Delegacao
 - Tarefas recorrentes
 - Memoria de contexto da IA
+- Health check HTTP integrado (para deploy no Koyeb/PaaS)
 
 Comandos:
   /start     — Boas-vindas
@@ -40,6 +41,8 @@ import re
 import logging
 import tempfile
 import subprocess
+import threading
+from http.server import HTTPServer, BaseHTTPRequestHandler
 from datetime import datetime, timedelta, time as dt_time
 from pathlib import Path
 from urllib.request import Request, urlopen
@@ -1611,12 +1614,40 @@ async def post_init(app):
     logger.info("Jobs programados: resumo 7:30, relatorio sex 17:00, recorrentes 6:00")
 
 
+# ========== HEALTH CHECK (para Koyeb/PaaS) ==========
+
+class HealthHandler(BaseHTTPRequestHandler):
+    """Mini servidor HTTP que responde OK para health checks do Koyeb."""
+
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header("Content-Type", "text/plain")
+        self.end_headers()
+        self.wfile.write(b"OK - Organizador de Tarefas v2 rodando")
+
+    def log_message(self, format, *args):
+        # Silencia logs do health check para nao poluir
+        pass
+
+
+def start_health_server():
+    """Inicia servidor HTTP em thread separada para health checks."""
+    port = int(os.environ.get("PORT", 8000))
+    server = HTTPServer(("0.0.0.0", port), HealthHandler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    logger.info(f"Health check server rodando na porta {port}")
+
+
 # ========== MAIN ==========
 
 def main():
     logger.info("Iniciando Organizador de Tarefas v2...")
     modo = "INTELIGENTE v2 (Claude)" if ai_brain else "BASICO (sem IA)"
     logger.info(f"Modo: {modo}")
+
+    # Health check para Koyeb/PaaS (responde na porta HTTP)
+    start_health_server()
 
     # Carregar chat ID do Supabase
     get_chat_id()

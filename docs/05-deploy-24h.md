@@ -19,7 +19,57 @@ Para um assistente pessoal que envia lembretes e resumos automaticos, precisa ro
 **Custo?** Gratis — 1 instancia, 512MB RAM, 0.1 vCPU.
 **Precisa de Linux?** Nao. Tudo pelo navegador.
 
+### Detalhe tecnico: Health Check
+
+O plano gratuito do Koyeb so oferece **Web Service** (nao Worker). Isso significa que o Koyeb
+faz health checks periodicos numa porta HTTP — se nao responder, ele acha que o servico caiu.
+
+**Solucao implementada**: O bot inclui um mini servidor HTTP integrado (5 linhas de codigo)
+que roda em paralelo na porta 8000 e responde "OK" para os health checks. Assim o Koyeb fica
+satisfeito e o bot continua rodando normalmente.
+
+O codigo relevante no `bot/main.py`:
+```python
+class HealthHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header("Content-Type", "text/plain")
+        self.end_headers()
+        self.wfile.write(b"OK - Organizador de Tarefas v2 rodando")
+
+def start_health_server():
+    port = int(os.environ.get("PORT", 8000))
+    server = HTTPServer(("0.0.0.0", port), HealthHandler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+```
+
+Esse servidor:
+- Usa apenas a **biblioteca padrao** do Python (`http.server`, `threading`) — zero dependencias extras
+- Roda numa **thread separada** (daemon) — nao interfere no bot
+- Le a porta da variavel `PORT` (que o Koyeb define automaticamente)
+- Logs silenciados para nao poluir a saida
+
 ### Passo a Passo
+
+#### 0. Pre-requisitos (antes de deployar)
+
+**IMPORTANTE**: Antes de subir o bot no Koyeb:
+
+1. **Pare o bot local** — se voce tem `python bot/main.py` rodando no PC, pare com `Ctrl+C`.
+   Dois bots NAO podem usar o mesmo token ao mesmo tempo.
+
+2. **Rode as migrations SQL** — no Supabase > SQL Editor, execute na ordem:
+   - `supabase/001_criar_tabelas.sql`
+   - `supabase/002_fix_delete_trigger.sql`
+   - `supabase/003_melhorias_inteligentes.sql`
+
+3. **Commit e push** — o Koyeb puxa o codigo do GitHub, entao tudo precisa estar no repo:
+   ```bash
+   git add -A
+   git commit -m "preparar para deploy no Koyeb"
+   git push
+   ```
 
 #### 1. Criar conta
 - Acesse [koyeb.com](https://www.koyeb.com)
@@ -27,7 +77,7 @@ Para um assistente pessoal que envia lembretes e resumos automaticos, precisa ro
 - Nao precisa de cartao de credito
 
 #### 2. Preparar o projeto
-O projeto ja inclui um `Dockerfile` na raiz. Verifique que ele existe:
+O projeto ja inclui um `Dockerfile` na raiz com tudo pronto:
 
 ```dockerfile
 FROM python:3.11-slim
@@ -36,44 +86,75 @@ WORKDIR /app
 COPY bot/requirements.txt ./bot/requirements.txt
 RUN pip install --no-cache-dir -r bot/requirements.txt
 COPY bot/ ./bot/
+EXPOSE 8000
 CMD ["python", "bot/main.py"]
 ```
+
+O `EXPOSE 8000` declara a porta do health check para o Koyeb.
 
 #### 3. Criar o servico
 1. No painel do Koyeb, clique **Create Service**
 2. Selecione **GitHub** como source
-3. Conecte seu GitHub e selecione o repositorio `organizador-tarefas`
-4. Branch: `main`
-5. Builder: **Dockerfile**
-6. Instance type: **Free**
-7. Region: Frankfurt ou Washington DC
+3. Autorize o Koyeb a acessar seu GitHub (se ainda nao fez)
+4. Selecione o repositorio `organizador-tarefas`
+5. Branch: `main`
+6. Builder: **Dockerfile** (ele detecta automaticamente)
+7. Instance type: **Free**
+8. Region: **Washington DC** ou **Frankfurt**
 
 #### 4. Configurar variaveis de ambiente
 Na secao "Environment variables", adicione cada uma:
 
-| Variavel | Valor |
-|----------|-------|
-| `TELEGRAM_BOT_TOKEN` | Seu token do BotFather |
-| `SUPABASE_URL` | URL do seu projeto Supabase |
-| `SUPABASE_ANON_KEY` | Anon key do Supabase |
-| `ANTHROPIC_API_KEY` | Chave da Claude API |
-| `GROQ_API_KEY` | Chave do Groq (opcional) |
+| Variavel | Onde pegar | Exemplo |
+|----------|-----------|---------|
+| `TELEGRAM_BOT_TOKEN` | @BotFather no Telegram | `1234567890:ABCdef...` |
+| `SUPABASE_URL` | Supabase > Settings > API > Project URL | `https://abc123.supabase.co` |
+| `SUPABASE_ANON_KEY` | Supabase > Settings > API > anon public | `eyJhbGci...` |
+| `ANTHROPIC_API_KEY` | console.anthropic.com > API Keys | `sk-ant-api03-...` |
+| `GROQ_API_KEY` | console.groq.com > API Keys (opcional) | `gsk_...` |
 
 **IMPORTANTE**: As variaveis ficam criptografadas no Koyeb. Ninguem ve.
 
-#### 5. Deploy
+A variavel `PORT` e definida automaticamente pelo Koyeb (geralmente 8000).
+
+#### 5. Configurar porta
+- Na configuracao do servico, garanta que a porta HTTP esta como **8000**
+- Essa e a porta do health check — o bot responde "OK" nela
+
+#### 6. Deploy
 - Clique **Deploy**
 - Aguarde 2-3 minutos para build e startup
-- Verifique nos logs se aparece "Bot v2 rodando!"
+- Nos **Logs**, procure essas mensagens (nesta ordem):
+  ```
+  Health check server rodando na porta 8000
+  Iniciando Organizador de Tarefas v2...
+  Modo: INTELIGENTE v2 (Claude)
+  Bot v2 rodando! Mande /start no Telegram.
+  Jobs programados: resumo 7:30, relatorio sex 17:00, recorrentes 6:00
+  ```
 
-#### 6. Pronto!
+#### 7. Testar
+- Abra o Telegram e envie `/start` para o bot
+- Se responder, esta tudo funcionando na nuvem!
+
+#### 8. Pronto!
 O bot agora:
-- Roda 24/7
+- Roda 24/7 na nuvem (voce pode desligar o PC)
 - Reinicia automaticamente se cair
-- Atualiza sozinho quando voce faz `git push`
+- Atualiza sozinho quando voce faz `git push` no GitHub
+- Health check responde "OK" para o Koyeb na porta 8000
 - Envia resumo matinal as 7:30
 - Envia relatorio toda sexta as 17h
 - Envia lembretes 15min antes de reunioes
+- Cria tarefas recorrentes as 6:00
+
+### Atualizacao automatica
+
+Quando voce faz `git push` no GitHub, o Koyeb automaticamente:
+1. Detecta a mudanca
+2. Faz novo build do Docker
+3. Substitui o container antigo pelo novo
+4. Zero downtime (o bot continua rodando durante o deploy)
 
 ### Troubleshooting Koyeb
 
@@ -81,9 +162,11 @@ O bot agora:
 |----------|---------|
 | Build falhou | Verifique se `Dockerfile` e `bot/requirements.txt` estao no repo |
 | Bot nao responde | Confira as variaveis de ambiente no painel |
-| Erro de conexao | Verifique SUPABASE_URL (deve comecar com https://) |
+| Health check falhando | Verifique se a porta no Koyeb esta como 8000 |
+| Erro de conexao | Verifique SUPABASE_URL (deve comecar com `https://`) |
 | Audio nao funciona | GROQ_API_KEY pode estar vazia. Confira. |
 | Bot duplicado | Mate o bot local antes de deployar na nuvem |
+| "Unhealthy" mas bot funciona | Pode ser timeout de rede. Espere 1-2 minutos. |
 
 ---
 
