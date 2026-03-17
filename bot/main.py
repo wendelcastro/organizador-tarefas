@@ -1,14 +1,20 @@
 """
-Organizador de Tarefas — Telegram Bot com IA
-=============================================
+Organizador de Tarefas v2 — Telegram Bot com IA
+================================================
 Bot INTELIGENTE que usa Claude API como cerebro.
-Nao e um CRUD — e um assistente que PENSA.
 
-Fluxo principal:
-1. Usuario manda texto/audio
-2. Claude classifica e PERGUNTA antes de salvar
-3. Usuario confirma ou ajusta
-4. Tarefa salva no Supabase + dashboard atualiza
+Melhorias v2:
+- Resolucao temporal (amanha, sexta, daqui 3 dias)
+- Multiplas tarefas por mensagem
+- Concluir tarefa interativo (inline keyboard)
+- Lembretes automaticos (15min antes)
+- Resumo matinal automatico (7:30)
+- Relatorio semanal automatico (sexta 17:00)
+- Modo foco
+- Edicao de tarefas pelo chat
+- Delegacao
+- Tarefas recorrentes
+- Memoria de contexto da IA
 
 Comandos:
   /start     — Boas-vindas
@@ -16,7 +22,11 @@ Comandos:
   /planejar  — Planejamento inteligente do dia
   /feedback  — Feedback construtivo do dia
   /resumo    — Resumo rapido
-  /concluir  — Marca ultima tarefa como concluida
+  /concluir  — Concluir tarefa (interativo)
+  /editar    — Editar tarefa existente
+  /relatorio — Relatorio semanal manual
+  /foco      — Modo foco (silencia interrupcoes)
+  /cancelar  — Cancela operacao atual
 
 Como rodar:
   pip install -r bot/requirements.txt
@@ -30,17 +40,23 @@ import re
 import logging
 import tempfile
 import subprocess
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time as dt_time
 from pathlib import Path
 from urllib.request import Request, urlopen
 from urllib.error import URLError
 
+try:
+    from zoneinfo import ZoneInfo
+except ImportError:
+    from backports.zoneinfo import ZoneInfo
+
 from dotenv import load_dotenv
-from telegram import Update, BotCommand
+from telegram import Update, BotCommand, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
     MessageHandler,
+    CallbackQueryHandler,
     ContextTypes,
     filters,
 )
@@ -68,9 +84,9 @@ ai_brain = None
 if ANTHROPIC_API_KEY:
     from ai_brain import AIBrain
     ai_brain = AIBrain(ANTHROPIC_API_KEY)
-    print("Claude API conectada — modo inteligente ativado!")
+    print("Claude API conectada — modo inteligente v2 ativado!")
 else:
-    print("AVISO: ANTHROPIC_API_KEY nao configurada. Bot rodara em modo basico (sem IA).")
+    print("AVISO: ANTHROPIC_API_KEY nao configurada. Bot em modo basico (sem IA).")
 
 # Logging
 logging.basicConfig(
@@ -79,32 +95,38 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Timezone
+TZ_RECIFE = ZoneInfo("America/Recife")
+
+# Chat ID global (salvo no /start, carregado do Supabase no boot)
+CHAT_ID = None
+
 
 # ========== ESTADOS DE CONVERSA ==========
-# Cada usuario tem um estado que controla o fluxo
 
-STATE_IDLE = "idle"                # Esperando nova entrada
-STATE_CONFIRMING = "confirming"    # Esperando confirmacao de tarefa
-STATE_CHATTING = "chatting"        # Conversa livre (pos-feedback)
+STATE_IDLE = "idle"
+STATE_CONFIRMING = "confirming"
+STATE_CONFIRMING_MULTI = "confirming_multi"  # Multiplas tarefas
+STATE_CHATTING = "chatting"
+STATE_EDITING = "editing"        # Editando tarefa
+STATE_FOCUS = "focus"            # Modo foco
 
 
 def get_state(context):
-    """Retorna o estado atual da conversa."""
     return context.user_data.get("state", STATE_IDLE)
 
 
 def set_state(context, state, **kwargs):
-    """Define o estado da conversa com dados extras."""
     context.user_data["state"] = state
     for k, v in kwargs.items():
         context.user_data[k] = v
 
 
 def clear_state(context):
-    """Volta ao estado idle."""
     context.user_data["state"] = STATE_IDLE
-    context.user_data.pop("pending_task", None)
-    context.user_data.pop("chat_history", None)
+    for key in ["pending_task", "pending_tasks", "confirm_history",
+                "chat_history", "editing_task_id", "focus_until"]:
+        context.user_data.pop(key, None)
 
 
 # ========== SUPABASE HELPERS ==========
@@ -135,7 +157,8 @@ def supabase_request(method, endpoint, data=None, params=None):
 
 def criar_tarefa(titulo, categoria="Pessoal", prioridade="media", prazo=None,
                  horario=None, meeting_link=None, meeting_platform=None,
-                 notas="", tempo_estimado=None):
+                 notas="", tempo_estimado=None, delegado_para=None,
+                 recorrencia=None, recorrencia_dia=None):
     """Cria uma tarefa no Supabase."""
     tarefa = {
         "titulo": titulo,
@@ -150,7 +173,17 @@ def criar_tarefa(titulo, categoria="Pessoal", prioridade="media", prazo=None,
         "origem": "telegram",
     }
 
-    # Detectar plataforma de reuniao se nao foi passada
+    # Campos opcionais (migration 003)
+    if tempo_estimado is not None:
+        tarefa["tempo_estimado_min"] = tempo_estimado
+    if delegado_para:
+        tarefa["delegado_para"] = delegado_para
+    if recorrencia:
+        tarefa["recorrencia"] = recorrencia
+    if recorrencia_dia is not None:
+        tarefa["recorrencia_dia"] = recorrencia_dia
+
+    # Detectar plataforma de reuniao
     if meeting_link and not meeting_platform:
         if "zoom" in meeting_link:
             tarefa["meeting_platform"] = "zoom"
@@ -160,48 +193,54 @@ def criar_tarefa(titulo, categoria="Pessoal", prioridade="media", prazo=None,
             tarefa["meeting_platform"] = "teams"
 
     result = supabase_request("POST", "tarefas", tarefa)
+    if not result:
+        # Tentar sem campos novos (caso migration 003 nao tenha rodado)
+        for campo in ["tempo_estimado_min", "delegado_para", "recorrencia", "recorrencia_dia"]:
+            tarefa.pop(campo, None)
+        result = supabase_request("POST", "tarefas", tarefa)
     return result[0] if result else None
 
 
-def listar_tarefas_pendentes(limite=10):
-    """Lista tarefas pendentes ordenadas por prazo."""
+def atualizar_tarefa(task_id, dados):
+    """Atualiza campos de uma tarefa."""
+    return supabase_request("PATCH", f"tarefas?id=eq.{task_id}", dados)
+
+
+def listar_tarefas_pendentes(limite=15):
     params = {
         "status": "neq.concluida",
         "order": "prazo.asc.nullslast,prioridade.asc",
         "limit": str(limite),
-        "select": "id,titulo,categoria,prioridade,prazo,horario,meeting_link,status",
+        "select": "id,titulo,categoria,prioridade,prazo,horario,meeting_link,status,tempo_estimado_min,delegado_para",
     }
     return supabase_request("GET", "tarefas", params=params) or []
 
 
 def listar_tarefas_do_dia(data=None):
-    """Lista tarefas de um dia especifico."""
     if not data:
-        data = datetime.now().strftime("%Y-%m-%d")
+        data = datetime.now(TZ_RECIFE).strftime("%Y-%m-%d")
     params = {
         "prazo": f"eq.{data}",
         "status": "neq.concluida",
         "order": "horario.asc.nullslast",
-        "select": "id,titulo,categoria,prioridade,prazo,horario,meeting_link,status",
+        "select": "id,titulo,categoria,prioridade,prazo,horario,meeting_link,status,tempo_estimado_min,delegado_para",
     }
     return supabase_request("GET", "tarefas", params=params) or []
 
 
 def listar_tarefas_atrasadas():
-    """Lista tarefas atrasadas."""
-    hoje = datetime.now().strftime("%Y-%m-%d")
+    hoje = datetime.now(TZ_RECIFE).strftime("%Y-%m-%d")
     params = {
         "prazo": f"lt.{hoje}",
         "status": "neq.concluida",
         "order": "prazo.asc",
-        "select": "id,titulo,categoria,prioridade,prazo,horario",
+        "select": "id,titulo,categoria,prioridade,prazo,horario,tempo_estimado_min",
     }
     return supabase_request("GET", "tarefas", params=params) or []
 
 
 def listar_concluidas_hoje():
-    """Lista tarefas concluidas hoje."""
-    hoje = datetime.now().strftime("%Y-%m-%d")
+    hoje = datetime.now(TZ_RECIFE).strftime("%Y-%m-%d")
     params = {
         "status": "eq.concluida",
         "completed_at": f"gte.{hoje}T00:00:00",
@@ -211,32 +250,431 @@ def listar_concluidas_hoje():
     return supabase_request("GET", "tarefas", params=params) or []
 
 
+def listar_tarefas_semana():
+    """Lista todas as tarefas da semana (para relatorio)."""
+    hoje = datetime.now(TZ_RECIFE)
+    inicio_semana = hoje - timedelta(days=hoje.weekday())
+    params = {
+        "created_at": f"gte.{inicio_semana.strftime('%Y-%m-%d')}T00:00:00",
+        "order": "created_at.desc",
+        "select": "id,titulo,categoria,prioridade,prazo,status,completed_at,tempo_estimado_min",
+    }
+    return supabase_request("GET", "tarefas", params=params) or []
+
+
+def obter_carga_semana():
+    """Obtem carga por dia para sugestao de realocacao."""
+    result = supabase_request("GET", "carga_por_dia")
+    if not result:
+        return {}
+    carga = {}
+    for r in result:
+        if r.get("dia"):
+            carga[r["dia"]] = {
+                "total_tarefas": r.get("total_tarefas", 0),
+                "minutos_estimados": r.get("minutos_estimados", 0),
+            }
+    return carga
+
+
 def obter_resumo():
-    """Busca o resumo semanal."""
     result = supabase_request("GET", "resumo_semanal")
     return result[0] if result else None
 
 
-def concluir_ultima_tarefa():
-    """Marca a tarefa pendente mais recente como concluida."""
+def concluir_tarefa_por_id(task_id):
+    """Conclui tarefa por ID e retorna a tarefa."""
+    result = supabase_request("PATCH", f"tarefas?id=eq.{task_id}", {
+        "status": "concluida"
+    })
+    return result[0] if result else None
+
+
+def buscar_tarefas_por_texto(texto, limite=5):
+    """Busca tarefas por titulo (para edicao/conclusao)."""
     params = {
-        "status": "eq.pendente",
-        "order": "created_at.desc",
-        "limit": "1",
-        "select": "id,titulo",
+        "titulo": f"ilike.*{texto}*",
+        "status": "neq.concluida",
+        "limit": str(limite),
+        "select": "id,titulo,categoria,prioridade,prazo,horario,status",
     }
-    tarefas = supabase_request("GET", "tarefas", params=params)
-    if not tarefas:
+    return supabase_request("GET", "tarefas", params=params) or []
+
+
+# ========== CONTEXTO IA (MEMORIA) ==========
+
+def carregar_contextos():
+    """Carrega contextos aprendidos da tabela contexto_ia."""
+    result = supabase_request("GET", "contexto_ia", params={
+        "order": "vezes_usado.desc",
+        "limit": "50",
+        "select": "chave,valor,tipo,confianca",
+    })
+    return result or []
+
+
+def salvar_contexto(chave, valor, tipo="geral"):
+    """Salva ou atualiza contexto na memoria da IA."""
+    existing = supabase_request("GET", "contexto_ia", params={
+        "chave": f"eq.{chave}",
+        "select": "id,vezes_usado",
+    })
+    if existing:
+        supabase_request("PATCH", f"contexto_ia?chave=eq.{chave}", {
+            "valor": valor,
+            "tipo": tipo,
+            "vezes_usado": existing[0].get("vezes_usado", 1) + 1,
+        })
+    else:
+        supabase_request("POST", "contexto_ia", {
+            "chave": chave,
+            "valor": valor,
+            "tipo": tipo,
+        })
+
+
+# ========== CHAT ID ==========
+
+def get_chat_id():
+    """Retorna o chat ID salvo."""
+    global CHAT_ID
+    if CHAT_ID:
+        return CHAT_ID
+    result = supabase_request("GET", "configuracoes", params={
+        "chave": "eq.telegram_chat_id",
+        "select": "valor",
+    })
+    if result and result[0].get("valor"):
+        try:
+            CHAT_ID = int(result[0]["valor"])
+        except (ValueError, TypeError):
+            pass
+    return CHAT_ID
+
+
+def save_chat_id(chat_id):
+    """Salva chat ID no Supabase."""
+    global CHAT_ID
+    CHAT_ID = chat_id
+    supabase_request("PATCH", "configuracoes?chave=eq.telegram_chat_id", {
+        "valor": str(chat_id),
+    })
+
+
+# ========== FORMATACAO ==========
+
+EMOJI_CATEGORIA = {
+    "Trabalho": "📚", "Consultoria": "💼", "Grupo Ser": "🏛", "Pessoal": "🏠",
+}
+EMOJI_PRIORIDADE = {
+    "alta": "🔴", "media": "🟡", "baixa": "⚪",
+}
+
+
+def formatar_tarefa_card(tarefa):
+    """Formata uma tarefa para exibicao no Telegram."""
+    cat_emoji = EMOJI_CATEGORIA.get(tarefa.get("categoria", ""), "📋")
+    pri_emoji = EMOJI_PRIORIDADE.get(tarefa.get("prioridade", ""), "⚪")
+
+    linhas = [f"{pri_emoji} *{tarefa['titulo']}*"]
+    linhas.append(f"   {cat_emoji} {tarefa.get('categoria', '')}")
+
+    if tarefa.get("prazo"):
+        try:
+            d = datetime.strptime(tarefa["prazo"], "%Y-%m-%d")
+            linhas.append(f"   📅 {d.strftime('%d/%m (%a)')}")
+        except ValueError:
+            pass
+
+    if tarefa.get("horario"):
+        h = tarefa["horario"]
+        if isinstance(h, str) and len(h) >= 5:
+            linhas.append(f"   🕐 {h[:5]}")
+
+    if tarefa.get("meeting_link"):
+        linhas.append(f"   🔗 [Entrar na reuniao]({tarefa['meeting_link']})")
+
+    if tarefa.get("tempo_estimado_min"):
+        linhas.append(f"   ⏱ ~{tarefa['tempo_estimado_min']}min")
+
+    if tarefa.get("delegado_para"):
+        linhas.append(f"   👤 Delegado: {tarefa['delegado_para']}")
+
+    if tarefa.get("recorrencia"):
+        linhas.append(f"   🔄 {tarefa['recorrencia'].capitalize()}")
+
+    return "\n".join(linhas)
+
+
+def formatar_confirmacao(classificacao):
+    """Formata mensagem de confirmacao."""
+    card = formatar_tarefa_card(classificacao)
+    msg = f"🧠 *Entendi! Classifiquei assim:*\n\n{card}\n\n"
+
+    if classificacao.get("alerta_sobrecarga") and classificacao.get("alerta_msg"):
+        msg += f"{classificacao['alerta_msg']}\n\n"
+
+    if classificacao.get("mensagem"):
+        msg += f"_{classificacao['mensagem']}_\n\n"
+
+    msg += "✅ *Confirma?* Ou me diz o que ajustar."
+    return msg
+
+
+# ========== TRANSCRICAO DE AUDIO ==========
+
+def transcrever_audio(caminho_audio):
+    """Transcreve audio usando Groq API (Whisper)."""
+    import httpx
+
+    if not GROQ_API_KEY:
         return None
-    tarefa = tarefas[0]
-    supabase_request("PATCH", f"tarefas?id=eq.{tarefa['id']}", {"status": "concluida"})
+
+    wav_path = caminho_audio.replace(".ogg", ".wav").replace(".oga", ".wav")
+    try:
+        subprocess.run(
+            ["ffmpeg", "-i", caminho_audio, "-ar", "16000", "-ac", "1", "-y", wav_path],
+            capture_output=True, timeout=30,
+        )
+    except Exception as e:
+        logger.error(f"Erro ao converter audio: {e}")
+        return None
+
+    if not os.path.exists(wav_path):
+        return None
+
+    try:
+        with open(wav_path, "rb") as f:
+            resp = httpx.post(
+                "https://api.groq.com/openai/v1/audio/transcriptions",
+                headers={"Authorization": f"Bearer {GROQ_API_KEY}"},
+                files={"file": ("audio.wav", f, "audio/wav")},
+                data={"model": "whisper-large-v3-turbo", "language": "pt"},
+                timeout=30,
+            )
+        if resp.status_code != 200:
+            logger.error(f"Groq API erro {resp.status_code}: {resp.text}")
+            return None
+        result = resp.json()
+        texto = result.get("text", "").strip()
+        return texto if texto and texto not in [".", ""] else None
+    except Exception as e:
+        logger.error(f"Erro na transcricao Groq: {e}")
+        return None
+    finally:
+        for f in [caminho_audio, wav_path]:
+            try:
+                os.remove(f)
+            except OSError:
+                pass
+
+
+# ========== PROCESSAR TAREFA ==========
+
+async def processar_nova_tarefa(update, context, texto):
+    """Processa texto como nova tarefa (com ou sem IA)."""
+    if ai_brain:
+        msg = await update.message.reply_text("🧠 Analisando...")
+
+        tarefas_hoje = listar_tarefas_do_dia()
+        carga_semana = obter_carga_semana()
+        contextos = carregar_contextos()
+
+        classificacao = ai_brain.classificar_tarefa(
+            texto, tarefas_hoje, carga_semana, contextos
+        )
+
+        # MULTIPLAS TAREFAS
+        if isinstance(classificacao, dict) and classificacao.get("multiplas"):
+            tarefas = classificacao["tarefas"]
+            response = f"🧠 *Detectei {len(tarefas)} tarefas:*\n\n"
+            for i, t in enumerate(tarefas, 1):
+                response += f"*{i}.* {formatar_tarefa_card(t)}\n\n"
+            response += "✅ *Confirma todas?* Ou diz qual ajustar (ex: 'ajusta a 2')."
+
+            set_state(context, STATE_CONFIRMING_MULTI,
+                      pending_tasks=tarefas,
+                      confirm_history=[
+                          {"role": "user", "content": texto},
+                          {"role": "assistant", "content": response},
+                      ])
+            await msg.edit_text(response, parse_mode="Markdown",
+                                disable_web_page_preview=True)
+            return
+
+        # TAREFA UNICA
+        confirm_msg = formatar_confirmacao(classificacao)
+        set_state(context, STATE_CONFIRMING,
+                  pending_task=classificacao,
+                  confirm_history=[
+                      {"role": "user", "content": texto},
+                      {"role": "assistant", "content": confirm_msg},
+                  ])
+        await msg.edit_text(confirm_msg, parse_mode="Markdown",
+                            disable_web_page_preview=True)
+
+    else:
+        # MODO BASICO (sem IA)
+        classificacao = classificar_tarefa_basico(texto)
+        tarefa = criar_tarefa(
+            titulo=classificacao["titulo"],
+            categoria=classificacao["categoria"],
+            prioridade=classificacao["prioridade"],
+            prazo=classificacao["prazo"],
+            horario=classificacao.get("horario"),
+            meeting_link=classificacao.get("meeting_link"),
+        )
+        if tarefa:
+            resposta = "✅ *Tarefa criada!*\n\n" + formatar_tarefa_card(tarefa)
+            await update.message.reply_text(resposta, parse_mode="Markdown",
+                                            disable_web_page_preview=True)
+        else:
+            await update.message.reply_text("❌ Erro ao criar tarefa.")
+
+
+def _salvar_tarefa_e_contexto(tarefa_data):
+    """Salva tarefa no Supabase e extrai contexto para memoria."""
+    tarefa = criar_tarefa(
+        titulo=tarefa_data.get("titulo", "Tarefa"),
+        categoria=tarefa_data.get("categoria", "Pessoal"),
+        prioridade=tarefa_data.get("prioridade", "media"),
+        prazo=tarefa_data.get("prazo"),
+        horario=tarefa_data.get("horario"),
+        meeting_link=tarefa_data.get("meeting_link"),
+        meeting_platform=tarefa_data.get("meeting_platform"),
+        tempo_estimado=tarefa_data.get("tempo_estimado_min"),
+        delegado_para=tarefa_data.get("delegado_para"),
+        recorrencia=tarefa_data.get("recorrencia"),
+        recorrencia_dia=tarefa_data.get("recorrencia_dia"),
+    )
+
+    # Salvar contexto aprendido
+    if ai_brain and tarefa:
+        try:
+            contextos = ai_brain.extrair_contexto(
+                tarefa_data.get("titulo", ""),
+                tarefa_data
+            )
+            for ctx in contextos:
+                salvar_contexto(ctx["chave"], ctx["valor"], ctx["tipo"])
+        except Exception as e:
+            logger.warning(f"Erro ao salvar contexto: {e}")
+
     return tarefa
+
+
+async def processar_confirmacao(update, context, texto):
+    """Processa confirmacao de tarefa unica."""
+    pending = context.user_data.get("pending_task")
+    if not pending:
+        clear_state(context)
+        return
+
+    historico = context.user_data.get("confirm_history", [])
+    historico.append({"role": "user", "content": texto})
+
+    result = ai_brain.processar_confirmacao(texto, pending, historico)
+
+    if not result:
+        result = {"acao": "salvar"}
+
+    acao = result.get("acao")
+
+    if acao == "cancelar":
+        clear_state(context)
+        await update.message.reply_text("🚫 Tarefa cancelada.")
+        return
+
+    if acao == "salvar":
+        tarefa_data = pending
+    elif "titulo" in result:
+        context.user_data["pending_task"] = result
+        confirm_msg = formatar_confirmacao(result)
+        historico.append({"role": "assistant", "content": confirm_msg})
+        context.user_data["confirm_history"] = historico
+        await update.message.reply_text(confirm_msg, parse_mode="Markdown",
+                                        disable_web_page_preview=True)
+        return
+    else:
+        tarefa_data = pending
+
+    tarefa = _salvar_tarefa_e_contexto(tarefa_data)
+    clear_state(context)
+
+    if tarefa:
+        resposta = "✅ *Tarefa salva!*\n\n" + formatar_tarefa_card(tarefa)
+        resposta += f"\n\n[📊 Dashboard](https://wendelcastro.github.io/organizador-tarefas/web/)"
+        await update.message.reply_text(resposta, parse_mode="Markdown",
+                                        disable_web_page_preview=True)
+        # Agendar lembrete se tiver horario hoje
+        await _agendar_lembrete_se_hoje(context, tarefa)
+    else:
+        await update.message.reply_text("❌ Erro ao salvar tarefa.")
+
+
+async def processar_confirmacao_multi(update, context, texto):
+    """Processa confirmacao de multiplas tarefas."""
+    pending_tasks = context.user_data.get("pending_tasks", [])
+    if not pending_tasks:
+        clear_state(context)
+        return
+
+    lower = texto.lower().strip()
+
+    # Confirmacao geral
+    if any(w in lower for w in ["sim", "ok", "confirma", "todas", "salva", "bora", "pode"]):
+        salvas = 0
+        for t in pending_tasks:
+            tarefa = _salvar_tarefa_e_contexto(t)
+            if tarefa:
+                salvas += 1
+                await _agendar_lembrete_se_hoje(context, tarefa)
+        clear_state(context)
+        await update.message.reply_text(
+            f"✅ *{salvas} tarefas salvas!*\n\n"
+            f"[📊 Dashboard](https://wendelcastro.github.io/organizador-tarefas/web/)",
+            parse_mode="Markdown", disable_web_page_preview=True
+        )
+        return
+
+    # Cancelar
+    if any(w in lower for w in ["nao", "cancela", "esquece"]):
+        clear_state(context)
+        await update.message.reply_text("🚫 Todas canceladas.")
+        return
+
+    # Ajustar tarefa especifica (ex: "ajusta a 2", "muda a 1 pra grupo ser")
+    m = re.search(r'(\d+)', lower)
+    if m:
+        idx = int(m.group(1)) - 1
+        if 0 <= idx < len(pending_tasks):
+            # Tratar como confirmacao de ajuste
+            set_state(context, STATE_CONFIRMING,
+                      pending_task=pending_tasks[idx],
+                      confirm_history=context.user_data.get("confirm_history", []))
+            # Remove do pending_tasks para salvar as outras depois
+            context.user_data["pending_tasks_remaining"] = [
+                t for i, t in enumerate(pending_tasks) if i != idx
+            ]
+            await update.message.reply_text(
+                f"Ok, vamos ajustar a tarefa {idx+1}:\n\n"
+                f"{formatar_tarefa_card(pending_tasks[idx])}\n\n"
+                f"O que quer mudar?",
+                parse_mode="Markdown"
+            )
+            return
+
+    # Nao entendeu
+    await update.message.reply_text(
+        "Nao entendi. Diz *'confirma'* pra salvar todas, ou *'ajusta a 2'* pra mudar uma especifica.",
+        parse_mode="Markdown"
+    )
 
 
 # ========== CLASSIFICACAO BASICA (fallback sem IA) ==========
 
 def classificar_tarefa_basico(texto):
-    """Classificacao por keywords — fallback quando nao tem Claude."""
+    """Classificacao por keywords — fallback."""
     texto_lower = texto.lower()
 
     categoria = "Pessoal"
@@ -284,242 +722,311 @@ def classificar_tarefa_basico(texto):
     }
 
 
-# ========== FORMATACAO ==========
+# ========== LEMBRETES AUTOMATICOS ==========
 
-EMOJI_CATEGORIA = {
-    "Trabalho": "📚", "Consultoria": "💼", "Grupo Ser": "🏛", "Pessoal": "🏠",
-}
-EMOJI_PRIORIDADE = {
-    "alta": "🔴", "media": "🟡", "baixa": "⚪",
-}
+async def _agendar_lembrete_se_hoje(context, tarefa):
+    """Se a tarefa e para hoje e tem horario, agenda lembrete 15min antes."""
+    if not tarefa.get("prazo") or not tarefa.get("horario"):
+        return
+    if not context.job_queue:
+        return
+
+    hoje = datetime.now(TZ_RECIFE).strftime("%Y-%m-%d")
+    if tarefa["prazo"] != hoje:
+        return
+
+    try:
+        h_str = tarefa["horario"]
+        if isinstance(h_str, str) and len(h_str) >= 5:
+            hora, minuto = int(h_str[:2]), int(h_str[3:5])
+            agora = datetime.now(TZ_RECIFE)
+            horario_tarefa = agora.replace(hour=hora, minute=minuto, second=0, microsecond=0)
+            lembrete_time = horario_tarefa - timedelta(minutes=15)
+
+            if lembrete_time > agora:
+                delay = (lembrete_time - agora).total_seconds()
+                context.job_queue.run_once(
+                    _enviar_lembrete,
+                    when=delay,
+                    data=tarefa,
+                    name=f"reminder_{tarefa.get('id', '')}",
+                )
+                logger.info(f"Lembrete agendado: {tarefa['titulo']} em {delay:.0f}s")
+    except (ValueError, TypeError) as e:
+        logger.warning(f"Erro ao agendar lembrete: {e}")
 
 
-def formatar_tarefa_card(tarefa):
-    """Formata uma tarefa para exibicao no Telegram."""
+async def _enviar_lembrete(context):
+    """Callback de lembrete — envia notificacao no Telegram."""
+    tarefa = context.job.data
+    chat_id = get_chat_id()
+    if not chat_id:
+        return
+
+    # Verificar modo foco
+    # (lembretes de prioridade alta sempre passam)
+    emoji = EMOJI_PRIORIDADE.get(tarefa.get("prioridade", ""), "⚪")
     cat_emoji = EMOJI_CATEGORIA.get(tarefa.get("categoria", ""), "📋")
-    pri_emoji = EMOJI_PRIORIDADE.get(tarefa.get("prioridade", ""), "⚪")
 
-    linhas = [f"{pri_emoji} *{tarefa['titulo']}*"]
-    linhas.append(f"   {cat_emoji} {tarefa.get('categoria', '')}")
-
-    if tarefa.get("prazo"):
-        try:
-            d = datetime.strptime(tarefa["prazo"], "%Y-%m-%d")
-            linhas.append(f"   📅 {d.strftime('%d/%m (%a)')}")
-        except ValueError:
-            pass
-
-    if tarefa.get("horario"):
-        h = tarefa["horario"]
-        if isinstance(h, str) and len(h) >= 5:
-            linhas.append(f"   🕐 {h[:5]}")
-
-    if tarefa.get("meeting_link"):
-        linhas.append(f"   🔗 [Entrar na reuniao]({tarefa['meeting_link']})")
-
-    if tarefa.get("tempo_estimado_min"):
-        linhas.append(f"   ⏱ ~{tarefa['tempo_estimado_min']}min estimados")
-
-    return "\n".join(linhas)
-
-
-def formatar_confirmacao(classificacao):
-    """Formata a mensagem de confirmacao com a tarefa classificada."""
-    card = formatar_tarefa_card(classificacao)
-
-    msg = f"🧠 *Entendi! Classifiquei assim:*\n\n{card}\n\n"
-
-    if classificacao.get("alerta_sobrecarga") and classificacao.get("alerta_msg"):
-        msg += f"⚠️ {classificacao['alerta_msg']}\n\n"
-
-    if classificacao.get("mensagem"):
-        msg += f"_{classificacao['mensagem']}_\n\n"
-
-    msg += "✅ *Confirma?* Ou me diz o que ajustar."
-
-    return msg
-
-
-# ========== TRANSCRICAO DE AUDIO ==========
-
-def transcrever_audio(caminho_audio):
-    """Transcreve audio usando Groq API (Whisper) via httpx."""
-    import httpx
-
-    if not GROQ_API_KEY:
-        return None
-
-    wav_path = caminho_audio.replace(".ogg", ".wav").replace(".oga", ".wav")
-    try:
-        subprocess.run(
-            ["ffmpeg", "-i", caminho_audio, "-ar", "16000", "-ac", "1", "-y", wav_path],
-            capture_output=True, timeout=30,
-        )
-    except Exception as e:
-        logger.error(f"Erro ao converter audio: {e}")
-        return None
-
-    if not os.path.exists(wav_path):
-        return None
-
-    try:
-        with open(wav_path, "rb") as f:
-            resp = httpx.post(
-                "https://api.groq.com/openai/v1/audio/transcriptions",
-                headers={"Authorization": f"Bearer {GROQ_API_KEY}"},
-                files={"file": ("audio.wav", f, "audio/wav")},
-                data={"model": "whisper-large-v3-turbo", "language": "pt"},
-                timeout=30,
-            )
-        if resp.status_code != 200:
-            logger.error(f"Groq API erro {resp.status_code}: {resp.text}")
-            return None
-        result = resp.json()
-        texto = result.get("text", "").strip()
-        return texto if texto and texto not in [".", ""] else None
-    except Exception as e:
-        logger.error(f"Erro na transcricao Groq: {e}")
-        return None
-    finally:
-        for f in [caminho_audio, wav_path]:
-            try:
-                os.remove(f)
-            except OSError:
-                pass
-
-
-# ========== PROCESSAR TAREFA (texto ja extraido) ==========
-
-async def processar_nova_tarefa(update, context, texto):
-    """
-    Processa texto como nova tarefa.
-    COM IA: classifica + pede confirmacao (guarda historico)
-    SEM IA: classifica por keywords + salva direto
-    """
-    if ai_brain:
-        # === MODO INTELIGENTE ===
-        msg = await update.message.reply_text("🧠 Analisando...")
-
-        tarefas_hoje = listar_tarefas_do_dia()
-
-        # Claude classifica
-        classificacao = ai_brain.classificar_tarefa(texto, tarefas_hoje)
-
-        # Salva como pendente + historico da conversa
-        confirm_msg = formatar_confirmacao(classificacao)
-        set_state(context, STATE_CONFIRMING,
-                  pending_task=classificacao,
-                  confirm_history=[
-                      {"role": "user", "content": texto},
-                      {"role": "assistant", "content": confirm_msg},
-                  ])
-
-        await msg.edit_text(confirm_msg, parse_mode="Markdown", disable_web_page_preview=True)
-
-    else:
-        # === MODO BASICO (sem IA) ===
-        classificacao = classificar_tarefa_basico(texto)
-        tarefa = criar_tarefa(
-            titulo=classificacao["titulo"],
-            categoria=classificacao["categoria"],
-            prioridade=classificacao["prioridade"],
-            prazo=classificacao["prazo"],
-            horario=classificacao["horario"],
-            meeting_link=classificacao.get("meeting_link"),
-        )
-        if tarefa:
-            resposta = "✅ *Tarefa criada!*\n\n" + formatar_tarefa_card(tarefa)
-            await update.message.reply_text(resposta, parse_mode="Markdown", disable_web_page_preview=True)
-        else:
-            await update.message.reply_text("❌ Erro ao criar tarefa.")
-
-
-async def processar_confirmacao(update, context, texto):
-    """Processa resposta de confirmacao/ajuste de tarefa (com historico)."""
-    pending = context.user_data.get("pending_task")
-    if not pending:
-        clear_state(context)
-        return
-
-    # Pegar historico da conversa sobre esta tarefa
-    historico = context.user_data.get("confirm_history", [])
-    historico.append({"role": "user", "content": texto})
-
-    result = ai_brain.processar_confirmacao(texto, pending, historico)
-
-    if not result:
-        result = {"acao": "salvar"}
-
-    acao = result.get("acao")
-
-    if acao == "cancelar":
-        clear_state(context)
-        await update.message.reply_text("🚫 Tarefa cancelada.")
-        return
-
-    if acao == "salvar":
-        # Salvar a tarefa pendente tal como esta
-        tarefa_data = pending
-    elif "titulo" in result:
-        # Claude retornou tarefa ATUALIZADA — mostrar e pedir confirmacao de novo
-        context.user_data["pending_task"] = result
-        confirm_msg = formatar_confirmacao(result)
-        historico.append({"role": "assistant", "content": confirm_msg})
-        context.user_data["confirm_history"] = historico
-        await update.message.reply_text(confirm_msg, parse_mode="Markdown", disable_web_page_preview=True)
-        return  # NAO salva ainda — espera outra confirmacao
-    else:
-        tarefa_data = pending
-
-    # Criar no Supabase
-    tarefa = criar_tarefa(
-        titulo=tarefa_data.get("titulo", "Tarefa"),
-        categoria=tarefa_data.get("categoria", "Pessoal"),
-        prioridade=tarefa_data.get("prioridade", "media"),
-        prazo=tarefa_data.get("prazo"),
-        horario=tarefa_data.get("horario"),
-        meeting_link=tarefa_data.get("meeting_link"),
-        meeting_platform=tarefa_data.get("meeting_platform"),
-        tempo_estimado=tarefa_data.get("tempo_estimado_min"),
+    msg = (
+        f"⏰ *Lembrete — em 15 minutos!*\n\n"
+        f"{emoji} *{tarefa.get('titulo', 'Tarefa')}*\n"
+        f"   {cat_emoji} {tarefa.get('categoria', '')}\n"
+        f"   🕐 {tarefa.get('horario', '')[:5]}\n"
     )
 
-    clear_state(context)
+    if tarefa.get("meeting_link"):
+        msg += f"\n🔗 [Entrar na reuniao]({tarefa['meeting_link']})"
 
-    if tarefa:
-        resposta = "✅ *Tarefa salva!*\n\n" + formatar_tarefa_card(tarefa)
-        resposta += f"\n\n[📊 Ver no dashboard](https://wendelcastro.github.io/organizador-tarefas/web/)"
-        await update.message.reply_text(resposta, parse_mode="Markdown", disable_web_page_preview=True)
+    try:
+        await context.bot.send_message(
+            chat_id, msg, parse_mode="Markdown",
+            disable_web_page_preview=True
+        )
+    except Exception as e:
+        logger.error(f"Erro ao enviar lembrete: {e}")
+
+
+async def _verificar_lembretes_iniciais(context):
+    """Na inicializacao, agenda lembretes para tarefas de hoje com horario."""
+    chat_id = get_chat_id()
+    if not chat_id:
+        return
+
+    tarefas = listar_tarefas_do_dia()
+    agendados = 0
+    for t in tarefas:
+        if t.get("horario"):
+            try:
+                h_str = t["horario"]
+                if isinstance(h_str, str) and len(h_str) >= 5:
+                    hora, minuto = int(h_str[:2]), int(h_str[3:5])
+                    agora = datetime.now(TZ_RECIFE)
+                    horario_tarefa = agora.replace(hour=hora, minute=minuto, second=0)
+                    lembrete_time = horario_tarefa - timedelta(minutes=15)
+
+                    if lembrete_time > agora:
+                        delay = (lembrete_time - agora).total_seconds()
+                        context.job_queue.run_once(
+                            _enviar_lembrete, when=delay,
+                            data=t, name=f"reminder_{t.get('id', '')}",
+                        )
+                        agendados += 1
+            except (ValueError, TypeError):
+                pass
+
+    if agendados:
+        logger.info(f"Agendados {agendados} lembretes para hoje")
+
+
+# ========== JOBS PROGRAMADOS ==========
+
+async def resumo_matinal(context):
+    """Envia resumo matinal as 7:30."""
+    chat_id = get_chat_id()
+    if not chat_id:
+        return
+
+    hoje = datetime.now(TZ_RECIFE).strftime("%Y-%m-%d")
+    tarefas = listar_tarefas_do_dia(hoje)
+    atrasadas = listar_tarefas_atrasadas()
+
+    if not tarefas and not atrasadas:
+        msg = "☀️ *Bom dia!* Nenhuma tarefa para hoje — dia livre!"
     else:
-        await update.message.reply_text("❌ Erro ao salvar tarefa.")
+        msg = "☀️ *Bom dia, Wendel!*\n\n"
+
+        if tarefas:
+            total_min = sum(t.get('tempo_estimado_min') or 30 for t in tarefas)
+            msg += f"📋 *{len(tarefas)} tarefas para hoje* (~{total_min}min)\n\n"
+            for t in tarefas:
+                emoji = EMOJI_PRIORIDADE.get(t.get('prioridade', ''), '⚪')
+                h = t.get('horario', '')
+                h_str = f" 🕐 {h[:5]}" if h and len(str(h)) >= 5 else ""
+                delegado = f" 👤{t['delegado_para']}" if t.get('delegado_para') else ""
+                msg += f"{emoji} {t['titulo']}{h_str}{delegado}\n"
+
+        if atrasadas:
+            msg += f"\n⚠️ *{len(atrasadas)} atrasada{'s' if len(atrasadas) > 1 else ''}:*\n"
+            for t in atrasadas[:5]:
+                msg += f"  · {t['titulo']} (prazo: {t.get('prazo', '?')})\n"
+
+        msg += f"\n💡 _Use /planejar para organizar o dia_"
+
+    try:
+        await context.bot.send_message(chat_id, msg, parse_mode="Markdown",
+                                       disable_web_page_preview=True)
+        # Agendar lembretes do dia
+        await _verificar_lembretes_iniciais(context)
+    except Exception as e:
+        logger.error(f"Erro no resumo matinal: {e}")
+
+
+async def relatorio_semanal_auto(context):
+    """Envia relatorio semanal toda sexta as 17:00."""
+    chat_id = get_chat_id()
+    if not chat_id or not ai_brain:
+        return
+
+    try:
+        dados = _preparar_dados_relatorio()
+        relatorio = ai_brain.gerar_relatorio_semanal(dados)
+
+        msg = "📊 *Relatorio Semanal*\n\n" + relatorio
+        msg += "\n\n_Bom fim de semana!_ 🎉"
+
+        await context.bot.send_message(chat_id, msg, parse_mode="Markdown",
+                                       disable_web_page_preview=True)
+    except Exception as e:
+        logger.error(f"Erro no relatorio semanal: {e}")
+
+
+def _preparar_dados_relatorio():
+    """Prepara dados para o relatorio semanal."""
+    tarefas = listar_tarefas_semana()
+    hoje = datetime.now(TZ_RECIFE)
+    inicio = hoje - timedelta(days=hoje.weekday())
+
+    concluidas = [t for t in tarefas if t.get("status") == "concluida"]
+    pendentes = [t for t in tarefas if t.get("status") != "concluida"]
+    atrasadas = [t for t in pendentes if t.get("prazo") and t["prazo"] < hoje.strftime("%Y-%m-%d")]
+
+    # Distribuicao por categoria
+    dist_cat = {}
+    for t in tarefas:
+        cat = t.get("categoria", "Sem categoria")
+        if cat not in dist_cat:
+            dist_cat[cat] = {"total": 0, "concluidas": 0}
+        dist_cat[cat]["total"] += 1
+        if t.get("status") == "concluida":
+            dist_cat[cat]["concluidas"] += 1
+
+    dist_str = ""
+    for cat, info in dist_cat.items():
+        emoji = EMOJI_CATEGORIA.get(cat, "📋")
+        dist_str += f"{emoji} {cat}: {info['concluidas']}/{info['total']} concluidas\n"
+
+    # Distribuicao por prioridade
+    dist_pri = {}
+    for t in tarefas:
+        pri = t.get("prioridade", "media")
+        dist_pri[pri] = dist_pri.get(pri, 0) + 1
+    pri_str = ", ".join(f"{EMOJI_PRIORIDADE.get(k, '⚪')} {k}: {v}" for k, v in dist_pri.items())
+
+    # Padroes
+    padroes = ""
+    if ai_brain:
+        padroes = ai_brain.analisar_padroes([], tarefas)
+
+    # Tempo pessoal
+    pessoais = [t for t in concluidas if t.get("categoria") == "Pessoal"]
+    ingles = any("ingles" in (t.get("titulo", "").lower()) for t in pessoais)
+    leitura = any("leitura" in (t.get("titulo", "").lower()) for t in pessoais)
+    tempo_str = f"Ingles: {'✅' if ingles else '❌'}, Leitura: {'✅' if leitura else '❌'}"
+
+    return {
+        "periodo": f"{inicio.strftime('%d/%m')} a {hoje.strftime('%d/%m/%Y')}",
+        "total": len(tarefas),
+        "concluidas": len(concluidas),
+        "pendentes": len(pendentes),
+        "atrasadas": len(atrasadas),
+        "dist_categoria": dist_str or "Sem dados",
+        "dist_prioridade": pri_str or "Sem dados",
+        "padroes": padroes,
+        "tempo_pessoal": tempo_str,
+    }
+
+
+async def verificar_recorrentes(context):
+    """Cria instancias de tarefas recorrentes para hoje."""
+    hoje = datetime.now(TZ_RECIFE)
+    dia_semana = hoje.weekday()  # 0=segunda
+    dia_mes = hoje.day
+
+    params = {
+        "recorrencia": "neq.is.null",
+        "status": "neq.concluida",
+        "select": "id,titulo,categoria,prioridade,horario,recorrencia,recorrencia_dia,tempo_estimado_min,delegado_para",
+    }
+    # Busca com filtro nao-nulo pode nao funcionar em todas as versoes
+    # Fallback: buscar tudo e filtrar em Python
+    todas = supabase_request("GET", "tarefas", params={
+        "status": "neq.concluida",
+        "select": "id,titulo,categoria,prioridade,horario,recorrencia,recorrencia_dia,prazo,tempo_estimado_min,delegado_para",
+    }) or []
+
+    recorrentes = [t for t in todas if t.get("recorrencia")]
+    criadas = 0
+
+    for t in recorrentes:
+        rec = t["recorrencia"]
+        rec_dia = t.get("recorrencia_dia")
+        prazo = t.get("prazo")
+
+        criar_hoje = False
+
+        if rec == "diaria":
+            # Se prazo ja e hoje, nao duplicar
+            if prazo != hoje.strftime("%Y-%m-%d"):
+                criar_hoje = True
+        elif rec == "semanal" and rec_dia is not None:
+            if dia_semana == rec_dia and prazo != hoje.strftime("%Y-%m-%d"):
+                criar_hoje = True
+        elif rec == "quinzenal" and rec_dia is not None:
+            # Simplificado: verifica se faz 14+ dias desde o prazo
+            if prazo:
+                try:
+                    ultimo = datetime.strptime(prazo, "%Y-%m-%d")
+                    if (hoje - ultimo).days >= 14 and dia_semana == rec_dia:
+                        criar_hoje = True
+                except ValueError:
+                    pass
+        elif rec == "mensal" and rec_dia is not None:
+            if dia_mes == rec_dia and (not prazo or prazo[:7] != hoje.strftime("%Y-%m")):
+                criar_hoje = True
+
+        if criar_hoje:
+            # Atualiza o prazo da tarefa existente para hoje
+            atualizar_tarefa(t["id"], {"prazo": hoje.strftime("%Y-%m-%d")})
+            criadas += 1
+
+    if criadas:
+        logger.info(f"Atualizadas {criadas} tarefas recorrentes para hoje")
 
 
 # ========== HANDLERS DO BOT ==========
 
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Mensagem de boas-vindas."""
+    """Boas-vindas + salva chat ID."""
     chat_id = update.effective_chat.id
-    logger.info(f"Chat ID: {chat_id}")
+    save_chat_id(chat_id)
+    logger.info(f"Chat ID salvo: {chat_id}")
     clear_state(context)
 
-    modo = "🧠 *Modo inteligente* (Claude IA)" if ai_brain else "⚡ *Modo basico* (sem IA)"
+    modo = "🧠 *Modo inteligente v2* (Claude IA)" if ai_brain else "⚡ *Modo basico* (sem IA)"
 
     await update.message.reply_text(
-        f"👋 *Organizador de Tarefas*\n\n"
+        f"👋 *Organizador de Tarefas v2*\n\n"
         f"{modo}\n\n"
-        "Mande uma mensagem de texto ou audio e eu organizo pra voce!\n\n"
+        "Mande texto ou audio e eu organizo pra voce!\n\n"
         "*Comandos:*\n"
         "/tarefas — Ver pendentes\n"
-        "/planejar — Planejamento inteligente do dia\n"
-        "/feedback — Feedback construtivo do dia\n"
+        "/planejar — Planejamento inteligente\n"
+        "/feedback — Feedback do dia\n"
         "/resumo — Resumo rapido\n"
-        "/concluir — Concluir ultima tarefa\n\n"
-        "*Como funciona:*\n"
-        "1. Voce manda a tarefa (texto ou audio)\n"
-        "2. Eu classifico e pergunto se esta certo\n"
-        "3. Voce confirma ou ajusta\n"
-        "4. Tarefa salva — dashboard atualiza automaticamente\n\n"
-        f"📊 [Dashboard](https://wendelcastro.github.io/organizador-tarefas/web/)\n"
-        f"_Chat ID: {chat_id}_",
+        "/concluir — Concluir tarefa\n"
+        "/editar — Editar tarefa\n"
+        "/relatorio — Relatorio semanal\n"
+        "/foco — Modo foco\n"
+        "/cancelar — Cancela operacao\n\n"
+        "*Novidades v2:*\n"
+        "• IA entende datas: 'amanha', 'sexta', 'semana que vem'\n"
+        "• Detecta multiplas tarefas numa mensagem\n"
+        "• Alerta de sobrecarga no dia\n"
+        "• Lembretes 15min antes de reunioes\n"
+        "• Resumo matinal automatico as 7:30\n"
+        "• Relatorio semanal toda sexta 17h\n\n"
+        f"📊 [Dashboard](https://wendelcastro.github.io/organizador-tarefas/web/)",
         parse_mode="Markdown",
         disable_web_page_preview=True,
     )
@@ -528,7 +1035,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def cmd_tarefas(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Lista tarefas pendentes."""
     clear_state(context)
-    tarefas = listar_tarefas_pendentes(10)
+    tarefas = listar_tarefas_pendentes(15)
 
     if not tarefas:
         await update.message.reply_text("✅ Nenhuma tarefa pendente! Voce esta em dia.")
@@ -538,8 +1045,9 @@ async def cmd_tarefas(update: Update, context: ContextTypes.DEFAULT_TYPE):
     for t in tarefas:
         texto += formatar_tarefa_card(t) + "\n\n"
 
-    texto += f"[📊 Ver no dashboard](https://wendelcastro.github.io/organizador-tarefas/web/)"
-    await update.message.reply_text(texto, parse_mode="Markdown", disable_web_page_preview=True)
+    texto += f"[📊 Dashboard](https://wendelcastro.github.io/organizador-tarefas/web/)"
+    await update.message.reply_text(texto, parse_mode="Markdown",
+                                    disable_web_page_preview=True)
 
 
 async def cmd_planejar(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -548,15 +1056,13 @@ async def cmd_planejar(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if not ai_brain:
         await update.message.reply_text(
-            "⚠️ Planejamento inteligente requer Claude API.\n"
-            "Configure ANTHROPIC_API_KEY no .env e reinicie o bot."
+            "⚠️ Planejamento requer Claude API. Configure ANTHROPIC_API_KEY."
         )
         return
 
     msg = await update.message.reply_text("🧠 Analisando seu dia...")
 
-    # Buscar tarefas do dia + atrasadas
-    hoje = datetime.now().strftime("%Y-%m-%d")
+    hoje = datetime.now(TZ_RECIFE).strftime("%Y-%m-%d")
     tarefas_hoje = listar_tarefas_do_dia(hoje)
     atrasadas = listar_tarefas_atrasadas()
     todas = tarefas_hoje + atrasadas
@@ -573,12 +1079,12 @@ async def cmd_planejar(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     planejamento = ai_brain.planejar_dia(todas, hoje)
 
-    # Entra em modo chat para discutir o planejamento
     set_state(context, STATE_CHATTING, chat_history=[
         {"role": "assistant", "content": planejamento}
     ])
 
-    await msg.edit_text(planejamento, parse_mode="Markdown", disable_web_page_preview=True)
+    await msg.edit_text(planejamento, parse_mode="Markdown",
+                        disable_web_page_preview=True)
 
 
 async def cmd_feedback(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -587,29 +1093,32 @@ async def cmd_feedback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if not ai_brain:
         await update.message.reply_text(
-            "⚠️ Feedback inteligente requer Claude API.\n"
-            "Configure ANTHROPIC_API_KEY no .env e reinicie o bot."
+            "⚠️ Feedback requer Claude API. Configure ANTHROPIC_API_KEY."
         )
         return
 
     msg = await update.message.reply_text("🧠 Analisando seu dia...")
 
-    hoje = datetime.now().strftime("%Y-%m-%d")
+    hoje = datetime.now(TZ_RECIFE).strftime("%Y-%m-%d")
     concluidas = listar_concluidas_hoje()
     pendentes = listar_tarefas_do_dia(hoje)
 
-    feedback = ai_brain.feedback_dia(concluidas, pendentes, hoje)
+    # Padroes da semana
+    tarefas_semana = listar_tarefas_semana()
+    padroes = ai_brain.analisar_padroes([], tarefas_semana)
 
-    # Entra em modo chat para discutir o feedback
+    feedback = ai_brain.feedback_dia(concluidas, pendentes, padroes, hoje)
+
     set_state(context, STATE_CHATTING, chat_history=[
         {"role": "assistant", "content": feedback}
     ])
 
-    await msg.edit_text(feedback, parse_mode="Markdown", disable_web_page_preview=True)
+    await msg.edit_text(feedback, parse_mode="Markdown",
+                        disable_web_page_preview=True)
 
 
 async def cmd_resumo(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Mostra resumo semanal."""
+    """Resumo rapido."""
     clear_state(context)
     resumo = obter_resumo()
 
@@ -626,35 +1135,304 @@ async def cmd_resumo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"🎥 Reunioes pendentes: *{resumo['reunioes_pendentes']}*\n"
         f"🔥 Alta prioridade: *{resumo['alta_prioridade']}*\n\n"
         f"[📊 Dashboard](https://wendelcastro.github.io/organizador-tarefas/web/)",
-        parse_mode="Markdown",
-        disable_web_page_preview=True,
+        parse_mode="Markdown", disable_web_page_preview=True,
     )
 
 
 async def cmd_concluir(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Conclui a ultima tarefa pendente."""
+    """Concluir tarefa — interativo com inline keyboard."""
     clear_state(context)
-    tarefa = concluir_ultima_tarefa()
-    if tarefa:
-        await update.message.reply_text(f'✅ Concluida: *{tarefa["titulo"]}*', parse_mode="Markdown")
-    else:
-        await update.message.reply_text("Nenhuma tarefa pendente para concluir.")
+    tarefas = listar_tarefas_pendentes(10)
 
+    if not tarefas:
+        await update.message.reply_text("✅ Nenhuma tarefa pendente!")
+        return
+
+    keyboard = []
+    for t in tarefas:
+        emoji = EMOJI_PRIORIDADE.get(t.get("prioridade", ""), "⚪")
+        cat_emoji = EMOJI_CATEGORIA.get(t.get("categoria", ""), "📋")
+        titulo = t["titulo"][:35]
+        if t.get("prazo"):
+            try:
+                d = datetime.strptime(t["prazo"], "%Y-%m-%d")
+                titulo += f" ({d.strftime('%d/%m')})"
+            except ValueError:
+                pass
+        keyboard.append([InlineKeyboardButton(
+            f"{emoji}{cat_emoji} {titulo}",
+            callback_data=f"done:{t['id']}"
+        )])
+    keyboard.append([InlineKeyboardButton("❌ Cancelar", callback_data="done:cancel")])
+
+    await update.message.reply_text(
+        "✅ *Qual tarefa concluir?*",
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode="Markdown",
+    )
+
+
+async def cmd_editar(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Editar tarefa existente."""
+    clear_state(context)
+    tarefas = listar_tarefas_pendentes(10)
+
+    if not tarefas:
+        await update.message.reply_text("Nenhuma tarefa para editar.")
+        return
+
+    keyboard = []
+    for t in tarefas:
+        emoji = EMOJI_PRIORIDADE.get(t.get("prioridade", ""), "⚪")
+        titulo = t["titulo"][:35]
+        keyboard.append([InlineKeyboardButton(
+            f"{emoji} {titulo}",
+            callback_data=f"edit:{t['id']}"
+        )])
+    keyboard.append([InlineKeyboardButton("❌ Cancelar", callback_data="edit:cancel")])
+
+    await update.message.reply_text(
+        "✏️ *Qual tarefa editar?*\nDepois diga o que mudar (ex: 'muda pra sexta', 'prioridade alta')",
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode="Markdown",
+    )
+
+
+async def cmd_relatorio(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Gera relatorio semanal manual."""
+    clear_state(context)
+
+    if not ai_brain:
+        await update.message.reply_text("⚠️ Relatorio requer Claude API.")
+        return
+
+    msg = await update.message.reply_text("📊 Gerando relatorio semanal...")
+
+    try:
+        dados = _preparar_dados_relatorio()
+        relatorio = ai_brain.gerar_relatorio_semanal(dados)
+        await msg.edit_text(f"📊 *Relatorio Semanal*\n\n{relatorio}",
+                            parse_mode="Markdown", disable_web_page_preview=True)
+    except Exception as e:
+        logger.error(f"Erro no relatorio: {e}")
+        await msg.edit_text("❌ Erro ao gerar relatorio.")
+
+
+async def cmd_foco(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Modo foco — silencia notificacoes de baixa prioridade."""
+    texto = update.message.text.strip()
+    args = texto.replace("/foco", "").strip()
+
+    # Desativar
+    if args.lower() in ["off", "sair", "desligar", "parar"]:
+        context.user_data.pop("focus_until", None)
+        context.user_data["state"] = STATE_IDLE
+        await update.message.reply_text("🔔 Modo foco *desativado*.", parse_mode="Markdown")
+        return
+
+    # Ativar
+    duracao_min = 60  # padrao 1h
+    m = re.search(r'(\d+)\s*(h|m|min|hora)', args.lower())
+    if m:
+        valor = int(m.group(1))
+        unidade = m.group(2)
+        if unidade.startswith("h"):
+            duracao_min = valor * 60
+        else:
+            duracao_min = valor
+
+    focus_until = datetime.now(TZ_RECIFE) + timedelta(minutes=duracao_min)
+    context.user_data["focus_until"] = focus_until.isoformat()
+    set_state(context, STATE_FOCUS)
+
+    # Agendar fim do foco
+    context.job_queue.run_once(
+        _fim_foco, when=duracao_min * 60,
+        data=update.effective_chat.id,
+        name="focus_end",
+    )
+
+    await update.message.reply_text(
+        f"🎯 *Modo foco ativado* por {duracao_min}min\n\n"
+        f"Ate: {focus_until.strftime('%H:%M')}\n"
+        f"Lembretes de baixa prioridade silenciados.\n"
+        f"Use /foco off para desativar.",
+        parse_mode="Markdown",
+    )
+
+
+async def _fim_foco(context):
+    """Callback quando modo foco termina."""
+    chat_id = context.job.data
+    try:
+        await context.bot.send_message(
+            chat_id,
+            "🔔 *Modo foco encerrado!*\n\n"
+            "Use /tarefas para ver pendentes.",
+            parse_mode="Markdown",
+        )
+    except Exception as e:
+        logger.error(f"Erro ao encerrar foco: {e}")
+
+
+async def cmd_cancelar(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Cancela operacao atual."""
+    state = get_state(context)
+    clear_state(context)
+    if state != STATE_IDLE:
+        await update.message.reply_text("🚫 Operacao cancelada.")
+    else:
+        await update.message.reply_text("Nenhuma operacao em andamento.")
+
+
+# ========== CALLBACK HANDLER (inline keyboards) ==========
+
+async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Processa cliques em botoes inline."""
+    query = update.callback_query
+    await query.answer()
+
+    data = query.data
+    if not data:
+        return
+
+    # CONCLUIR tarefa
+    if data.startswith("done:"):
+        task_id = data.split(":", 1)[1]
+        if task_id == "cancel":
+            await query.edit_message_text("Cancelado.")
+            return
+
+        tarefa = concluir_tarefa_por_id(task_id)
+        if tarefa:
+            # Verificar se e recorrente
+            if tarefa.get("recorrencia"):
+                await query.edit_message_text(
+                    f"✅ *Concluida:* {tarefa['titulo']}\n"
+                    f"🔄 Tarefa recorrente — proxima instancia sera criada automaticamente.",
+                    parse_mode="Markdown",
+                )
+                # Recriar para proxima ocorrencia
+                _recriar_recorrente(tarefa)
+            else:
+                await query.edit_message_text(
+                    f"✅ *Concluida:* {tarefa['titulo']}",
+                    parse_mode="Markdown",
+                )
+        else:
+            await query.edit_message_text("❌ Erro ao concluir.")
+
+    # EDITAR tarefa
+    elif data.startswith("edit:"):
+        task_id = data.split(":", 1)[1]
+        if task_id == "cancel":
+            await query.edit_message_text("Cancelado.")
+            return
+
+        set_state(context, STATE_EDITING, editing_task_id=task_id)
+        await query.edit_message_text(
+            "✏️ O que quer mudar? Exemplos:\n"
+            "• 'muda pra sexta'\n"
+            "• 'prioridade alta'\n"
+            "• 'categoria grupo ser'\n"
+            "• 'horario 14:00'\n"
+            "• 'titulo: Reuniao com equipe'\n\n"
+            "Ou envie /cancelar para desistir."
+        )
+
+
+def _recriar_recorrente(tarefa):
+    """Recria a proxima instancia de uma tarefa recorrente."""
+    rec = tarefa.get("recorrencia")
+    prazo = tarefa.get("prazo")
+    if not rec or not prazo:
+        return
+
+    try:
+        data_atual = datetime.strptime(prazo, "%Y-%m-%d")
+    except ValueError:
+        return
+
+    if rec == "diaria":
+        proximo = data_atual + timedelta(days=1)
+    elif rec == "semanal":
+        proximo = data_atual + timedelta(weeks=1)
+    elif rec == "quinzenal":
+        proximo = data_atual + timedelta(weeks=2)
+    elif rec == "mensal":
+        mes = data_atual.month + 1
+        ano = data_atual.year
+        if mes > 12:
+            mes = 1
+            ano += 1
+        try:
+            proximo = data_atual.replace(year=ano, month=mes)
+        except ValueError:
+            proximo = data_atual + timedelta(days=30)
+    else:
+        return
+
+    # Pular fins de semana para tarefas de trabalho
+    if tarefa.get("categoria") in ["Trabalho", "Consultoria", "Grupo Ser"]:
+        while proximo.weekday() >= 5:
+            proximo += timedelta(days=1)
+
+    criar_tarefa(
+        titulo=tarefa.get("titulo", "Tarefa recorrente"),
+        categoria=tarefa.get("categoria", "Pessoal"),
+        prioridade=tarefa.get("prioridade", "media"),
+        prazo=proximo.strftime("%Y-%m-%d"),
+        horario=tarefa.get("horario"),
+        meeting_link=tarefa.get("meeting_link"),
+        meeting_platform=tarefa.get("meeting_platform"),
+        tempo_estimado=tarefa.get("tempo_estimado_min"),
+        delegado_para=tarefa.get("delegado_para"),
+        recorrencia=rec,
+        recorrencia_dia=tarefa.get("recorrencia_dia"),
+    )
+
+
+# ========== HANDLER PRINCIPAL DE TEXTO ==========
 
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handler principal de texto — roteador de estados."""
+    """Roteador de estados."""
     texto = update.message.text.strip()
     if not texto:
         return
 
     state = get_state(context)
 
+    # MODO FOCO: aceita comandos mas nao cria tarefas automaticamente
+    if state == STATE_FOCUS:
+        # Se parece comando, processa normalmente
+        # Se parece tarefa nova, pergunta
+        lower = texto.lower()
+        if any(w in lower for w in ["sair", "foco off", "desligar foco"]):
+            context.user_data.pop("focus_until", None)
+            context.user_data["state"] = STATE_IDLE
+            await update.message.reply_text("🔔 Modo foco *desativado*.", parse_mode="Markdown")
+            return
+        # Em modo foco, processa como tarefa mas avisa
+        await update.message.reply_text(
+            "🎯 _Modo foco ativo._ Vou registrar, mas sem alertas.\n"
+            "Use /foco off para desativar.",
+            parse_mode="Markdown"
+        )
+        context.user_data["state"] = STATE_IDLE
+        await processar_nova_tarefa(update, context, texto)
+        context.user_data["state"] = STATE_FOCUS
+        return
+
     if state == STATE_CONFIRMING and ai_brain:
-        # Esperando confirmacao de tarefa
         await processar_confirmacao(update, context, texto)
 
+    elif state == STATE_CONFIRMING_MULTI and ai_brain:
+        await processar_confirmacao_multi(update, context, texto)
+
+    elif state == STATE_EDITING:
+        await processar_edicao(update, context, texto)
+
     elif state == STATE_CHATTING and ai_brain:
-        # Conversa livre (pos-feedback ou pos-planejamento)
         history = context.user_data.get("chat_history", [])
         history.append({"role": "user", "content": texto})
 
@@ -664,19 +1442,83 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         history.append({"role": "assistant", "content": resposta})
         context.user_data["chat_history"] = history
 
-        await msg.edit_text(resposta, parse_mode="Markdown", disable_web_page_preview=True)
+        await msg.edit_text(resposta, parse_mode="Markdown",
+                            disable_web_page_preview=True)
 
-        # Se usuario manda algo que parece tarefa nova, sai do chat
-        if any(w in texto.lower() for w in ["nova tarefa", "adicionar", "criar tarefa", "/sair"]):
+        # Detectar saida do chat
+        if any(w in texto.lower() for w in ["nova tarefa", "adicionar", "/sair", "tchau", "valeu"]):
             clear_state(context)
 
     else:
-        # Estado idle — nova tarefa
         await processar_nova_tarefa(update, context, texto)
 
 
+async def processar_edicao(update, context, texto):
+    """Processa edicao de tarefa existente."""
+    task_id = context.user_data.get("editing_task_id")
+    if not task_id:
+        clear_state(context)
+        return
+
+    if ai_brain:
+        # Usa Claude para interpretar o ajuste
+        result = ai_brain._tentar_ajuste_manual(texto, {})
+        updates = {}
+
+        # Extrair campos alterados
+        if result.get("categoria") and result["categoria"] != "Pessoal":
+            updates["categoria"] = result["categoria"]
+        if result.get("prioridade") and result["prioridade"] != "media":
+            updates["prioridade"] = result["prioridade"]
+        if result.get("prazo"):
+            updates["prazo"] = result["prazo"]
+        if result.get("horario"):
+            updates["horario"] = result["horario"]
+
+        # Detectar mudanca de titulo
+        if texto.lower().startswith("titulo:"):
+            updates["titulo"] = texto[7:].strip()
+
+        # Detectar mudanca de categoria por texto direto
+        lower = texto.lower()
+        for cat in ["Trabalho", "Consultoria", "Grupo Ser", "Pessoal"]:
+            if cat.lower() in lower:
+                updates["categoria"] = cat
+                break
+
+        # Detectar prazo por resolucao temporal
+        data = ai_brain._resolver_data(texto)
+        if data:
+            updates["prazo"] = data
+
+        if not updates:
+            await update.message.reply_text(
+                "Nao entendi o que mudar. Exemplos:\n"
+                "• 'prioridade alta'\n"
+                "• 'muda pra sexta'\n"
+                "• 'categoria grupo ser'\n"
+                "• 'titulo: Novo titulo aqui'"
+            )
+            return
+
+        result = atualizar_tarefa(task_id, updates)
+        clear_state(context)
+
+        if result:
+            campos = ", ".join(f"*{k}*={v}" for k, v in updates.items())
+            await update.message.reply_text(
+                f"✅ Tarefa atualizada!\n{campos}",
+                parse_mode="Markdown"
+            )
+        else:
+            await update.message.reply_text("❌ Erro ao atualizar.")
+    else:
+        clear_state(context)
+        await update.message.reply_text("Edicao requer Claude API.")
+
+
 async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Recebe audio, transcreve e processa como tarefa."""
+    """Recebe audio, transcreve e processa."""
     if not GROQ_API_KEY:
         await update.message.reply_text(
             "🎤 Audio recebido, mas transcricao nao esta configurada.\n"
@@ -701,10 +1543,6 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
         await msg.edit_text(f"🎤 Entendi: _{texto}_\n\nProcessando...", parse_mode="Markdown")
-
-        # Processa como tarefa (com ou sem IA)
-        # Usamos update.message.reply_text pois msg.edit_text
-        # nao funciona bem com o fluxo de confirmacao
         await processar_nova_tarefa(update, context, texto)
 
     except Exception as e:
@@ -712,39 +1550,97 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await msg.edit_text("❌ Erro ao processar audio.")
 
 
+# ========== SETUP ==========
+
 async def setup_commands(app):
-    """Configura os comandos visiveis no menu do Telegram."""
+    """Configura comandos no menu do Telegram."""
     commands = [
         BotCommand("start", "Iniciar o bot"),
         BotCommand("tarefas", "Ver tarefas pendentes"),
-        BotCommand("planejar", "Planejamento inteligente do dia"),
-        BotCommand("feedback", "Feedback construtivo do dia"),
+        BotCommand("planejar", "Planejamento inteligente"),
+        BotCommand("feedback", "Feedback do dia"),
         BotCommand("resumo", "Resumo rapido"),
-        BotCommand("concluir", "Concluir ultima tarefa"),
+        BotCommand("concluir", "Concluir tarefa"),
+        BotCommand("editar", "Editar tarefa"),
+        BotCommand("relatorio", "Relatorio semanal"),
+        BotCommand("foco", "Modo foco (silenciar)"),
+        BotCommand("cancelar", "Cancelar operacao"),
     ]
     await app.bot.set_my_commands(commands)
+
+
+async def post_init(app):
+    """Executado apos inicializacao — configura comandos e jobs."""
+    await setup_commands(app)
+
+    # Jobs programados
+    jq = app.job_queue
+    if not jq:
+        logger.warning("JobQueue nao disponivel. Instale: pip install 'python-telegram-bot[job-queue]'")
+        return
+
+    # Resumo matinal as 7:30 (todos os dias)
+    jq.run_daily(
+        resumo_matinal,
+        time=dt_time(7, 30, tzinfo=TZ_RECIFE),
+        name="morning_summary",
+    )
+
+    # Relatorio semanal sexta 17:00
+    jq.run_daily(
+        relatorio_semanal_auto,
+        time=dt_time(17, 0, tzinfo=TZ_RECIFE),
+        days=(4,),  # 4 = sexta-feira
+        name="weekly_report",
+    )
+
+    # Verificar tarefas recorrentes diariamente as 6:00
+    jq.run_daily(
+        verificar_recorrentes,
+        time=dt_time(6, 0, tzinfo=TZ_RECIFE),
+        name="recurring_check",
+    )
+
+    # Carregar lembretes do dia (apos 5s para dar tempo de conectar)
+    jq.run_once(
+        _verificar_lembretes_iniciais,
+        when=5,
+        name="initial_reminders",
+    )
+
+    logger.info("Jobs programados: resumo 7:30, relatorio sex 17:00, recorrentes 6:00")
 
 
 # ========== MAIN ==========
 
 def main():
-    logger.info("Iniciando Organizador de Tarefas Bot...")
-    modo = "INTELIGENTE (Claude)" if ai_brain else "BASICO (sem IA)"
+    logger.info("Iniciando Organizador de Tarefas v2...")
+    modo = "INTELIGENTE v2 (Claude)" if ai_brain else "BASICO (sem IA)"
     logger.info(f"Modo: {modo}")
 
-    app = ApplicationBuilder().token(TELEGRAM_TOKEN).post_init(setup_commands).build()
+    # Carregar chat ID do Supabase
+    get_chat_id()
+    if CHAT_ID:
+        logger.info(f"Chat ID carregado: {CHAT_ID}")
 
-    # Registrar handlers
+    app = ApplicationBuilder().token(TELEGRAM_TOKEN).post_init(post_init).build()
+
+    # Handlers
     app.add_handler(CommandHandler("start", cmd_start))
     app.add_handler(CommandHandler("tarefas", cmd_tarefas))
     app.add_handler(CommandHandler("planejar", cmd_planejar))
     app.add_handler(CommandHandler("feedback", cmd_feedback))
     app.add_handler(CommandHandler("resumo", cmd_resumo))
     app.add_handler(CommandHandler("concluir", cmd_concluir))
+    app.add_handler(CommandHandler("editar", cmd_editar))
+    app.add_handler(CommandHandler("relatorio", cmd_relatorio))
+    app.add_handler(CommandHandler("foco", cmd_foco))
+    app.add_handler(CommandHandler("cancelar", cmd_cancelar))
+    app.add_handler(CallbackQueryHandler(handle_callback))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
     app.add_handler(MessageHandler(filters.VOICE | filters.AUDIO, handle_voice))
 
-    logger.info("Bot rodando! Mande /start no Telegram.")
+    logger.info("Bot v2 rodando! Mande /start no Telegram.")
     app.run_polling(drop_pending_updates=True)
 
 

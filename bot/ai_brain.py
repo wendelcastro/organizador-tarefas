@@ -1,9 +1,16 @@
 """
-AI Brain — O cerebro do Organizador de Tarefas
-================================================
-Usa Claude API para ser INTELIGENTE de verdade.
-O Claude CONHECE o Wendel, suas categorias, sua rotina,
-e sabe classificar tarefas pelo CONTEXTO, nao por keywords.
+AI Brain v2 — O cerebro inteligente do Organizador de Tarefas
+=============================================================
+Melhorias v2:
+- Resolucao temporal robusta (amanha, sexta, semana que vem, etc.)
+- Deteccao de multiplas tarefas em uma mensagem
+- Analise real de sobrecarga (baseada em tempo estimado + horarios)
+- Sugestao de realocacao inteligente
+- Memoria de contexto (pessoas, padroes)
+- Analise de padroes de produtividade
+- Relatorio semanal inteligente
+- Deteccao de delegacao
+- Deteccao de recorrencia
 """
 
 import json
@@ -15,7 +22,27 @@ import httpx
 
 logger = logging.getLogger(__name__)
 
-# ========== SYSTEM PROMPT — O CEREBRO COMPLETO ==========
+# ========== CONSTANTES TEMPORAIS ==========
+
+DIAS_SEMANA_PT = {
+    "segunda": 0, "segunda-feira": 0,
+    "terca": 1, "terça": 1, "terca-feira": 1, "terça-feira": 1,
+    "quarta": 2, "quarta-feira": 2,
+    "quinta": 3, "quinta-feira": 3,
+    "sexta": 4, "sexta-feira": 4,
+    "sabado": 5, "sábado": 5,
+    "domingo": 6,
+}
+
+# Jornada em minutos (configuravel)
+JORNADA_INICIO = 8   # 08:00
+JORNADA_FIM = 18     # 18:00
+JORNADA_TOTAL_MIN = (JORNADA_FIM - JORNADA_INICIO) * 60  # 600min
+BLOCOS_FIXOS_MIN = 75     # almoco 60min + cafe 15min
+TEMPO_PESSOAL_MIN = 50    # ingles 30min + leitura 20min
+CAPACIDADE_DIA_MIN = JORNADA_TOTAL_MIN - BLOCOS_FIXOS_MIN - TEMPO_PESSOAL_MIN  # 475min
+
+# ========== SYSTEM PROMPT PRINCIPAL ==========
 
 SYSTEM_PROMPT = """Voce e o cerebro de um organizador de tarefas inteligente.
 Seu usuario e o Professor Wendel Castro, de Recife-PE.
@@ -26,7 +53,7 @@ Professor de Inteligencia Artificial e Banco de Dados na Ser Educacional.
 Tambem faz consultoria em dados para empresas externas.
 Tem projetos pessoais (conteudo, estudos, vida pessoal).
 Sofre com sobrecarga mental — muitas demandas, sensacao de nao dar conta.
-Precisa proteger tempo pessoal: ingles (30min/dia) e leitura.
+Precisa proteger tempo pessoal: ingles (30min/dia) e leitura (20min/dia).
 Fuso horario: America/Recife (UTC-3).
 
 # AS 4 CATEGORIAS (DECORE ISSO)
@@ -74,17 +101,50 @@ YouTube, conteudo pessoal, academia, leitura, ingles.
 6. Somente se NAO se encaixar em nenhuma das 3 acima → PESSOAL
 7. NA DUVIDA, pergunte na mensagem de confirmacao ao inves de chutar
 
+# CONTEXTO APRENDIDO (MEMORIA)
+{contexto_memoria}
+
 # PRIORIDADE INTELIGENTE
 - Reuniao amanha = ALTA (urgente + importante)
 - Reuniao com gestores/coordenacao = ALTA (impacto institucional)
 - Aula amanha = ALTA (nao pode falhar)
-- Entrega com prazo proximo = ALTA
+- Entrega com prazo proximo (1-2 dias) = ALTA
+- Tarefa para esta semana = MEDIA
 - Tarefa sem prazo definido = MEDIA
 - "Quando puder", "sem pressa" = BAIXA
-- Comprar algo com prazo longe = BAIXA
+- Comprar algo sem urgencia = BAIXA
 
-# FORMATO DE RESPOSTA (CLASSIFICACAO)
-Quando classificar uma tarefa, responda SOMENTE com este JSON:
+# ESTIMATIVA DE TEMPO
+Estime o tempo em minutos de forma REALISTA:
+- Reuniao padrao: 60min
+- Aula: 50min (preparacao extra se necessario)
+- Corrigir provas: 90-120min (depende da turma)
+- Email/mensagem: 15min
+- Tarefa simples: 30min
+- Projeto/relatorio: 120-180min
+- Revisao de documento: 45min
+Sempre erre para MAIS, nunca para menos.
+
+# DETECCAO DE DELEGACAO
+Se o texto mencionar outra pessoa como responsavel (ex: "pede pro Joao", "delegar ao Pedro",
+"a Maria vai fazer"), detecte e preencha o campo "delegado_para" com o nome da pessoa.
+
+# DETECCAO DE RECORRENCIA
+Se o texto indicar repeticao (ex: "toda segunda", "todo dia", "semanalmente",
+"uma vez por mes"), detecte e preencha:
+- "recorrencia": "diaria" | "semanal" | "quinzenal" | "mensal"
+- "recorrencia_dia": numero do dia (0=segunda...6=domingo para semanal, 1-31 para mensal)
+
+# DETECCAO DE MULTIPLAS TAREFAS
+Se o texto contem MAIS DE UMA tarefa distinta (ex: "amanha tenho reuniao com Carlos
+as 10h e preciso corrigir as provas"), retorne um array de tarefas.
+Formato para multiplas tarefas:
+{
+  "multiplas": true,
+  "tarefas": [ ... array de objetos tarefa ... ]
+}
+
+# FORMATO DE RESPOSTA (TAREFA UNICA)
 {
   "titulo": "titulo limpo e claro (reescreva se necessario)",
   "categoria": "Trabalho|Consultoria|Grupo Ser|Pessoal",
@@ -94,6 +154,9 @@ Quando classificar uma tarefa, responda SOMENTE com este JSON:
   "meeting_link": "url ou null",
   "meeting_platform": "zoom|meet|teams|null",
   "tempo_estimado_min": 30,
+  "delegado_para": "nome ou null",
+  "recorrencia": "diaria|semanal|quinzenal|mensal|null",
+  "recorrencia_dia": null,
   "mensagem": "pergunta curta de confirmacao pro Wendel",
   "alerta_sobrecarga": false,
   "alerta_msg": null
@@ -104,8 +167,7 @@ IMPORTANTE:
 - O campo "mensagem" deve ser uma frase curta e natural
 - Se nao tem certeza da categoria, PERGUNTE na mensagem
 - Se nao tem prazo, coloque null e pergunte na mensagem
-- "amanha" = dia seguinte da data atual
-- Dias da semana = proximo dia com esse nome
+- Use a data/hora fornecida no contexto para resolver expressoes temporais
 """
 
 CONFIRM_PROMPT = """O usuario esta respondendo sobre uma tarefa que voce classificou.
@@ -136,6 +198,7 @@ EXEMPLOS DE AJUSTE:
 - Usuario: "prioridade alta" → mude prioridade para "alta", mantenha todo o resto
 - Usuario: "muda pra sexta" → mude prazo para a proxima sexta, mantenha todo o resto
 - Usuario: "coloca as 14h" → mude horario para "14:00", mantenha todo o resto
+- Usuario: "coloca 2 horas" → mude tempo_estimado_min para 120, mantenha todo o resto
 
 Responda APENAS com JSON valido, sem texto antes ou depois.
 """
@@ -146,6 +209,8 @@ Data: {data}
 Tarefas pendentes para hoje e atrasadas:
 {tarefas_json}
 
+Carga do dia: {carga_info}
+
 Regras:
 1. Distribua as tarefas em blocos de tempo realistas
 2. Inclua: almoco (12:00-13:00), cafe (15:30-15:45)
@@ -154,10 +219,12 @@ Regras:
 5. Se tem tarefa demais, sugira o que ADIAR para outro dia
 6. Margens: adicione 15-20% a mais de tempo em cada tarefa
 7. Reunioes com horario fixo nao podem ser movidas
+8. Use o tempo_estimado_min de cada tarefa para calcular os blocos
+9. Tarefas delegadas: apenas mencione que estao com a pessoa X
 
 Responda em texto formatado para Telegram (Markdown), NAO em JSON.
 Use emojis com moderacao. Seja direto e realista.
-Se o dia esta pesado demais, DIGA CLARAMENTE.
+Se o dia esta pesado demais, DIGA CLARAMENTE e sugira o que mover.
 """
 
 FEEDBACK_PROMPT = """De o feedback do dia do Wendel.
@@ -169,23 +236,61 @@ Tarefas concluidas hoje:
 Tarefas que ficaram pendentes:
 {pendentes_json}
 
+Padroes observados esta semana:
+{padroes}
+
 Regras:
 1. Comece destacando o que foi FEITO (reforco positivo)
 2. Mencione o que ficou pendente SEM julgamento
 3. Se fez ingles/leitura, elogie
 4. Se nao fez, lembre gentilmente
 5. Sugira 1-2 ajustes concretos para amanha
-6. Tom: coach motivacional, NAO chefe cobrando
-7. Wendel sofre com sobrecarga — alivie, nao pressione
+6. Se detectou padroes de adiamento, mencione com cuidado
+7. Tom: coach motivacional, NAO chefe cobrando
+8. Wendel sofre com sobrecarga — alivie, nao pressione
 
 Responda em texto formatado para Telegram (Markdown).
 Maximo 15 linhas — conciso e impactante.
 """
 
+REPORT_PROMPT = """Gere o relatorio semanal do Wendel.
+
+Periodo: {periodo}
+Total de tarefas na semana: {total}
+Concluidas: {concluidas}
+Pendentes que sobraram: {pendentes}
+Atrasadas: {atrasadas}
+
+Distribuicao por categoria:
+{dist_categoria}
+
+Distribuicao por prioridade:
+{dist_prioridade}
+
+Padroes detectados:
+{padroes}
+
+Tempo pessoal (ingles/leitura):
+{tempo_pessoal}
+
+Regras:
+1. Comece com uma nota positiva sobre a semana
+2. Mostre numeros reais (completou X de Y)
+3. Destaque a categoria com mais entregas
+4. Destaque a categoria com mais atrasos
+5. Analise se o tempo pessoal foi respeitado
+6. De 2-3 sugestoes concretas para a proxima semana
+7. Tom: review profissional mas amigavel
+8. Use emojis com moderacao
+9. Formatado para Telegram (Markdown)
+10. Maximo 25 linhas
+"""
+
 CHAT_PROMPT = """O usuario esta conversando sobre organizacao, feedback ou planejamento.
-Voce e o assistente pessoal dele.
+Voce e o assistente pessoal dele. Conhece a rotina, as categorias, os desafios.
 Seja direto, util e mantenha o foco em organizacao/produtividade.
 Se ele quiser discutir, discuta. Se quiser ajustar algo, ajuste.
+Se pedir pra editar uma tarefa existente, pergunte qual e o que mudar.
 Responda em texto formatado para Telegram (Markdown). Seja conciso.
 """
 
@@ -202,11 +307,13 @@ class AIBrain:
                 "anthropic-version": "2023-06-01",
                 "content-type": "application/json",
             },
-            timeout=45,
+            timeout=60,
         )
 
+    # ========== INFRA ==========
+
     def _call_claude(self, system: str, messages: list, max_tokens: int = 1024) -> str:
-        """Chama a Claude API com historico de mensagens."""
+        """Chama a Claude API."""
         try:
             resp = self.client.post(
                 "/v1/messages",
@@ -217,14 +324,11 @@ class AIBrain:
                     "messages": messages,
                 },
             )
-
             if resp.status_code != 200:
                 logger.error(f"Claude API erro {resp.status_code}: {resp.text}")
                 return None
-
             data = resp.json()
             return data["content"][0]["text"]
-
         except Exception as e:
             logger.error(f"Erro ao chamar Claude: {e}")
             return None
@@ -233,12 +337,10 @@ class AIBrain:
         """Extrai JSON de uma resposta que pode ter texto ao redor."""
         if not text:
             return None
-        # Tenta extrair JSON de dentro de ```json ... ``` ou direto
         match = re.search(r'```json\s*(.*?)\s*```', text, re.DOTALL)
         if match:
             text = match.group(1)
         else:
-            # Tenta encontrar o primeiro { ... } (mais externo)
             depth = 0
             start = None
             for i, c in enumerate(text):
@@ -251,18 +353,294 @@ class AIBrain:
                     if depth == 0 and start is not None:
                         text = text[start:i+1]
                         break
+            # Tentar array tambem
+            if start is None and '[' in text:
+                depth = 0
+                for i, c in enumerate(text):
+                    if c == '[':
+                        if depth == 0:
+                            start = i
+                        depth += 1
+                    elif c == ']':
+                        depth -= 1
+                        if depth == 0 and start is not None:
+                            text = text[start:i+1]
+                            break
         try:
             return json.loads(text)
         except json.JSONDecodeError:
             logger.error(f"Erro ao parsear JSON: {text[:300]}")
             return None
 
+    # ========== RESOLUCAO TEMPORAL ==========
+
+    def _resolver_data(self, texto: str) -> str:
+        """
+        Resolve expressoes temporais em datas concretas.
+        Retorna YYYY-MM-DD ou None.
+        """
+        hoje = datetime.now()
+        t = texto.lower()
+
+        # "hoje"
+        if re.search(r'\bhoje\b', t):
+            return hoje.strftime("%Y-%m-%d")
+
+        # "depois de amanha" ANTES de "amanha" (senao "amanha" daria match primeiro)
+        if re.search(r'depois\s+de\s+amanh[aã]', t):
+            return (hoje + timedelta(days=2)).strftime("%Y-%m-%d")
+
+        # "amanha" / "amanhã"
+        if re.search(r'\bamanh[aã]\b', t):
+            return (hoje + timedelta(days=1)).strftime("%Y-%m-%d")
+
+        # "daqui a X dias"
+        m = re.search(r'daqui\s+(?:a\s+)?(\d+)\s+dias?', t)
+        if m:
+            return (hoje + timedelta(days=int(m.group(1)))).strftime("%Y-%m-%d")
+
+        # "em X dias"
+        m = re.search(r'em\s+(\d+)\s+dias?', t)
+        if m:
+            return (hoje + timedelta(days=int(m.group(1)))).strftime("%Y-%m-%d")
+
+        # "proxima segunda", "essa sexta", "na quarta", etc.
+        for dia_nome, dia_num in DIAS_SEMANA_PT.items():
+            pattern = rf'\b{re.escape(dia_nome)}\b'
+            if re.search(pattern, t):
+                dias_ate = (dia_num - hoje.weekday()) % 7
+                # "essa/esta" = esta semana (pode ser hoje)
+                if re.search(r'\b(essa|esta|nessa|nesta)\b', t):
+                    if dias_ate == 0:
+                        return hoje.strftime("%Y-%m-%d")
+                else:
+                    # Padrao: proximo dia com esse nome
+                    if dias_ate == 0:
+                        dias_ate = 7
+                return (hoje + timedelta(days=dias_ate)).strftime("%Y-%m-%d")
+
+        # "semana que vem" / "proxima semana"
+        if re.search(r'semana\s+que\s+vem|pr[oó]xima\s+semana', t):
+            dias_ate_segunda = (7 - hoje.weekday()) % 7
+            if dias_ate_segunda == 0:
+                dias_ate_segunda = 7
+            return (hoje + timedelta(days=dias_ate_segunda)).strftime("%Y-%m-%d")
+
+        # "fim do mes" / "final do mes"
+        if re.search(r'fi[mn](?:al)?\s+(?:do|de)\s+m[eê]s', t):
+            if hoje.month == 12:
+                ultimo = datetime(hoje.year + 1, 1, 1) - timedelta(days=1)
+            else:
+                ultimo = datetime(hoje.year, hoje.month + 1, 1) - timedelta(days=1)
+            return ultimo.strftime("%Y-%m-%d")
+
+        # "fim da semana" = sexta
+        if re.search(r'fi[mn](?:al)?\s+(?:da|de)\s+semana', t):
+            dias_ate_sexta = (4 - hoje.weekday()) % 7
+            if dias_ate_sexta == 0:
+                dias_ate_sexta = 7
+            return (hoje + timedelta(days=dias_ate_sexta)).strftime("%Y-%m-%d")
+
+        # Data explicita DD/MM
+        m = re.search(r'(?:dia\s+)?(\d{1,2})[/\-](\d{1,2})(?:[/\-](\d{2,4}))?', t)
+        if m:
+            dia = int(m.group(1))
+            mes = int(m.group(2))
+            ano = int(m.group(3)) if m.group(3) else hoje.year
+            if ano < 100:
+                ano += 2000
+            try:
+                data = datetime(ano, mes, dia)
+                if data.date() < hoje.date():
+                    data = datetime(ano + 1, mes, dia)
+                return data.strftime("%Y-%m-%d")
+            except ValueError:
+                pass
+
+        return None
+
+    def _validar_data_claude(self, texto: str, data_claude: str) -> str:
+        """Valida a data do Claude contra resolucao propria. Python ganha em caso de conflito."""
+        data_resolvida = self._resolver_data(texto)
+
+        if data_resolvida and data_claude:
+            if data_resolvida != data_claude:
+                logger.warning(
+                    f"Data divergente: Claude={data_claude}, Python={data_resolvida}. "
+                    f"Usando Python (mais confiavel para expressoes temporais)."
+                )
+                return data_resolvida
+
+        if data_resolvida:
+            return data_resolvida
+
+        # Validar que Claude nao retornou data no passado
+        if data_claude:
+            try:
+                data_obj = datetime.strptime(data_claude, "%Y-%m-%d")
+                if data_obj.date() < datetime.now().date():
+                    logger.warning(f"Claude retornou data no passado: {data_claude}")
+                    return None
+                return data_claude
+            except ValueError:
+                return None
+
+        return None
+
+    # ========== ANALISE DE SOBRECARGA ==========
+
+    def _analisar_sobrecarga(self, tarefas_dia: list, nova_tarefa: dict) -> dict:
+        """Analisa se o dia esta sobrecarregado com base em tempo real."""
+        total_ocupado = sum(t.get('tempo_estimado_min') or 30 for t in tarefas_dia)
+        novo_tempo = nova_tarefa.get('tempo_estimado_min') or 30
+        total_com_novo = total_ocupado + novo_tempo
+
+        reunioes = [t for t in tarefas_dia if t.get('horario')]
+        percentual = (total_com_novo / CAPACIDADE_DIA_MIN) * 100 if CAPACIDADE_DIA_MIN > 0 else 100
+
+        result = {
+            "sobrecarregado": percentual > 85,
+            "percentual": round(percentual),
+            "minutos_ocupados": total_com_novo,
+            "minutos_disponiveis": CAPACIDADE_DIA_MIN,
+            "reunioes_fixas": len(reunioes),
+            "tarefas_total": len(tarefas_dia) + 1,
+        }
+
+        if percentual > 100:
+            result["nivel"] = "critico"
+            result["msg"] = (
+                f"⚠️ Dia LOTADO ({percentual:.0f}% da capacidade)! "
+                f"Ja tem {len(tarefas_dia)} tarefas somando {total_ocupado}min. "
+                f"Impossivel fazer tudo com qualidade."
+            )
+        elif percentual > 85:
+            result["nivel"] = "alto"
+            result["msg"] = (
+                f"⚠️ Dia pesado ({percentual:.0f}%). "
+                f"{len(tarefas_dia)} tarefas + esta nova. Risco de nao dar conta."
+            )
+        elif percentual > 65:
+            result["nivel"] = "moderado"
+            result["msg"] = f"📊 Dia cheio ({percentual:.0f}%), mas administravel."
+        else:
+            result["nivel"] = "ok"
+            result["msg"] = None
+
+        return result
+
+    def _sugerir_realocacao(self, carga_semana: dict) -> str:
+        """
+        Sugere o melhor dia para realocar baseado na carga da semana.
+        carga_semana: dict de "YYYY-MM-DD" -> {"total_tarefas": N, "minutos_estimados": M}
+        """
+        hoje = datetime.now()
+        melhor_dia = None
+        menor_carga = float('inf')
+
+        for i in range(1, 8):
+            dia = hoje + timedelta(days=i)
+            if dia.weekday() >= 5:  # pular sabado/domingo (configuravel)
+                continue
+            dia_str = dia.strftime("%Y-%m-%d")
+            info = carga_semana.get(dia_str, {"total_tarefas": 0, "minutos_estimados": 0})
+            carga = info.get("minutos_estimados", 0)
+            if carga < menor_carga:
+                menor_carga = carga
+                melhor_dia = dia
+
+        if melhor_dia:
+            dias_semana = {
+                0: "segunda", 1: "terca", 2: "quarta",
+                3: "quinta", 4: "sexta", 5: "sabado", 6: "domingo"
+            }
+            nome = dias_semana.get(melhor_dia.weekday(), "")
+            ocupacao = round((menor_carga / CAPACIDADE_DIA_MIN) * 100)
+            return (
+                f"💡 Sugestao: mover para {nome} ({melhor_dia.strftime('%d/%m')}) "
+                f"— so {ocupacao}% ocupado."
+            )
+        return None
+
+    # ========== DETECCAO DE MULTIPLAS TAREFAS ==========
+
+    def _detectar_separadores(self, texto: str) -> bool:
+        """Heuristica rapida para detectar se texto pode ter multiplas tarefas."""
+        indicadores = [
+            r'\be\s+(?:tambem|ainda|depois|alem)\b',
+            r'\balem\s+disso\b',
+            r'\btambem\s+(?:preciso|tenho|quero|devo)\b',
+            r'\boutra\s+coisa\b',
+            r'\b(?:primeiro|segundo|terceiro|depois|alem)\b.*\b(?:e|tambem)\b',
+        ]
+        texto_lower = texto.lower()
+        matches = sum(1 for p in indicadores if re.search(p, texto_lower))
+        # Se tem multiplos verbos de acao
+        acoes = re.findall(r'\b(?:preciso|tenho|quero|devo|fazer|preparar|enviar|corrigir|reuniao|reunir)\b', texto_lower)
+        return matches >= 1 or len(acoes) >= 3
+
+    # ========== CONTEXTO / MEMORIA ==========
+
+    def _formatar_contexto_memoria(self, contextos: list) -> str:
+        """Formata contextos aprendidos para injecao no prompt."""
+        if not contextos:
+            return "Nenhum contexto aprendido ainda."
+        linhas = []
+        for c in contextos:
+            if c.get("tipo") == "pessoa":
+                linhas.append(f"- Pessoa: {c['chave']} → {c['valor']}")
+            elif c.get("tipo") == "padrao":
+                linhas.append(f"- Padrao: {c['valor']}")
+            elif c.get("tipo") == "preferencia":
+                linhas.append(f"- Preferencia: {c['valor']}")
+            else:
+                linhas.append(f"- {c['valor']}")
+        return "\n".join(linhas)
+
+    def extrair_contexto(self, texto: str, classificacao: dict) -> list:
+        """
+        Extrai entidades/associacoes para salvar na memoria de contexto.
+        Ex: "reuniao com Carlos do Grupo Ser" → Carlos = Grupo Ser
+        """
+        contextos = []
+        texto_lower = texto.lower()
+
+        # Detectar nomes de pessoas associados a categorias
+        nomes_pattern = re.findall(
+            r'(?:com\s+(?:o\s+|a\s+)?|(?:do|da|pro|pra)\s+)([A-Z][a-záéíóúãõê]+)',
+            texto
+        )
+        categoria = classificacao.get("categoria", "")
+        for nome in nomes_pattern:
+            if nome.lower() not in ["grupo", "ser", "educacional", "zoom", "meet", "teams"]:
+                contextos.append({
+                    "chave": f"pessoa_{nome.lower()}",
+                    "valor": f"{nome} esta associado a categoria '{categoria}'",
+                    "tipo": "pessoa",
+                })
+
+        # Detectar delegacao
+        delegado = classificacao.get("delegado_para")
+        if delegado:
+            contextos.append({
+                "chave": f"pessoa_{delegado.lower()}",
+                "valor": f"{delegado} recebe tarefas delegadas (categoria: {categoria})",
+                "tipo": "pessoa",
+            })
+
+        return contextos
+
     # ========== FUNCOES PUBLICAS ==========
 
-    def classificar_tarefa(self, texto: str, tarefas_do_dia: list = None) -> dict:
+    def classificar_tarefa(self, texto: str, tarefas_do_dia: list = None,
+                           carga_semana: dict = None, contextos: list = None) -> dict:
         """
-        Classifica uma tarefa usando Claude.
-        Retorna dict com classificacao + mensagem de confirmacao.
+        Classifica uma tarefa com inteligencia completa:
+        - Resolucao temporal
+        - Analise de sobrecarga
+        - Sugestao de realocacao
+        - Deteccao de multiplas tarefas
+        - Memoria de contexto
         """
         hoje = datetime.now()
         dias_semana = {
@@ -271,42 +649,71 @@ class AIBrain:
         }
         dia_nome = dias_semana.get(hoje.weekday(), "")
 
+        # Contexto temporal
         contexto = f"Data/hora atual: {hoje.strftime('%Y-%m-%d %H:%M')} ({dia_nome})\n"
-        contexto += f"Amanha: {(hoje + timedelta(days=1)).strftime('%Y-%m-%d')}\n\n"
-        contexto += f"Texto do usuario: \"{texto}\"\n"
+        contexto += f"Amanha: {(hoje + timedelta(days=1)).strftime('%Y-%m-%d')}\n"
+        for i in range(2, 8):
+            d = hoje + timedelta(days=i)
+            nome_d = dias_semana.get(d.weekday(), "")
+            contexto += f"{nome_d}: {d.strftime('%Y-%m-%d')}\n"
 
+        contexto += f"\nTexto do usuario: \"{texto}\"\n"
+
+        # Tarefas do dia para contexto
         if tarefas_do_dia:
-            contexto += f"\nTarefas ja agendadas para hoje ({len(tarefas_do_dia)}):\n"
+            total_min = sum(t.get('tempo_estimado_min') or 30 for t in tarefas_do_dia)
+            contexto += f"\nTarefas ja agendadas para hoje ({len(tarefas_do_dia)}, ~{total_min}min):\n"
             for t in tarefas_do_dia:
-                contexto += f"  - {t.get('titulo', '')} | {t.get('categoria', '')} | {t.get('horario', 'sem horario')}\n"
-            if len(tarefas_do_dia) >= 5:
-                contexto += "\n⚠️ O dia ja esta cheio! Considere alertar sobre sobrecarga.\n"
+                tempo = t.get('tempo_estimado_min') or 30
+                contexto += f"  - {t.get('titulo', '')} | {t.get('categoria', '')} | {t.get('horario', 'sem horario')} | ~{tempo}min\n"
+            if total_min > CAPACIDADE_DIA_MIN * 0.85:
+                contexto += f"\n⚠️ O dia ja esta {round(total_min/CAPACIDADE_DIA_MIN*100)}% ocupado! Considere alertar sobre sobrecarga.\n"
+
+        # Montar system prompt com memoria
+        memoria_str = self._formatar_contexto_memoria(contextos or [])
+        system = SYSTEM_PROMPT.replace("{contexto_memoria}", memoria_str)
+
+        # Verificar se pode ter multiplas tarefas
+        pode_ser_multiplas = self._detectar_separadores(texto)
+        if pode_ser_multiplas:
+            contexto += "\n⚠️ Este texto PODE conter multiplas tarefas. Analise com cuidado.\n"
 
         messages = [{"role": "user", "content": contexto}]
-        resposta = self._call_claude(SYSTEM_PROMPT, messages)
+        resposta = self._call_claude(system, messages)
 
-        logger.info(f"Claude respondeu: {resposta[:200] if resposta else 'None'}...")
+        logger.info(f"Claude respondeu: {resposta[:300] if resposta else 'None'}")
         result = self._parse_json(resposta)
 
-        if not result or "titulo" not in result:
-            logger.warning(f"Classificacao falhou, usando fallback. Resposta: {resposta}")
-            return {
-                "titulo": texto,
-                "categoria": "Pessoal",
-                "prioridade": "media",
-                "prazo": None,
-                "horario": None,
-                "meeting_link": None,
-                "meeting_platform": None,
-                "tempo_estimado_min": 30,
-                "mensagem": "Nao consegui classificar automaticamente. Em qual categoria voce colocaria? (Trabalho, Consultoria, Grupo Ser, Pessoal)",
-                "alerta_sobrecarga": False,
-                "alerta_msg": None,
-            }
+        # Tratar multiplas tarefas
+        if isinstance(result, dict) and result.get("multiplas") and result.get("tarefas"):
+            tarefas_multiplas = []
+            for t in result["tarefas"]:
+                t = self._pos_processar_tarefa(t, texto, tarefas_do_dia, carga_semana)
+                tarefas_multiplas.append(t)
+            return {"multiplas": True, "tarefas": tarefas_multiplas}
 
-        # Garantir que todos os campos existem
+        if isinstance(result, list):
+            tarefas_multiplas = []
+            for t in result:
+                if isinstance(t, dict) and "titulo" in t:
+                    t = self._pos_processar_tarefa(t, texto, tarefas_do_dia, carga_semana)
+                    tarefas_multiplas.append(t)
+            if tarefas_multiplas:
+                return {"multiplas": True, "tarefas": tarefas_multiplas}
+
+        if not result or not isinstance(result, dict) or "titulo" not in result:
+            logger.warning(f"Classificacao falhou, usando fallback. Resposta: {resposta}")
+            return self._fallback_classificacao(texto)
+
+        return self._pos_processar_tarefa(result, texto, tarefas_do_dia, carga_semana)
+
+    def _pos_processar_tarefa(self, result: dict, texto: str,
+                               tarefas_do_dia: list = None,
+                               carga_semana: dict = None) -> dict:
+        """Pos-processamento: validacao de data, sobrecarga, defaults."""
+        # Garantir defaults
         defaults = {
-            "titulo": texto,
+            "titulo": texto[:100],
             "categoria": "Pessoal",
             "prioridade": "media",
             "prazo": None,
@@ -314,57 +721,134 @@ class AIBrain:
             "meeting_link": None,
             "meeting_platform": None,
             "tempo_estimado_min": 30,
+            "delegado_para": None,
+            "recorrencia": None,
+            "recorrencia_dia": None,
             "mensagem": "Confirma essa classificacao?",
             "alerta_sobrecarga": False,
             "alerta_msg": None,
         }
         for k, v in defaults.items():
-            if k not in result or result[k] is None and v is not None:
-                if k not in result:
-                    result[k] = v
+            if k not in result:
+                result[k] = v
+
+        # Validar/corrigir data
+        if result.get("prazo"):
+            result["prazo"] = self._validar_data_claude(texto, result["prazo"])
+        else:
+            data_resolvida = self._resolver_data(texto)
+            if data_resolvida:
+                result["prazo"] = data_resolvida
+
+        # Analise de sobrecarga
+        if result.get("prazo") and tarefas_do_dia:
+            hoje_str = datetime.now().strftime("%Y-%m-%d")
+            # So analisa se a tarefa e para hoje
+            if result["prazo"] == hoje_str:
+                sobrecarga = self._analisar_sobrecarga(tarefas_do_dia, result)
+                if sobrecarga["sobrecarregado"]:
+                    result["alerta_sobrecarga"] = True
+                    result["alerta_msg"] = sobrecarga["msg"]
+                    if carga_semana:
+                        sugestao = self._sugerir_realocacao(carga_semana)
+                        if sugestao:
+                            result["alerta_msg"] += f"\n{sugestao}"
 
         return result
 
+    def _fallback_classificacao(self, texto: str) -> dict:
+        """Fallback quando Claude falha — classificacao por keywords."""
+        texto_lower = texto.lower()
+
+        categoria = "Pessoal"
+        if any(w in texto_lower for w in ["grupo ser", "ser educacional", "coordenacao", "pedagogico", "carlos"]):
+            categoria = "Grupo Ser"
+        elif any(w in texto_lower for w in ["consultoria", "cliente", "pipeline", "dados para empresa"]):
+            categoria = "Consultoria"
+        elif any(w in texto_lower for w in ["aula", "prova", "aluno", "tcc", "corrigir", "nota", "disciplina"]):
+            categoria = "Trabalho"
+
+        prioridade = "media"
+        if any(w in texto_lower for w in ["urgente", "agora", "critico", "hoje"]):
+            prioridade = "alta"
+        elif any(w in texto_lower for w in ["quando puder", "sem pressa", "baixa"]):
+            prioridade = "baixa"
+
+        prazo = self._resolver_data(texto)
+
+        horario = None
+        time_match = re.search(r'(\d{1,2})[h:](\d{2})', texto_lower)
+        if time_match:
+            h, m = int(time_match.group(1)), int(time_match.group(2))
+            if 0 <= h <= 23 and 0 <= m <= 59:
+                horario = f"{h:02d}:{m:02d}"
+
+        meeting_link = None
+        url_match = re.search(r'(https?://\S+)', texto)
+        if url_match:
+            url = url_match.group(1)
+            if any(p in url for p in ["zoom", "meet.google", "teams"]):
+                meeting_link = url
+
+        return {
+            "titulo": texto[:100],
+            "categoria": categoria,
+            "prioridade": prioridade,
+            "prazo": prazo,
+            "horario": horario,
+            "meeting_link": meeting_link,
+            "meeting_platform": None,
+            "tempo_estimado_min": 30,
+            "delegado_para": None,
+            "recorrencia": None,
+            "recorrencia_dia": None,
+            "mensagem": "Nao consegui classificar com IA. Confirma ou ajusta.",
+            "alerta_sobrecarga": False,
+            "alerta_msg": None,
+        }
+
     def processar_confirmacao(self, resposta_usuario: str, tarefa_pendente: dict,
                                historico_conversa: list = None) -> dict:
-        """
-        Processa a resposta do usuario ao pedido de confirmacao.
-        Usa historico completo da conversa para entender o contexto.
-        """
+        """Processa resposta de confirmacao/ajuste com historico."""
         hist_str = ""
         if historico_conversa:
             for msg in historico_conversa:
                 papel = "Wendel" if msg.get("role") == "user" else "Assistente"
                 hist_str += f"{papel}: {msg.get('content', '')}\n"
 
-        system = SYSTEM_PROMPT + "\n\n" + CONFIRM_PROMPT.format(
+        system = SYSTEM_PROMPT.replace("{contexto_memoria}", "") + "\n\n" + CONFIRM_PROMPT.format(
             tarefa_json=json.dumps(tarefa_pendente, ensure_ascii=False, indent=2),
             historico=hist_str or "(primeira interacao)",
             resposta=resposta_usuario,
         )
 
+        # Adicionar contexto temporal
+        hoje = datetime.now()
+        temporal = f"\nData atual: {hoje.strftime('%Y-%m-%d')}, Amanha: {(hoje + timedelta(days=1)).strftime('%Y-%m-%d')}\n"
+        system += temporal
+
         messages = [{"role": "user", "content": resposta_usuario}]
         resposta = self._call_claude(system, messages)
 
-        logger.info(f"Confirmacao - Claude respondeu: {resposta[:200] if resposta else 'None'}...")
+        logger.info(f"Confirmacao - Claude respondeu: {resposta[:200] if resposta else 'None'}")
         result = self._parse_json(resposta)
 
         if not result:
             logger.warning(f"Parse falhou na confirmacao. Resposta: {resposta}")
-            # Se nao entendeu, tenta detectar intent manualmente
             lower = resposta_usuario.lower().strip() if resposta_usuario else ""
             if any(w in lower for w in ["sim", "ok", "confirma", "isso", "salva", "pode", "bora", "manda"]):
                 return {"acao": "salvar"}
             if any(w in lower for w in ["nao", "cancela", "esquece", "deixa"]):
                 return {"acao": "cancelar"}
-            # Ultima tentativa: assume que e um ajuste, retorna com as mudancas que conseguir detectar
             return self._tentar_ajuste_manual(resposta_usuario, tarefa_pendente)
 
-        # Se retornou acao, retorna direto
         if "acao" in result:
             return result
 
-        # Se retornou tarefa atualizada, garante campos completos
+        # Tarefa atualizada — validar data
+        if "prazo" in result and result["prazo"]:
+            result["prazo"] = self._validar_data_claude(resposta_usuario, result["prazo"])
+
         for k, v in tarefa_pendente.items():
             if k not in result:
                 result[k] = v
@@ -372,11 +856,10 @@ class AIBrain:
         return result
 
     def _tentar_ajuste_manual(self, texto: str, tarefa: dict) -> dict:
-        """Tenta fazer ajuste manual se Claude nao retornou JSON valido."""
+        """Fallback: ajuste manual se Claude nao retornou JSON valido."""
         lower = texto.lower().strip()
         updated = dict(tarefa)
 
-        # Detectar mudanca de categoria
         if "trabalho" in lower:
             updated["categoria"] = "Trabalho"
         elif "consultoria" in lower:
@@ -386,7 +869,6 @@ class AIBrain:
         elif "pessoal" in lower:
             updated["categoria"] = "Pessoal"
 
-        # Detectar mudanca de prioridade
         if "alta" in lower or "urgente" in lower:
             updated["prioridade"] = "alta"
         elif "baixa" in lower:
@@ -394,22 +876,50 @@ class AIBrain:
         elif "media" in lower:
             updated["prioridade"] = "media"
 
+        data = self._resolver_data(texto)
+        if data:
+            updated["prazo"] = data
+
+        time_match = re.search(r'(\d{1,2})[h:](\d{2})', lower)
+        if time_match:
+            h, m = int(time_match.group(1)), int(time_match.group(2))
+            if 0 <= h <= 23 and 0 <= m <= 59:
+                updated["horario"] = f"{h:02d}:{m:02d}"
+
         return updated
 
+    # ========== PLANEJAR DIA ==========
+
     def planejar_dia(self, tarefas: list, data: str = None) -> str:
-        """Gera planejamento do dia."""
+        """Gera planejamento inteligente do dia."""
         if not data:
             data = datetime.now().strftime("%Y-%m-%d")
 
+        total_min = sum(t.get('tempo_estimado_min') or 30 for t in tarefas)
+        reunioes = sum(1 for t in tarefas if t.get('horario'))
+        ocupacao = round((total_min / CAPACIDADE_DIA_MIN) * 100)
+
+        carga_info = (
+            f"{len(tarefas)} tarefas, ~{total_min}min estimados, "
+            f"{reunioes} reunioes fixas, {ocupacao}% da capacidade "
+            f"(limite: {CAPACIDADE_DIA_MIN}min uteis)"
+        )
+
         tarefas_json = json.dumps(tarefas, ensure_ascii=False, indent=2)
-        prompt = PLANNING_PROMPT.format(data=data, tarefas_json=tarefas_json)
+        prompt = PLANNING_PROMPT.format(
+            data=data, tarefas_json=tarefas_json, carga_info=carga_info
+        )
 
         messages = [{"role": "user", "content": prompt}]
-        resposta = self._call_claude(SYSTEM_PROMPT, messages, max_tokens=2048)
+        system = SYSTEM_PROMPT.replace("{contexto_memoria}", "")
+        resposta = self._call_claude(system, messages, max_tokens=2048)
         return resposta or "Nao consegui gerar o planejamento. Tente novamente."
 
-    def feedback_dia(self, concluidas: list, pendentes: list, data: str = None) -> str:
-        """Gera feedback do dia."""
+    # ========== FEEDBACK DO DIA ==========
+
+    def feedback_dia(self, concluidas: list, pendentes: list,
+                     padroes: str = "", data: str = None) -> str:
+        """Gera feedback construtivo do dia."""
         if not data:
             data = datetime.now().strftime("%Y-%m-%d")
 
@@ -417,21 +927,85 @@ class AIBrain:
             data=data,
             concluidas_json=json.dumps(concluidas, ensure_ascii=False, indent=2),
             pendentes_json=json.dumps(pendentes, ensure_ascii=False, indent=2),
+            padroes=padroes or "Nenhum padrao significativo detectado ainda.",
         )
 
         messages = [{"role": "user", "content": prompt}]
-        resposta = self._call_claude(SYSTEM_PROMPT, messages, max_tokens=2048)
+        system = SYSTEM_PROMPT.replace("{contexto_memoria}", "")
+        resposta = self._call_claude(system, messages, max_tokens=2048)
         return resposta or "Nao consegui gerar o feedback. Tente novamente."
+
+    # ========== RELATORIO SEMANAL ==========
+
+    def gerar_relatorio_semanal(self, dados: dict) -> str:
+        """Gera relatorio semanal completo."""
+        prompt = REPORT_PROMPT.format(
+            periodo=dados.get("periodo", "esta semana"),
+            total=dados.get("total", 0),
+            concluidas=dados.get("concluidas", 0),
+            pendentes=dados.get("pendentes", 0),
+            atrasadas=dados.get("atrasadas", 0),
+            dist_categoria=dados.get("dist_categoria", "Sem dados"),
+            dist_prioridade=dados.get("dist_prioridade", "Sem dados"),
+            padroes=dados.get("padroes", "Sem padroes detectados"),
+            tempo_pessoal=dados.get("tempo_pessoal", "Sem dados"),
+        )
+
+        messages = [{"role": "user", "content": prompt}]
+        system = SYSTEM_PROMPT.replace("{contexto_memoria}", "")
+        resposta = self._call_claude(system, messages, max_tokens=2048)
+        return resposta or "Nao consegui gerar o relatorio. Tente novamente."
+
+    # ========== CONVERSA LIVRE ==========
 
     def conversar(self, mensagem: str, historico: list) -> str:
         """Conversa livre sobre organizacao/feedback."""
-        system = SYSTEM_PROMPT + "\n\n" + CHAT_PROMPT
+        system = SYSTEM_PROMPT.replace("{contexto_memoria}", "") + "\n\n" + CHAT_PROMPT
 
         messages = []
-        for msg in historico[-8:]:
+        for msg in historico[-10:]:
             role = "user" if msg.get("role") == "user" else "assistant"
             messages.append({"role": role, "content": msg.get("content", "")})
         messages.append({"role": "user", "content": mensagem})
 
         resposta = self._call_claude(system, messages, max_tokens=1024)
         return resposta or "Desculpa, tive um problema. Tenta de novo?"
+
+    # ========== ANALISE DE PADROES ==========
+
+    def analisar_padroes(self, historico: list, tarefas_recentes: list) -> str:
+        """Analisa padroes de comportamento para feedback e relatorios."""
+        if not historico and not tarefas_recentes:
+            return "Sem dados suficientes para analise."
+
+        padroes = []
+
+        # Analisar categorias com mais atrasos
+        atrasadas_por_cat = {}
+        for t in tarefas_recentes:
+            if t.get("status") != "concluida" and t.get("prazo"):
+                try:
+                    prazo = datetime.strptime(t["prazo"], "%Y-%m-%d")
+                    if prazo.date() < datetime.now().date():
+                        cat = t.get("categoria", "Sem categoria")
+                        atrasadas_por_cat[cat] = atrasadas_por_cat.get(cat, 0) + 1
+                except (ValueError, TypeError):
+                    pass
+
+        if atrasadas_por_cat:
+            pior_cat = max(atrasadas_por_cat, key=atrasadas_por_cat.get)
+            padroes.append(
+                f"Categoria com mais atrasos: {pior_cat} ({atrasadas_por_cat[pior_cat]} tarefas)"
+            )
+
+        # Analisar tempo pessoal
+        tarefas_pessoais_concluidas = [
+            t for t in tarefas_recentes
+            if t.get("categoria") == "Pessoal"
+            and t.get("status") == "concluida"
+            and any(w in (t.get("titulo", "").lower()) for w in ["ingles", "leitura", "academia"])
+        ]
+        if len(tarefas_pessoais_concluidas) < 3:
+            padroes.append("Tempo pessoal (ingles/leitura) pode estar sendo negligenciado")
+
+        return "\n".join(padroes) if padroes else "Sem padroes significativos."

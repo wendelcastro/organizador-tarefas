@@ -437,6 +437,21 @@ body::after {
 }
 
 /* ========== TODAY VIEW ========== */
+/* ========== OVERDUE BANNER ========== */
+.overdue-banner {
+  background: rgba(239,68,68,0.12);
+  border: 1px solid rgba(239,68,68,0.25);
+  border-radius: var(--radius-sm);
+  padding: 0.6rem 0.8rem;
+  margin-bottom: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  animation: fadeIn 0.4s ease;
+}
+.overdue-banner-icon { font-size: 1rem; }
+.overdue-banner-text { font-size: 0.75rem; color: #ef4444; font-weight: 500; }
+
 .today-view { display: none; animation: fadeIn 0.4s ease; }
 .today-view.active { display: block; }
 
@@ -723,6 +738,21 @@ body::after {
 .nav-item.active { color: var(--cat-consultoria); }
 .nav-item:active { transform: scale(0.9); }
 .nav-item svg { width: 22px; height: 22px; }
+.nav-item { position: relative; }
+.nav-badge {
+  position: absolute;
+  top: 2px; right: 8px;
+  background: var(--pri-alta);
+  color: white;
+  font-size: 0.55rem;
+  font-weight: 700;
+  min-width: 16px;
+  height: 16px;
+  line-height: 16px;
+  text-align: center;
+  border-radius: 50px;
+  padding: 0 4px;
+}
 
 .nav-fab {
   width: 50px; height: 50px;
@@ -1101,6 +1131,10 @@ body::after {
 
   <!-- MAIN -->
   <main class="main">
+    <div class="overdue-banner" id="overdueBanner" style="display:none">
+      <span class="overdue-banner-icon">⚠️</span>
+      <span class="overdue-banner-text" id="overdueBannerText"></span>
+    </div>
     <div class="tasks-view" id="tasksView">
       <div class="status-tabs">
         <button class="status-tab active" data-status="all" onclick="filterStatus('all')">Todas</button>
@@ -1394,6 +1428,33 @@ function updateStats() {
   document.getElementById('countConsultoria').textContent = tasks.filter(t => t.categoria === 'Consultoria').length;
   document.getElementById('countGrupoSer').textContent = tasks.filter(t => t.categoria === 'Grupo Ser').length;
   document.getElementById('countPessoal').textContent = tasks.filter(t => t.categoria === 'Pessoal').length;
+
+  // Banner de atrasadas
+  const banner = document.getElementById('overdueBanner');
+  if (overdue > 0) {
+    banner.style.display = 'flex';
+    document.getElementById('overdueBannerText').textContent =
+      `Voce tem ${overdue} tarefa${overdue > 1 ? 's' : ''} atrasada${overdue > 1 ? 's' : ''}! Revise seus prazos.`;
+  } else {
+    banner.style.display = 'none';
+  }
+
+  // Badge no botao Hoje (quantidade de tarefas do dia)
+  const hoje = new Date().toISOString().split('T')[0];
+  const todayCount = tasks.filter(t => t.prazo === hoje && t.status !== 'concluida').length;
+  document.querySelectorAll('[data-view="today"]').forEach(btn => {
+    let badge = btn.querySelector('.nav-badge');
+    if (todayCount > 0) {
+      if (!badge) {
+        badge = document.createElement('span');
+        badge.className = 'nav-badge';
+        btn.appendChild(badge);
+      }
+      badge.textContent = todayCount;
+    } else if (badge) {
+      badge.remove();
+    }
+  });
 }
 
 // ========== FILTERS ==========
@@ -1466,8 +1527,10 @@ function renderTasks() {
           <div class="task-meta">
             <span class="task-priority"><span class="dot" style="background:${priColor}"></span>${PRIORITY_LABELS[task.prioridade]}</span>
             ${timeStr ? '<span>' + timeStr + '</span>' : ''}
+            ${task.tempo_estimado_min ? '<span>⏱' + task.tempo_estimado_min + 'min</span>' : ''}
+            ${task.delegado_para ? '<span>👤' + task.delegado_para + '</span>' : ''}
+            ${task.recorrencia ? '<span>🔄' + task.recorrencia + '</span>' : ''}
             ${meetingHTML}
-            ${task.notas && !meetingHTML ? '<span>' + task.notas.substring(0, 30) + (task.notas.length > 30 ? '...' : '') + '</span>' : ''}
           </div>
         </div>
         <div class="task-right">
@@ -1631,6 +1694,18 @@ function showTaskDetail(id) {
         <div class="detail-field-label">Horario</div>
         <div class="detail-field-value">${task.horario || 'Sem horario'}</div>
       </div>
+      ${task.tempo_estimado_min ? `<div>
+        <div class="detail-field-label">Tempo estimado</div>
+        <div class="detail-field-value">⏱ ${task.tempo_estimado_min}min</div>
+      </div>` : ''}
+      ${task.delegado_para ? `<div>
+        <div class="detail-field-label">Delegado para</div>
+        <div class="detail-field-value">👤 ${task.delegado_para}</div>
+      </div>` : ''}
+      ${task.recorrencia ? `<div>
+        <div class="detail-field-label">Recorrencia</div>
+        <div class="detail-field-value">🔄 ${task.recorrencia}</div>
+      </div>` : ''}
     </div>`;
 
   if (platform) {
