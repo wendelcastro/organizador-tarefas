@@ -1,39 +1,56 @@
-# Organizador de Tarefas - Config do Projeto
+# Organizador de Tarefas v2 - Config do Projeto
 
 ## Sobre
-Sistema pessoal de organizacao de tarefas com captura por voz/texto via Telegram,
-priorizacao por IA (Claude API), armazenamento no Supabase e dashboard web.
+Sistema pessoal de organizacao de tarefas com IA inteligente.
+Captura por voz/texto via Telegram, classifica com Claude API (Sonnet),
+armazena no Supabase e visualiza num dashboard web.
 
 ## Stack
-- **Bot**: Python + python-telegram-bot + Whisper (transcricao de audio)
-- **Backend**: Supabase (PostgreSQL + Auth + Realtime)
+- **Bot**: Python 3.10+ + python-telegram-bot[job-queue] + Whisper (Groq)
+- **IA**: Claude API (Sonnet) — cerebro que classifica, planeja e da feedback
+- **Backend**: Supabase (PostgreSQL + API REST + Realtime)
 - **Frontend**: HTML/CSS/JS (vanilla) hospedado no GitHub Pages
-- **IA**: Claude API (classificacao e priorizacao)
-- **Deploy**: GitHub Pages (frontend) + Supabase Edge Functions ou Railway (bot)
+- **Deploy**: GitHub Pages (frontend) + Koyeb ou Oracle Cloud (bot)
 
 ## Categorias de Tarefas
-- Trabalho (Ser Educacional)
-- Consultoria
-- Grupo Ser
-- Pessoal
+- Trabalho (dar aulas, corrigir, preparar material)
+- Consultoria (projetos externos de dados)
+- Grupo Ser (institucional — Ser Educacional como empresa)
+- Pessoal (estudos, saude, familia, projetos pessoais)
 
 ## Estrutura de Pastas
 ```
-/bot          - Telegram Bot (Python)
-/web          - Dashboard Web (HTML/CSS/JS)
-/docs         - Documentacao didatica do projeto
-/supabase     - Migrations e configs do Supabase
+/bot          - Telegram Bot + AI Brain (Python)
+/web          - Dashboard Web (HTML/CSS/JS single-file)
+/docs         - Documentacao didatica completa
+/supabase     - Migrations SQL (001, 002, 003)
 ```
+
+## Arquivos Chave
+- `bot/main.py` — Ponto de entrada, handlers, jobs programados (resumo 7:30, relatorio sex 17h)
+- `bot/ai_brain.py` — Cerebro IA: classificacao, resolucao temporal, sobrecarga, multiplas tarefas
+- `web/index.html` — Dashboard completo (3 views, filtros, calendario, realtime)
+- `supabase/003_melhorias_inteligentes.sql` — Migration v2 (tempo estimado, recorrencia, delegacao, contexto IA)
+
+## Comandos do Bot
+/start, /tarefas, /planejar, /feedback, /resumo, /concluir, /editar, /relatorio, /foco, /cancelar
 
 ## Supabase
 - URL: (configurar em .env)
 - Anon Key: (configurar em .env)
+- Tabelas: tarefas, categorias, historico, configuracoes, contexto_ia
+- Views: resumo_semanal, carga_por_dia
 
-## Telegram Bot
-- Token: (configurar em .env via @BotFather)
+## Chaves API (.env)
+- TELEGRAM_BOT_TOKEN — @BotFather
+- SUPABASE_URL + SUPABASE_ANON_KEY — supabase.com
+- ANTHROPIC_API_KEY — console.anthropic.com
+- GROQ_API_KEY — console.groq.com (opcional, para audio)
 
 ## Regras
 1. Nunca commitar .env ou chaves de API
 2. Documentar cada etapa para fins didaticos
 3. Commits em portugues, descritivos
 4. Testar localmente antes de subir
+5. Ser proativo: analisar junto, antecipar problemas, pensar como product owner
+6. Relatorio semanal automatico na sexta as 17h (nao domingo)
