@@ -13,7 +13,9 @@
         v
 [AI Brain v2] --- classifica, resolve datas, detecta multiplas,
         |         analisa sobrecarga, sugere realocacao,
-        |         aprende contexto (memoria)
+        |         aprende contexto (memoria), detecta conflitos,
+        |         decomposicao de tarefas, alerta preditivo,
+        |         planejamento por energia
         v
 [Supabase] --- armazena tudo (PostgreSQL + Realtime)
         |
@@ -22,8 +24,9 @@
 
         === AUTOMACOES (rodam sozinhas via JobQueue) ===
 
-[07:30] Resumo matinal ──> Telegram
 [06:00] Tarefas recorrentes ──> Supabase
+[07:30] Resumo matinal + reagendamento ──> Telegram
+[13:00] Check-in do meio-dia ──> Telegram
 [HH:MM - 15min] Lembrete ──> Telegram
 [Sexta 17:00] Relatorio semanal ──> Telegram
 ```
@@ -50,7 +53,14 @@
   - Dar feedback construtivo (tom de coach)
   - Gerar relatorio semanal com padroes
   - Aprender contexto (ex: "Carlos = Grupo Ser") via tabela `contexto_ia`
+  - **Decompor tarefas grandes** em 3-6 subtarefas com tempo estimado (Sprint 2)
+  - **Detectar conflitos de horario** entre reunioes antes de salvar (Sprint 2)
+  - **Alerta preditivo de sobrecarga** para dias futuros (Sprint 2)
+  - **Sugerir reagendamento automatico** de tarefas atrasadas (Sprint 2)
+  - **Planejamento por energia**: cognitivas de manha, administrativas de tarde (Sprint 2)
+  - **Analise de padroes melhorada**: categorias, dias da semana, habitos (Sprint 2)
 - **Seguranca**: Pos-processamento em Python valida datas e corrige erros da IA
+- **Resiliencia**: Retry com backoff exponencial para Claude API (429/503)
 - **Fallback**: Se Claude falha, classificacao por keywords assume
 
 ### Supabase (A Secretaria)

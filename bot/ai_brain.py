@@ -11,6 +11,15 @@ Melhorias v2:
 - Relatorio semanal inteligente
 - Deteccao de delegacao
 - Deteccao de recorrencia
+
+Sprint 2 — IA Mais Inteligente:
+- Decomposicao de tarefas (decompor_tarefa) — quebra tarefa grande em subtarefas
+- Deteccao de conflitos de horario (detectar_conflitos) — avisa se reunioes se sobrepoe
+- Alerta preditivo de sobrecarga (alerta_preditivo) — avisa antes de dias lotados
+- Sugestao de reagendamento (sugerir_reagendamento) — onde mover tarefas atrasadas
+- Planejamento por energia — cognitivas de manha, administrativas de tarde
+- Retry com backoff exponencial — tolerancia a falhas da Claude API
+- Analise de padroes melhorada — categorias, dias, habitos pessoais
 """
 
 import json

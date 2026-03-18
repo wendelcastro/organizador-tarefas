@@ -38,8 +38,14 @@ A IA:
 - [x] Memoria de contexto (aprende que "Carlos = Grupo Ser")
 - [x] Deteccao de delegacao ("pede pro Joao")
 - [x] Deteccao de recorrencia ("toda segunda")
-- [x] Analise de padroes de produtividade
+- [x] Analise de padroes de produtividade (categorias, dias, habitos)
 - [x] Estimativa de tempo por tipo de tarefa
+- [x] Decomposicao de tarefas grandes em subtarefas (`/decompor`)
+- [x] Deteccao de conflitos de horario entre reunioes
+- [x] Alerta preditivo de sobrecarga para dias futuros
+- [x] Sugestao de reagendamento automatico de atrasadas
+- [x] Planejamento por energia (cognitivas manha, admin tarde)
+- [x] Retry com backoff exponencial (tolerancia a falhas da API)
 
 ### Bot Telegram (11 comandos)
 - [x] `/start` — Boas-vindas + salva chat ID
