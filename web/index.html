@@ -1056,6 +1056,85 @@ body::after {
   .main { padding: 2rem 2.5rem; }
   .sidebar { padding: 2rem 1.5rem; gap: 2rem; }
 }
+
+/* ========== TIMELINE ========== */
+.timeline { position: relative; padding-left: 3rem; margin: 1rem 0; }
+.timeline::before { content: ''; position: absolute; left: 1.2rem; top: 0; bottom: 0; width: 2px; background: var(--border-subtle); }
+.timeline-item { position: relative; margin-bottom: 1rem; padding: 0.8rem 1rem; background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); border-left: 3px solid var(--cat-color, var(--text-muted)); cursor: pointer; transition: var(--transition); }
+.timeline-item:hover { border-color: var(--border-hover); transform: translateX(4px); }
+.timeline-item::before { content: ''; position: absolute; left: -2.05rem; top: 1rem; width: 10px; height: 10px; border-radius: 50%; background: var(--cat-color, var(--text-secondary)); border: 2px solid var(--bg-deep); }
+.timeline-time { font-size: 0.75rem; color: var(--text-secondary); font-weight: 600; position: absolute; left: -4.5rem; top: 0.8rem; width: 3rem; text-align: right; }
+.timeline-title { font-weight: 500; color: var(--text-primary); margin-bottom: 0.25rem; }
+.timeline-meta { font-size: 0.75rem; color: var(--text-secondary); display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.timeline-now { position: relative; margin: 0.5rem 0; padding: 0.25rem 0.5rem; font-size: 0.7rem; color: var(--cat-consultoria); }
+.timeline-now::before { content: ''; position: absolute; left: -2rem; top: 50%; width: 8px; height: 8px; border-radius: 50%; background: var(--cat-consultoria); transform: translateY(-50%); }
+.timeline-now::after { content: ''; position: absolute; left: -1.4rem; top: 50%; width: calc(100% + 1.4rem); height: 1px; background: var(--cat-consultoria); opacity: 0.3; }
+.today-view-toggle { display: flex; gap: 0.3rem; margin-left: auto; }
+.today-view-toggle button { padding: 0.25rem 0.6rem; background: var(--bg-glass); border: 1px solid var(--border-subtle); border-radius: 50px; color: var(--text-muted); font-family: inherit; font-size: 0.7rem; cursor: pointer; transition: var(--transition); }
+.today-view-toggle button.active { color: var(--text-primary); background: rgba(255,255,255,0.1); border-color: var(--border-hover); }
+
+/* ========== QUICK STATUS TOGGLE (3 states) ========== */
+.task-card.in-progress { border-left-color: var(--pri-media); }
+.task-card.in-progress .task-check { background: rgba(245,158,11,0.2); border-color: var(--pri-media); }
+.task-card.in-progress .task-check::after { content: '\25B6'; font-size: 0.5rem; color: var(--pri-media); }
+.status-indicator { display: inline-flex; align-items: center; gap: 0.25rem; font-size: 0.7rem; padding: 0.15rem 0.5rem; border-radius: 1rem; }
+.status-indicator.pendente { background: rgba(239,68,68,0.1); color: var(--pri-alta); }
+.status-indicator.em_andamento { background: rgba(245,158,11,0.1); color: var(--pri-media); }
+.status-indicator.concluida { background: rgba(34,197,94,0.1); color: var(--cat-pessoal); }
+
+/* ========== BULK ACTIONS ========== */
+.bulk-bar { position: fixed; bottom: 5rem; left: 50%; transform: translateX(-50%) translateY(100%); background: var(--bg-surface); border: 1px solid var(--border-hover); border-radius: 2rem; padding: 0.5rem 1rem; display: flex; align-items: center; gap: 0.75rem; z-index: 90; transition: var(--transition); box-shadow: 0 8px 32px rgba(0,0,0,0.4); }
+.bulk-bar.active { transform: translateX(-50%) translateY(0); }
+.bulk-bar .bulk-count { font-size: 0.85rem; color: var(--text-primary); font-weight: 600; }
+.bulk-bar button { background: none; border: 1px solid var(--border-subtle); color: var(--text-primary); padding: 0.4rem 0.8rem; border-radius: 1rem; cursor: pointer; font-size: 0.8rem; transition: var(--transition); font-family: inherit; }
+.bulk-bar button:hover { background: var(--bg-glass); border-color: var(--border-hover); }
+.bulk-bar button.danger { border-color: rgba(239,68,68,0.3); color: var(--pri-alta); }
+.bulk-bar button.danger:hover { background: rgba(239,68,68,0.1); }
+.task-card.selected { background: rgba(6,182,212,0.08); border-color: rgba(6,182,212,0.3); }
+.task-card .bulk-check { display: none; width: 18px; height: 18px; border: 2px solid var(--border-subtle); border-radius: 4px; margin-right: 0.5rem; flex-shrink: 0; cursor: pointer; align-items: center; justify-content: center; }
+.bulk-mode .task-card .bulk-check { display: flex; }
+.task-card.selected .bulk-check { background: var(--cat-consultoria); border-color: var(--cat-consultoria); }
+.task-card.selected .bulk-check::after { content: '\2713'; color: white; font-size: 0.7rem; }
+
+/* ========== REVIEW VIEW ========== */
+.review-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin: 1rem 0; }
+.review-card { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: 1rem; }
+.review-card h3 { font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; }
+.review-big-number { font-size: 2rem; font-weight: 700; color: var(--text-primary); line-height: 1; }
+.review-bar { height: 6px; border-radius: 3px; background: rgba(255,255,255,0.06); margin-top: 0.5rem; overflow: hidden; }
+.review-bar-fill { height: 100%; border-radius: 3px; transition: width 0.8s ease; }
+.review-category-row { display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0; border-bottom: 1px solid var(--border-subtle); }
+.review-category-row:last-child { border-bottom: none; }
+.review-category-name { flex: 1; font-size: 0.85rem; color: var(--text-primary); }
+.review-category-bar { flex: 2; }
+.review-category-count { font-size: 0.8rem; color: var(--text-secondary); min-width: 3rem; text-align: right; }
+.heatmap { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; margin: 0.5rem 0; }
+.heatmap-cell { aspect-ratio: 1; border-radius: 3px; background: rgba(255,255,255,0.04); position: relative; }
+.heatmap-cell.level-1 { background: rgba(34,197,94,0.15); }
+.heatmap-cell.level-2 { background: rgba(34,197,94,0.3); }
+.heatmap-cell.level-3 { background: rgba(34,197,94,0.5); }
+.heatmap-cell.level-4 { background: rgba(34,197,94,0.75); }
+.heatmap-label { font-size: 0.6rem; color: var(--text-muted); text-align: center; }
+@media (max-width: 768px) { .review-grid { grid-template-columns: 1fr; } }
+
+/* ========== DARK/LIGHT MODE ========== */
+.light-mode {
+  --bg-deep: #f5f5f7;
+  --bg-surface: #ffffff;
+  --bg-card: rgba(0,0,0,0.02);
+  --bg-glass: rgba(0,0,0,0.04);
+  --border-subtle: rgba(0,0,0,0.08);
+  --border-hover: rgba(0,0,0,0.15);
+  --text-primary: #1a1a2e;
+  --text-secondary: rgba(26,26,46,0.6);
+  --text-muted: rgba(26,26,46,0.35);
+}
+.light-mode::before, .light-mode::after { opacity: 0.3; }
+.light-mode .header { background: rgba(245,245,247,0.85); }
+.light-mode .bottom-nav { background: rgba(245,245,247,0.92); }
+
+.theme-toggle { background: var(--bg-glass); border: 1px solid var(--border-subtle); border-radius: 50%; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 1rem; transition: var(--transition); }
+.theme-toggle:hover { border-color: var(--border-hover); background: var(--bg-card); }
 </style>
 </head>
 <body>
@@ -1074,7 +1153,11 @@ body::after {
         <button class="active" data-view="tasks" onclick="switchView('tasks')">Todas</button>
         <button data-view="today" onclick="switchView('today')">Hoje</button>
         <button data-view="calendar" onclick="switchView('calendar')">Semana</button>
+        <button data-view="review" onclick="switchView('review')">Revisao</button>
       </div>
+      <button class="theme-toggle" onclick="toggleTheme()" title="Alternar tema">
+        <span id="themeIcon">☀️</span>
+      </button>
       <button class="btn-add" onclick="openModal()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         <span class="btn-add-text">Nova tarefa</span>
@@ -1151,6 +1234,13 @@ body::after {
     <div class="calendar-view" id="calendarView">
       <div class="calendar-scroll" id="calendarWeek"></div>
     </div>
+    <div class="review-view" id="reviewView" style="display:none">
+      <div class="review-header">
+        <h2 style="font-family:'Instrument Serif',serif;font-size:1.3rem;color:var(--text-primary)">Revisao Semanal</h2>
+        <span style="font-size:0.8rem;color:var(--text-secondary)" id="reviewPeriod"></span>
+      </div>
+      <div id="reviewContent"></div>
+    </div>
   </main>
 </div>
 
@@ -1171,7 +1261,19 @@ body::after {
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
     Semana
   </button>
+  <button class="nav-item" data-view="review" onclick="switchView('review')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+    Revisao
+  </button>
 </nav>
+
+<!-- BULK ACTION BAR -->
+<div class="bulk-bar" id="bulkBar">
+  <span class="bulk-count"><span id="bulkCount">0</span> selecionadas</span>
+  <button onclick="bulkComplete()">Concluir</button>
+  <button onclick="bulkDelete()" class="danger">Excluir</button>
+  <button onclick="exitBulkMode()">Cancelar</button>
+</div>
 
 <!-- MODAL -->
 <div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
@@ -1516,8 +1618,12 @@ function renderTasks() {
     const meetingHTML = getMeetingBadgeHTML(task.meeting_link);
     const timeStr = task.horario || '';
 
+    const inProgressClass = task.status === 'em_andamento' ? 'in-progress' : '';
+    const selectedClass = selectedTasks.has(String(task.id)) ? 'selected' : '';
+
     return `
-      <div class="task-card ${completed}" data-task-id="${task.id}" style="--cat-color:${catColor}; animation-delay:${i * 0.04}s">
+      <div class="task-card ${completed} ${inProgressClass} ${selectedClass}" data-task-id="${task.id}" style="--cat-color:${catColor}; animation-delay:${i * 0.04}s">
+        <div class="bulk-check" data-action="bulk-select"></div>
         <div class="task-check" data-action="toggle"></div>
         <div class="task-info" data-action="detail">
           <div class="task-title-row">
@@ -1557,6 +1663,19 @@ document.getElementById('taskList').addEventListener('click', function(e) {
   const taskId = card.dataset.taskId;
   if (!taskId) return;
 
+  // Shift+Click entra em bulk mode
+  if (e.shiftKey && !bulkMode) {
+    enterBulkMode();
+    toggleBulkSelect(taskId);
+    return;
+  }
+
+  // Em bulk mode, qualquer clique seleciona
+  if (bulkMode) {
+    toggleBulkSelect(taskId);
+    return;
+  }
+
   const actionEl = e.target.closest('[data-action]');
   if (!actionEl) return;
 
@@ -1565,6 +1684,7 @@ document.getElementById('taskList').addEventListener('click', function(e) {
   else if (action === 'delete') deleteTask(taskId);
   else if (action === 'edit') editTask(taskId);
   else if (action === 'detail') showTaskDetail(taskId);
+  else if (action === 'bulk-select') { enterBulkMode(); toggleBulkSelect(taskId); }
 });
 
 // ========== ACTIONS (agora salvam no Supabase!) ==========
@@ -1573,15 +1693,19 @@ let editingTaskId = null; // ID da tarefa sendo editada (null = criando nova)
 async function toggleTask(id) {
   const task = tasks.find(t => String(t.id) === String(id));
   if (!task) return;
-  const newStatus = task.status === 'concluida' ? 'pendente' : 'concluida';
+  const cycle = { 'pendente': 'em_andamento', 'em_andamento': 'concluida', 'concluida': 'pendente' };
+  const oldStatus = task.status;
+  const newStatus = cycle[oldStatus] || 'pendente';
 
   task.status = newStatus;
   renderTasks();
+  renderToday();
 
   const ok = await updateTask(id, { status: newStatus });
   if (!ok) {
-    task.status = task.status === 'concluida' ? 'pendente' : 'concluida';
+    task.status = oldStatus;
     renderTasks();
+    renderToday();
   }
 }
 
@@ -1744,6 +1868,8 @@ function closeDetail(event) {
 }
 
 // ========== TODAY VIEW ==========
+let todayViewMode = 'list'; // 'list' or 'timeline'
+
 function renderToday() {
   const hoje = new Date().toISOString().split('T')[0];
   const todayTasks = tasks.filter(t => t.prazo === hoje && t.status !== 'concluida');
@@ -1757,13 +1883,26 @@ function renderToday() {
   header.innerHTML = `📅 Hoje — ${todayTasks.length} tarefa${todayTasks.length !== 1 ? 's' : ''}`
     + (todayDone.length ? ` · ${todayDone.length} concluida${todayDone.length !== 1 ? 's' : ''}` : '')
     + (overdue.length ? ` · <span style="color:var(--pri-alta)">${overdue.length} atrasada${overdue.length !== 1 ? 's' : ''}</span>` : '')
-    + ` <span class="today-count">${total}</span>`;
+    + ` <span class="today-count">${total}</span>`
+    + `<div class="today-view-toggle">
+        <button class="${todayViewMode === 'list' ? 'active' : ''}" onclick="todayViewMode='list';renderToday()">Lista</button>
+        <button class="${todayViewMode === 'timeline' ? 'active' : ''}" onclick="todayViewMode='timeline';renderToday()">Timeline</button>
+      </div>`;
 
   const container = document.getElementById('todayTaskList');
   const allTasks = [...overdue, ...todayTasks];
 
   if (allTasks.length === 0) {
     container.innerHTML = '<div class="today-empty"><p>Nenhuma tarefa para hoje! Aproveite o dia.</p></div>';
+    return;
+  }
+
+  if (todayViewMode === 'timeline') {
+    container.innerHTML = renderTimeline(allTasks, hoje);
+    // Attach click events to timeline items
+    container.querySelectorAll('.timeline-item[data-task-id]').forEach(el => {
+      el.addEventListener('click', () => showTaskDetail(el.dataset.taskId));
+    });
     return;
   }
 
@@ -1775,9 +1914,12 @@ function renderToday() {
     const meetingHTML = getMeetingBadgeHTML(task.meeting_link);
     const timeStr = task.horario || '';
     const isLate = task.prazo < hoje;
+    const inProgressClass = task.status === 'em_andamento' ? 'in-progress' : '';
+    const selectedClass = selectedTasks.has(String(task.id)) ? 'selected' : '';
 
     return `
-      <div class="task-card" data-task-id="${task.id}" style="--cat-color:${catColor}; animation-delay:${i * 0.04}s">
+      <div class="task-card ${inProgressClass} ${selectedClass}" data-task-id="${task.id}" style="--cat-color:${catColor}; animation-delay:${i * 0.04}s">
+        <div class="bulk-check" data-action="bulk-select"></div>
         <div class="task-check" data-action="toggle"></div>
         <div class="task-info" data-action="detail">
           <div class="task-title-row">
@@ -1812,6 +1954,10 @@ document.getElementById('todayTaskList').addEventListener('click', function(e) {
   if (!card) return;
   const taskId = card.dataset.taskId;
   if (!taskId) return;
+
+  if (e.shiftKey && !bulkMode) { enterBulkMode(); toggleBulkSelect(taskId); return; }
+  if (bulkMode) { toggleBulkSelect(taskId); return; }
+
   const actionEl = e.target.closest('[data-action]');
   if (!actionEl) return;
   const action = actionEl.dataset.action;
@@ -1819,6 +1965,7 @@ document.getElementById('todayTaskList').addEventListener('click', function(e) {
   else if (action === 'delete') deleteTask(taskId);
   else if (action === 'edit') editTask(taskId);
   else if (action === 'detail') showTaskDetail(taskId);
+  else if (action === 'bulk-select') { enterBulkMode(); toggleBulkSelect(taskId); }
 });
 
 // ========== VIEW SWITCH ==========
@@ -1829,16 +1976,21 @@ function switchView(view) {
   const tv = document.getElementById('tasksView');
   const todayV = document.getElementById('todayView');
   const cv = document.getElementById('calendarView');
+  const rv = document.getElementById('reviewView');
 
   tv.classList.add('hidden');
   todayV.classList.remove('active');
   cv.classList.remove('active');
+  rv.style.display = 'none';
 
   if (view === 'tasks') {
     tv.classList.remove('hidden');
   } else if (view === 'today') {
     todayV.classList.add('active');
     renderToday();
+  } else if (view === 'review') {
+    rv.style.display = 'block';
+    renderReview();
   } else {
     cv.classList.add('active');
     renderCalendar();
@@ -1910,6 +2062,272 @@ async function saveTask(event) {
   }
 }
 
+// ========== TIMELINE ==========
+function renderTimeline(allTasks, hoje) {
+  const withTime = allTasks.filter(t => t.horario).sort((a, b) => a.horario.localeCompare(b.horario));
+  const withoutTime = allTasks.filter(t => !t.horario);
+
+  const now = new Date();
+  const nowStr = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+  let nowInserted = false;
+
+  let html = '<div class="timeline">';
+
+  withTime.forEach(task => {
+    const catColor = CATEGORY_COLORS[task.categoria] || 'var(--text-muted)';
+    // Insert "now" indicator before the first task that's after current time
+    if (!nowInserted && task.horario > nowStr) {
+      html += `<div class="timeline-now">Agora — ${nowStr}</div>`;
+      nowInserted = true;
+    }
+    html += `<div class="timeline-item" data-task-id="${task.id}" style="--cat-color:${catColor}">
+      <span class="timeline-time">${task.horario}</span>
+      <div class="timeline-title">${task.titulo}</div>
+      <div class="timeline-meta">
+        <span style="color:${catColor}">${task.categoria}</span>
+        ${task.tempo_estimado_min ? '<span>⏱ ' + task.tempo_estimado_min + 'min</span>' : ''}
+        ${task.prazo < hoje ? '<span style="color:var(--pri-alta)">Atrasada</span>' : ''}
+      </div>
+    </div>`;
+  });
+
+  // If "now" hasn't been inserted yet (all tasks are before current time)
+  if (!nowInserted && withTime.length > 0) {
+    html += `<div class="timeline-now">Agora — ${nowStr}</div>`;
+  }
+
+  if (withoutTime.length > 0) {
+    html += `<div style="margin-top:1rem;padding:0.5rem 0;font-size:0.75rem;color:var(--text-muted);border-top:1px solid var(--border-subtle)">Sem horario definido</div>`;
+    withoutTime.forEach(task => {
+      const catColor = CATEGORY_COLORS[task.categoria] || 'var(--text-muted)';
+      html += `<div class="timeline-item" data-task-id="${task.id}" style="--cat-color:${catColor}">
+        <div class="timeline-title">${task.titulo}</div>
+        <div class="timeline-meta">
+          <span style="color:${catColor}">${task.categoria}</span>
+          ${task.tempo_estimado_min ? '<span>⏱ ' + task.tempo_estimado_min + 'min</span>' : ''}
+          ${task.prazo < hoje ? '<span style="color:var(--pri-alta)">Atrasada</span>' : ''}
+        </div>
+      </div>`;
+    });
+  }
+
+  // If no tasks with time, and now indicator needed
+  if (withTime.length === 0) {
+    html += `<div class="timeline-now">Agora — ${nowStr}</div>`;
+  }
+
+  html += '</div>';
+  return html;
+}
+
+// ========== BULK MODE ==========
+let bulkMode = false;
+let selectedTasks = new Set();
+
+function enterBulkMode() {
+  bulkMode = true;
+  document.querySelector('.main').classList.add('bulk-mode');
+  document.getElementById('bulkBar').classList.add('active');
+  updateBulkCount();
+}
+
+function exitBulkMode() {
+  bulkMode = false;
+  selectedTasks.clear();
+  document.querySelector('.main').classList.remove('bulk-mode');
+  document.getElementById('bulkBar').classList.remove('active');
+  document.querySelectorAll('.task-card.selected').forEach(c => c.classList.remove('selected'));
+  updateBulkCount();
+}
+
+function toggleBulkSelect(taskId) {
+  const id = String(taskId);
+  if (selectedTasks.has(id)) {
+    selectedTasks.delete(id);
+  } else {
+    selectedTasks.add(id);
+  }
+  // Update card visual
+  document.querySelectorAll(`.task-card[data-task-id="${taskId}"]`).forEach(c => {
+    c.classList.toggle('selected', selectedTasks.has(id));
+  });
+  updateBulkCount();
+  if (selectedTasks.size === 0) exitBulkMode();
+}
+
+function updateBulkCount() {
+  document.getElementById('bulkCount').textContent = selectedTasks.size;
+}
+
+async function bulkComplete() {
+  const ids = [...selectedTasks];
+  for (const id of ids) {
+    const task = tasks.find(t => String(t.id) === id);
+    if (task) {
+      task.status = 'concluida';
+      await updateTask(id, { status: 'concluida' });
+    }
+  }
+  exitBulkMode();
+  renderTasks();
+  renderToday();
+  renderCalendar();
+}
+
+async function bulkDelete() {
+  if (!confirm(`Excluir ${selectedTasks.size} tarefa(s)?`)) return;
+  const ids = [...selectedTasks];
+  for (const id of ids) {
+    await removeTask(id);
+    tasks = tasks.filter(t => String(t.id) !== id);
+  }
+  exitBulkMode();
+  renderTasks();
+  renderToday();
+  renderCalendar();
+}
+
+// ========== REVIEW VIEW ==========
+function renderReview() {
+  const weekDays = getWeekDays();
+  const weekStart = weekDays[0].date;
+  const weekEnd = weekDays[6].date;
+
+  document.getElementById('reviewPeriod').textContent = `${formatDate(weekStart)} — ${formatDate(weekEnd)}`;
+
+  const weekTasks = tasks.filter(t => t.prazo >= weekStart && t.prazo <= weekEnd);
+  const totalWeek = weekTasks.length;
+  const completedWeek = weekTasks.filter(t => t.status === 'concluida').length;
+  const pendingWeek = weekTasks.filter(t => t.status === 'pendente').length;
+  const inProgressWeek = weekTasks.filter(t => t.status === 'em_andamento').length;
+  const overdueWeek = weekTasks.filter(t => isOverdue(t)).length;
+  const completionRate = totalWeek > 0 ? Math.round((completedWeek / totalWeek) * 100) : 0;
+
+  // Category distribution
+  const categories = ['Trabalho', 'Consultoria', 'Grupo Ser', 'Pessoal'];
+  const catCounts = {};
+  categories.forEach(c => { catCounts[c] = weekTasks.filter(t => t.categoria === c).length; });
+  const maxCatCount = Math.max(...Object.values(catCounts), 1);
+
+  // Priority distribution
+  const priCounts = { 'alta': 0, 'media': 0, 'baixa': 0 };
+  weekTasks.forEach(t => { if (priCounts[t.prioridade] !== undefined) priCounts[t.prioridade]++; });
+
+  // Heatmap (last 7 days completed)
+  const heatmapData = weekDays.map(day => {
+    return tasks.filter(t => t.prazo === day.date && t.status === 'concluida').length;
+  });
+  const maxHeat = Math.max(...heatmapData, 1);
+
+  // Average estimated time
+  const tasksWithTime = weekTasks.filter(t => t.tempo_estimado_min);
+  const avgTime = tasksWithTime.length > 0 ? Math.round(tasksWithTime.reduce((s, t) => s + t.tempo_estimado_min, 0) / tasksWithTime.length) : 0;
+
+  // Personal time check
+  const personalTasks = weekTasks.filter(t => t.categoria === 'Pessoal');
+  const personalKeywords = ['ingles', 'leitura', 'academia', 'exercicio', 'estudo', 'saude'];
+  const personalHighlights = personalTasks.filter(t => personalKeywords.some(k => (t.titulo || '').toLowerCase().includes(k)));
+
+  let html = `
+    <div class="review-grid">
+      <div class="review-card">
+        <h3>Total da semana</h3>
+        <div class="review-big-number">${totalWeek}</div>
+      </div>
+      <div class="review-card">
+        <h3>Concluidas</h3>
+        <div class="review-big-number" style="color:var(--cat-pessoal)">${completedWeek}</div>
+      </div>
+      <div class="review-card">
+        <h3>Pendentes</h3>
+        <div class="review-big-number" style="color:var(--pri-media)">${pendingWeek + inProgressWeek}</div>
+      </div>
+      <div class="review-card">
+        <h3>Atrasadas</h3>
+        <div class="review-big-number" style="color:var(--pri-alta)">${overdueWeek}</div>
+      </div>
+    </div>
+
+    <div class="review-card" style="margin-bottom:0.75rem">
+      <h3>Taxa de conclusao</h3>
+      <div class="review-big-number">${completionRate}%</div>
+      <div class="review-bar">
+        <div class="review-bar-fill" style="width:${completionRate}%;background:var(--cat-pessoal)"></div>
+      </div>
+    </div>
+
+    <div class="review-card" style="margin-bottom:0.75rem">
+      <h3>Por categoria</h3>
+      ${categories.map(cat => {
+        const count = catCounts[cat];
+        const pct = maxCatCount > 0 ? Math.round((count / maxCatCount) * 100) : 0;
+        return `<div class="review-category-row">
+          <div style="width:8px;height:8px;border-radius:50%;background:${CATEGORY_COLORS[cat]};flex-shrink:0"></div>
+          <span class="review-category-name">${cat}</span>
+          <div class="review-category-bar">
+            <div class="review-bar"><div class="review-bar-fill" style="width:${pct}%;background:${CATEGORY_COLORS[cat]}"></div></div>
+          </div>
+          <span class="review-category-count">${count}</span>
+        </div>`;
+      }).join('')}
+    </div>
+
+    <div class="review-card" style="margin-bottom:0.75rem">
+      <h3>Por prioridade</h3>
+      ${['alta', 'media', 'baixa'].map(pri => {
+        const count = priCounts[pri];
+        const pct = totalWeek > 0 ? Math.round((count / totalWeek) * 100) : 0;
+        return `<div class="review-category-row">
+          <div style="width:8px;height:8px;border-radius:50%;background:${PRIORITY_COLORS[pri]};flex-shrink:0"></div>
+          <span class="review-category-name">${PRIORITY_LABELS[pri]}</span>
+          <div class="review-category-bar">
+            <div class="review-bar"><div class="review-bar-fill" style="width:${pct}%;background:${PRIORITY_COLORS[pri]}"></div></div>
+          </div>
+          <span class="review-category-count">${count}</span>
+        </div>`;
+      }).join('')}
+    </div>
+
+    <div class="review-card" style="margin-bottom:0.75rem">
+      <h3>Heatmap da semana</h3>
+      <div class="heatmap">
+        ${weekDays.map((day, i) => {
+          const count = heatmapData[i];
+          let level = 0;
+          if (count > 0) level = Math.min(4, Math.ceil((count / maxHeat) * 4));
+          return `<div class="heatmap-cell level-${level}" title="${day.name}: ${count} concluida(s)"></div>`;
+        }).join('')}
+      </div>
+      <div class="heatmap" style="gap:3px">
+        ${weekDays.map(day => `<div class="heatmap-label">${day.name}</div>`).join('')}
+      </div>
+    </div>
+
+    <div class="review-grid">
+      <div class="review-card">
+        <h3>Tempo medio estimado</h3>
+        <div class="review-big-number">${avgTime}<span style="font-size:0.8rem;color:var(--text-secondary)">min</span></div>
+      </div>
+      <div class="review-card">
+        <h3>Tempo pessoal</h3>
+        <div class="review-big-number">${personalHighlights.length}</div>
+        <div style="font-size:0.7rem;color:var(--text-secondary);margin-top:0.25rem">
+          ${personalHighlights.length > 0 ? personalHighlights.map(t => t.titulo).join(', ') : 'Nenhuma atividade pessoal registrada'}
+        </div>
+      </div>
+    </div>`;
+
+  document.getElementById('reviewContent').innerHTML = html;
+}
+
+// ========== THEME TOGGLE ==========
+function toggleTheme() {
+  document.body.classList.toggle('light-mode');
+  const isLight = document.body.classList.contains('light-mode');
+  document.getElementById('themeIcon').textContent = isLight ? '🌙' : '☀️';
+  localStorage.setItem('theme', isLight ? 'light' : 'dark');
+}
+
 // ========== KEYBOARD ==========
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') { closeModal(); closeDetail(); }
@@ -1917,6 +2335,12 @@ document.addEventListener('keydown', (e) => {
 });
 
 // ========== INIT ==========
+// Restore theme from localStorage
+if (localStorage.getItem('theme') === 'light') {
+  document.body.classList.add('light-mode');
+  document.getElementById('themeIcon').textContent = '🌙';
+}
+
 updateHeaderDate();
 loadTasks();       // Carrega tarefas do Supabase
 setupRealtime();   // Escuta mudancas em tempo real

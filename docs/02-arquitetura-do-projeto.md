@@ -86,7 +86,7 @@
   - Menos coisas para aprender de uma vez
   - Deploy instantaneo no GitHub Pages
 - **Funcionalidades**:
-  - 3 views: Todas | Hoje | Semana
+  - 4 views: Todas | Hoje | Semana | Revisao Semanal
   - Filtros por categoria, prioridade e status
   - Calendario semanal responsivo (empilha no mobile)
   - Cards com tempo estimado, delegacao, recorrencia
@@ -94,6 +94,12 @@
   - Modal de detalhe completo
   - Edicao e exclusao com confirmacao
   - Realtime via Supabase (atualiza sem refresh)
+  - **Sprint 3 — Dashboard Premium:**
+  - Timeline vertical do dia com indicador "Agora" (view Hoje)
+  - Toggle rapido de status (3 estados: pendente → em_andamento → concluida)
+  - Acoes em lote: Shift+Click multi-selecao, concluir/excluir em massa
+  - Revisao semanal: metricas, heatmap de conclusao, distribuicao por categoria
+  - Modo claro/escuro com toggle e persistencia (localStorage)
 
 ### GitHub Pages (O Endereco)
 - **O que e?** Hospedagem gratuita de sites estaticos direto do GitHub

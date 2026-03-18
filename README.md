@@ -70,7 +70,7 @@ A IA:
 - [x] Deteccao automatica de conflitos de horario
 
 ### Dashboard Web
-- [x] Tres views: Todas | Hoje | Semana
+- [x] Tres views: Todas | Hoje | Semana + Revisao Semanal
 - [x] Filtros por categoria, prioridade e status
 - [x] Calendario semanal responsivo (empilha no mobile)
 - [x] Cards com tempo estimado, delegacao, recorrencia
@@ -80,6 +80,11 @@ A IA:
 - [x] Edicao e exclusao direto no dashboard
 - [x] Realtime via Supabase (atualiza sem refresh)
 - [x] Design escuro, mobile-first
+- [x] Timeline vertical do dia com indicador "Agora" (view Hoje)
+- [x] Toggle rapido de status (pendente → em andamento → concluida)
+- [x] Acoes em lote: Shift+Click para multi-selecao + concluir/excluir em massa
+- [x] Revisao semanal: metricas, heatmap, distribuicao por categoria, tempo pessoal
+- [x] Modo claro/escuro com toggle e persistencia (localStorage)
 
 ---
 
@@ -534,6 +539,10 @@ Este projeto foi construido do zero com a ajuda do Claude Code. Cada etapa ensin
 - **Confirmacao antes de salvar**: IA nunca salva sem aprovacao do usuario
 - **Sobrecarga mental**: Sistema protege tempo pessoal (ingles, leitura)
 - **Feedback sem julgamento**: Tom de coach, nao de chefe
+- **Bulk actions**: Multi-selecao com Shift+Click para operacoes em massa
+- **Timeline vertical**: Visualizacao cronologica do dia com indicador "agora"
+- **Revisao semanal**: Dashboard de metricas com heatmap e distribuicao por categoria
+- **Theming**: Modo claro/escuro com persistencia via localStorage
 
 ---
 
@@ -542,7 +551,7 @@ Este projeto foi construido do zero com a ajuda do Claude Code. Cada etapa ensin
 | Feature | Status |
 |---------|--------|
 | Bot Telegram com IA | Funcionando |
-| Dashboard web | Funcionando |
+| Dashboard web (Sprint 3 Premium) | Funcionando |
 | Resolucao temporal | Funcionando |
 | Multiplas tarefas | Funcionando |
 | Lembretes automaticos | Funcionando |
