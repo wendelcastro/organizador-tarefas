@@ -30,10 +30,11 @@ armazena no Supabase e visualiza num dashboard web.
 ## Arquivos Chave
 - `bot/main.py` — Ponto de entrada, handlers, jobs programados, health check HTTP (porta 8000)
 - `bot/ai_brain.py` — Cerebro IA: classificacao, resolucao temporal, sobrecarga, multiplas tarefas
-- `web/index.html` — Dashboard Premium (4 views, timeline, bulk actions, revisao semanal, dark/light mode, realtime)
+- `web/index.html` — Dashboard Premium (gamificacao, drag&drop, historico semanal, habitos, timeline, bulk, dark/light, realtime)
 - `supabase/003_melhorias_inteligentes.sql` — Migration v2 (tempo estimado, recorrencia, delegacao, contexto IA)
 - `Dockerfile` — Build para Koyeb (python:3.11-slim + ffmpeg, EXPOSE 8000)
 - `Procfile` — Declaracao de worker para PaaS
+- `supabase/004_gamificacao_historico_habitos.sql` — Migration v3 (gamificacao, historico semanal, habitos)
 
 ## Comandos do Bot
 /start, /tarefas, /planejar, /feedback, /resumo, /concluir, /editar, /relatorio, /foco, /decompor, /cancelar
@@ -41,7 +42,7 @@ armazena no Supabase e visualiza num dashboard web.
 ## Supabase
 - URL: (configurar em .env)
 - Anon Key: (configurar em .env)
-- Tabelas: tarefas, categorias, historico, configuracoes, contexto_ia
+- Tabelas: tarefas, categorias, historico, configuracoes, contexto_ia, gamificacao, historico_semanal, xp_log
 - Views: resumo_semanal, carga_por_dia
 
 ## Chaves API (.env)

@@ -72,6 +72,7 @@ A IA:
 ### Dashboard Web
 - [x] Tres views: Todas | Hoje | Semana + Revisao Semanal
 - [x] Filtros por categoria, prioridade e status
+- [x] Stat cards clicaveis (Total, Pendentes, Concluidas, Atrasadas, Reunioes)
 - [x] Calendario semanal responsivo (empilha no mobile)
 - [x] Cards com tempo estimado, delegacao, recorrencia
 - [x] Banner de alerta para tarefas atrasadas
@@ -85,6 +86,30 @@ A IA:
 - [x] Acoes em lote: Shift+Click para multi-selecao + concluir/excluir em massa
 - [x] Revisao semanal: metricas, heatmap, distribuicao por categoria, tempo pessoal
 - [x] Modo claro/escuro com toggle e persistencia (localStorage)
+
+### Gamificacao (Sprint 1)
+- [x] Sistema de XP: pontos por tarefa concluida (bonus por prazo e prioridade)
+- [x] 10 niveis com titulos: "Iniciante Organizado" ate "Professor Nivel S"
+- [x] Streaks: dias consecutivos com 70%+ de conclusao
+- [x] Progress Ring: circulo SVG animado mostrando progresso do dia
+- [x] Barra de XP com progresso para proximo nivel
+
+### Drag & Drop
+- [x] Arrastar cards entre status (Pendente/Em andamento/Concluida)
+- [x] Arrastar cards entre dias no calendario semanal
+- [x] Feedback visual durante arrasto (opacidade + borda)
+
+### Historico Semanal
+- [x] Snapshot de cada semana salvo automaticamente ou por botao
+- [x] Campo de anotacao por semana ("semana puxada", "muitas entregas")
+- [x] Navegacao entre semanas anteriores (< >) na view Revisao
+- [x] Lista de semanas passadas com metricas
+
+### Habitos e Vida (Organizador de Vida)
+- [x] Tipos de item: Tarefa, Habito, Rotina (tratamento visual diferente)
+- [x] Subcategorias pessoais: Academia, Leitura, Corrida, Beach Tennis, Estudo, Meditacao, Ingles
+- [x] Tracker de habitos na Revisao Semanal (grid por subcategoria)
+- [x] Rotinas fixas com horarios para consistencia
 
 ---
 
@@ -171,6 +196,7 @@ No Supabase, va em **SQL Editor** > **New query** e rode na ordem:
 1. Cole o conteudo de `supabase/001_criar_tabelas.sql` e clique **Run**
 2. Cole o conteudo de `supabase/002_fix_delete_trigger.sql` e clique **Run**
 3. Cole o conteudo de `supabase/003_melhorias_inteligentes.sql` e clique **Run**
+4. Cole o conteudo de `supabase/004_gamificacao_historico_habitos.sql` e clique **Run**
 
 Cada script cria tabelas, triggers e views necessarias.
 
@@ -476,7 +502,8 @@ organizador-tarefas/
 ├── supabase/             # Scripts do banco de dados
 │   ├── 001_criar_tabelas.sql        # Tabelas, triggers, views
 │   ├── 002_fix_delete_trigger.sql   # Fix da FK do historico
-│   └── 003_melhorias_inteligentes.sql # Novos campos v2
+│   ├── 003_melhorias_inteligentes.sql # Novos campos v2
+│   └── 004_gamificacao_historico_habitos.sql # Gamificacao, historico semanal, habitos
 │
 └── docs/                 # Documentacao didatica
     ├── 01-git-github-guia.md
@@ -527,7 +554,7 @@ Este projeto foi construido do zero com a ajuda do Claude Code. Cada etapa ensin
 - **Git/GitHub**: Versionamento, branches, push, pull, .gitignore
 - **GitHub Pages**: Deploy automatico de sites estaticos
 - **Variaveis de ambiente (.env)**: Seguranca de chaves de API
-- **Migrations SQL**: Evolucao incremental do banco de dados (001, 002, 003)
+- **Migrations SQL**: Evolucao incremental do banco de dados (001, 002, 003, 004)
 - **Triggers e Views**: Automatizacao no banco (historico, resumo)
 - **Docker**: Container com Dockerfile para deploy consistente
 - **Health Check HTTP**: Mini servidor integrado para satisfazer PaaS (Koyeb) que exige resposta HTTP
@@ -543,6 +570,11 @@ Este projeto foi construido do zero com a ajuda do Claude Code. Cada etapa ensin
 - **Timeline vertical**: Visualizacao cronologica do dia com indicador "agora"
 - **Revisao semanal**: Dashboard de metricas com heatmap e distribuicao por categoria
 - **Theming**: Modo claro/escuro com persistencia via localStorage
+- **Gamificacao**: XP, niveis, streaks — motivacao intrinseca via design de jogos
+- **Drag & Drop**: HTML5 Drag API para mover cards entre status e dias
+- **Historico semanal**: Snapshots semanais com anotacoes para retrospectiva
+- **Habitos integrados**: Subcategorias de vida (treino, leitura, estudo) com tracking de consistencia
+- **Organizador de vida**: Nao so tarefas — rotinas, habitos e metas pessoais integradas
 
 ---
 
@@ -551,15 +583,19 @@ Este projeto foi construido do zero com a ajuda do Claude Code. Cada etapa ensin
 | Feature | Status |
 |---------|--------|
 | Bot Telegram com IA | Funcionando |
-| Dashboard web (Sprint 3 Premium) | Funcionando |
+| Dashboard web (Premium) | Funcionando |
+| Gamificacao (XP, niveis, streaks) | Funcionando |
+| Drag & Drop (status + calendario) | Funcionando |
+| Historico semanal com anotacoes | Funcionando |
+| Habitos e rotinas de vida | Funcionando |
 | Resolucao temporal | Funcionando |
 | Multiplas tarefas | Funcionando |
 | Lembretes automaticos | Funcionando |
 | Resumo matinal 7:30 | Funcionando |
 | Relatorio semanal sex 17h | Funcionando |
 | Tarefas recorrentes | Funcionando |
-| Google Calendar sync | Planejado |
-| Notificacoes push no dashboard | Planejado |
+| Google Calendar sync | Planejado (Sprint 4) |
+| Telegram Mini App | Planejado (Sprint 4) |
 
 ---
 

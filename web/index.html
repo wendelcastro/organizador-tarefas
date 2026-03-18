@@ -1137,6 +1137,163 @@ body::after {
 
 .theme-toggle { background: var(--bg-glass); border: 1px solid var(--border-subtle); border-radius: 50%; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 1rem; transition: var(--transition); }
 .theme-toggle:hover { border-color: var(--border-hover); background: var(--bg-card); }
+
+/* ========== GAMIFICATION ========== */
+.gamification-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 1rem;
+  border-bottom: 1px solid var(--border-subtle);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.gamification-bar::-webkit-scrollbar { display: none; }
+
+.progress-ring-container { position: relative; flex-shrink: 0; width: 48px; height: 48px; }
+.progress-ring { transform: rotate(-90deg); }
+.progress-ring circle { fill: none; stroke-width: 4; }
+.progress-ring .ring-bg { stroke: rgba(255,255,255,0.06); }
+.progress-ring .ring-fill { stroke: var(--cat-pessoal); stroke-linecap: round; transition: stroke-dashoffset 0.8s ease; }
+.progress-ring-text { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 0.65rem; font-weight: 600; color: var(--text-primary); }
+
+.streak-badge {
+  display: flex; align-items: center; gap: 0.3rem;
+  padding: 0.35rem 0.65rem;
+  background: rgba(249,115,22,0.1);
+  border: 1px solid rgba(249,115,22,0.2);
+  border-radius: 50px;
+  font-size: 0.72rem; color: var(--cat-trabalho);
+  white-space: nowrap; flex-shrink: 0;
+}
+.streak-badge .streak-fire { font-size: 0.85rem; }
+.streak-badge .streak-num { font-weight: 700; }
+
+.xp-bar-container { flex: 1; min-width: 80px; }
+.xp-bar-label { font-size: 0.6rem; color: var(--text-muted); margin-bottom: 0.2rem; display: flex; justify-content: space-between; }
+.xp-bar { height: 6px; border-radius: 3px; background: rgba(255,255,255,0.06); overflow: hidden; }
+.xp-bar-fill { height: 100%; border-radius: 3px; background: linear-gradient(90deg, var(--cat-consultoria), var(--cat-grupo-ser)); transition: width 0.8s ease; }
+
+.level-badge {
+  display: flex; flex-direction: column; align-items: center;
+  padding: 0.3rem 0.6rem;
+  background: rgba(168,85,247,0.1);
+  border: 1px solid rgba(168,85,247,0.2);
+  border-radius: var(--radius-sm);
+  flex-shrink: 0; white-space: nowrap;
+}
+.level-badge-num { font-family: 'Instrument Serif', serif; font-size: 1.1rem; line-height: 1; color: var(--cat-grupo-ser); }
+.level-badge-title { font-size: 0.55rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; }
+
+.xp-popup {
+  position: fixed; z-index: 200;
+  padding: 0.4rem 0.8rem;
+  background: rgba(168,85,247,0.9);
+  color: white; font-size: 0.8rem; font-weight: 600;
+  border-radius: 50px;
+  pointer-events: none;
+  animation: xpPopAnim 1.5s ease forwards;
+}
+@keyframes xpPopAnim {
+  0% { opacity: 1; transform: translateY(0) scale(1); }
+  70% { opacity: 1; transform: translateY(-40px) scale(1.1); }
+  100% { opacity: 0; transform: translateY(-60px) scale(0.8); }
+}
+
+/* ========== DRAG & DROP ========== */
+.task-card.dragging { opacity: 0.5; transform: scale(0.95); }
+.task-card.drag-over { border-color: var(--cat-consultoria); box-shadow: 0 0 12px rgba(6,182,212,0.2); }
+.status-tab.drag-over { background: rgba(6,182,212,0.15); color: var(--text-primary); }
+.calendar-day.drag-over { border-color: var(--cat-consultoria); background: rgba(6,182,212,0.06); box-shadow: 0 0 16px rgba(6,182,212,0.1); }
+
+/* ========== WEEK HISTORY ========== */
+.history-nav {
+  display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem;
+}
+.history-nav button {
+  background: var(--bg-glass); border: 1px solid var(--border-subtle);
+  color: var(--text-secondary); border-radius: 50%; width: 32px; height: 32px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; transition: var(--transition); font-size: 0.9rem;
+}
+.history-nav button:hover { border-color: var(--border-hover); color: var(--text-primary); }
+.history-nav-label { font-size: 0.85rem; color: var(--text-primary); flex: 1; text-align: center; }
+
+.week-annotation {
+  width: 100%; min-height: 60px; padding: 0.65rem 0.85rem;
+  background: var(--bg-glass); border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm); color: var(--text-primary);
+  font-family: inherit; font-size: 14px; resize: vertical;
+  transition: var(--transition); outline: none; margin-bottom: 0.75rem;
+}
+.week-annotation:focus { border-color: var(--cat-consultoria); box-shadow: 0 0 0 3px rgba(6,182,212,0.1); }
+.week-annotation::placeholder { color: var(--text-muted); }
+
+.history-card {
+  background: var(--bg-card); border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm); padding: 0.85rem; margin-bottom: 0.5rem;
+  cursor: pointer; transition: var(--transition);
+}
+.history-card:hover { border-color: var(--border-hover); }
+.history-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.3rem; }
+.history-card-period { font-size: 0.82rem; color: var(--text-primary); font-weight: 500; }
+.history-card-rate { font-size: 0.75rem; font-weight: 600; }
+.history-card-note { font-size: 0.72rem; color: var(--text-secondary); margin-top: 0.3rem; }
+
+.btn-save-week {
+  padding: 0.5rem 1rem;
+  background: linear-gradient(135deg, var(--cat-consultoria), rgba(6,182,212,0.6));
+  border: none; border-radius: var(--radius-sm);
+  color: white; font-family: inherit; font-size: 0.78rem; font-weight: 500;
+  cursor: pointer; transition: var(--transition); margin-bottom: 0.75rem;
+}
+.btn-save-week:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(6,182,212,0.25); }
+
+/* ========== HABITS & SUBCATEGORIES ========== */
+.subcategory-badge {
+  display: inline-flex; align-items: center; gap: 0.2rem;
+  font-size: 0.58rem; padding: 0.1rem 0.45rem;
+  background: rgba(34,197,94,0.1); color: var(--cat-pessoal);
+  border-radius: 50px; font-weight: 500; white-space: nowrap;
+}
+.habit-indicator {
+  display: inline-flex; align-items: center; gap: 0.15rem;
+  font-size: 0.6rem; color: var(--text-secondary);
+}
+.routine-badge {
+  display: inline-flex; align-items: center; gap: 0.15rem;
+  font-size: 0.58rem; padding: 0.1rem 0.4rem;
+  background: rgba(6,182,212,0.1); color: var(--cat-consultoria);
+  border-radius: 50px;
+}
+.subcategory-chips {
+  display: flex; gap: 0.3rem; padding: 0.3rem 0; flex-wrap: wrap;
+}
+.subcategory-chip {
+  padding: 0.25rem 0.6rem; background: var(--bg-glass);
+  border: 1px solid var(--border-subtle); border-radius: 50px;
+  font-size: 0.68rem; color: var(--text-secondary);
+  cursor: pointer; transition: var(--transition);
+}
+.subcategory-chip.active { background: rgba(34,197,94,0.12); border-color: rgba(34,197,94,0.3); color: var(--cat-pessoal); }
+
+.habit-grid {
+  display: grid; grid-template-columns: auto repeat(7, 1fr);
+  gap: 3px; margin: 0.75rem 0; align-items: center;
+}
+.habit-grid-label { font-size: 0.6rem; color: var(--text-muted); text-align: right; padding-right: 0.4rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 80px; }
+.habit-grid-cell {
+  aspect-ratio: 1; border-radius: 3px;
+  background: rgba(255,255,255,0.04);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.55rem;
+}
+.habit-grid-cell.completed { background: rgba(34,197,94,0.35); color: var(--cat-pessoal); }
+.habit-grid-cell.partial { background: rgba(245,158,11,0.2); }
+.habit-grid-day-label { font-size: 0.55rem; color: var(--text-muted); text-align: center; }
+
+.form-group.conditional-field { display: none; }
+.form-group.conditional-field.visible { display: block; }
 </style>
 </head>
 <body>
@@ -1174,6 +1331,35 @@ body::after {
     <div class="stat-card done" onclick="filterByStatCard('concluida')"><div class="stat-number" id="mStatDone">0</div><div class="stat-label">Concluidas</div></div>
     <div class="stat-card overdue" onclick="filterByStatCard('overdue')"><div class="stat-number" id="mStatOverdue">0</div><div class="stat-label">Atrasadas</div></div>
     <div class="stat-card meetings" onclick="filterByStatCard('meetings')"><div class="stat-number" id="mStatMeetings">0</div><div class="stat-label">Reunioes</div></div>
+  </div>
+
+  <!-- GAMIFICATION BAR -->
+  <div class="gamification-bar" id="gamificationBar">
+    <div class="progress-ring-container">
+      <svg class="progress-ring" width="48" height="48">
+        <circle class="ring-bg" cx="24" cy="24" r="20"/>
+        <circle class="ring-fill" id="progressRingFill" cx="24" cy="24" r="20" stroke-dasharray="125.66" stroke-dashoffset="125.66"/>
+      </svg>
+      <div class="progress-ring-text" id="progressRingText">0%</div>
+    </div>
+    <div class="streak-badge">
+      <span class="streak-fire">&#128293;</span>
+      <span class="streak-num" id="streakCount">0</span>
+      <span>dias</span>
+    </div>
+    <div class="xp-bar-container">
+      <div class="xp-bar-label">
+        <span id="xpLabel">0 / 100 XP</span>
+        <span id="xpLevelLabel">Nivel 1</span>
+      </div>
+      <div class="xp-bar">
+        <div class="xp-bar-fill" id="xpBarFill" style="width:0%"></div>
+      </div>
+    </div>
+    <div class="level-badge">
+      <span class="level-badge-num" id="levelBadgeNum">1</span>
+      <span class="level-badge-title" id="levelBadgeTitle">Iniciante</span>
+    </div>
   </div>
 
   <!-- FILTER CHIPS (mobile) -->
@@ -1237,11 +1423,20 @@ body::after {
       <div class="calendar-scroll" id="calendarWeek"></div>
     </div>
     <div class="review-view" id="reviewView" style="display:none">
-      <div class="review-header">
+      <div class="review-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.5rem;margin-bottom:0.5rem">
         <h2 style="font-family:'Instrument Serif',serif;font-size:1.3rem;color:var(--text-primary)">Revisao Semanal</h2>
         <span style="font-size:0.8rem;color:var(--text-secondary)" id="reviewPeriod"></span>
       </div>
+      <div class="history-nav">
+        <button onclick="navigateWeek(-1)" title="Semana anterior">&#8592;</button>
+        <span class="history-nav-label" id="historyNavLabel">Semana atual</span>
+        <button onclick="navigateWeek(1)" title="Proxima semana">&#8594;</button>
+      </div>
+      <textarea class="week-annotation" id="weekAnnotation" placeholder="Anotacoes sobre esta semana..."></textarea>
+      <button class="btn-save-week" onclick="saveCurrentWeek()">Salvar semana</button>
       <div id="reviewContent"></div>
+      <div id="habitTrackerSection"></div>
+      <div id="weekHistoryList" style="margin-top:1rem"></div>
     </div>
   </main>
 </div>
@@ -1314,6 +1509,29 @@ body::after {
         <div class="form-group">
           <label>Horario</label>
           <input type="time" id="inputTime">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Tipo</label>
+          <select id="inputTipo">
+            <option value="tarefa">Tarefa</option>
+            <option value="habito">Habito</option>
+            <option value="rotina">Rotina</option>
+          </select>
+        </div>
+        <div class="form-group conditional-field" id="subcategoryField">
+          <label>Subcategoria</label>
+          <select id="inputSubcategoria">
+            <option value="">(nenhuma)</option>
+            <option value="academia">Academia</option>
+            <option value="leitura">Leitura</option>
+            <option value="corrida">Corrida</option>
+            <option value="beach_tennis">Beach Tennis</option>
+            <option value="estudo">Estudo</option>
+            <option value="meditacao">Meditacao</option>
+            <option value="ingles">Ingles</option>
+          </select>
         </div>
       </div>
       <div class="form-group">
@@ -1681,14 +1899,18 @@ function renderTasks() {
     const inProgressClass = task.status === 'em_andamento' ? 'in-progress' : '';
     const selectedClass = selectedTasks.has(String(task.id)) ? 'selected' : '';
 
+    const subBadge = getSubcategoryBadgeHTML(task);
+    const tipoBadge = getTipoBadgeHTML(task);
+
     return `
-      <div class="task-card ${completed} ${inProgressClass} ${selectedClass}" data-task-id="${task.id}" style="--cat-color:${catColor}; animation-delay:${i * 0.04}s">
+      <div class="task-card ${completed} ${inProgressClass} ${selectedClass}" data-task-id="${task.id}" style="--cat-color:${catColor}; animation-delay:${i * 0.04}s" draggable="true" ondragstart="handleDragStart(event)" ondragend="handleDragEnd(event)">
         <div class="bulk-check" data-action="bulk-select"></div>
         <div class="task-check" data-action="toggle"></div>
         <div class="task-info" data-action="detail">
           <div class="task-title-row">
             <span class="task-title">${task.titulo}</span>
             <span class="task-category-badge" style="background:${catBg};color:${catColor}">${task.categoria}</span>
+            ${subBadge}${tipoBadge}
           </div>
           <div class="task-meta">
             <span class="task-priority"><span class="dot" style="background:${priColor}"></span>${PRIORITY_LABELS[task.prioridade]}</span>
@@ -1714,6 +1936,7 @@ function renderTasks() {
   }).join('');
 
   updateStats();
+  renderProgressRing();
 }
 
 // ========== EVENT DELEGATION (resolve problemas de UUID nos onclick) ==========
@@ -1761,6 +1984,13 @@ async function toggleTask(id) {
   renderTasks();
   renderToday();
 
+  // Award XP when completing
+  if (newStatus === 'concluida' && oldStatus !== 'concluida') {
+    const xp = calculateXPForTask(task);
+    await updateGamification(xp);
+  }
+  renderProgressRing();
+
   const ok = await updateTask(id, { status: newStatus });
   if (!ok) {
     task.status = oldStatus;
@@ -1796,6 +2026,9 @@ function editTask(id) {
   document.getElementById('inputTime').value = task.horario || '';
   document.getElementById('inputMeetingLink').value = task.meeting_link || '';
   document.getElementById('inputNotes').value = task.notas || '';
+  document.getElementById('inputTipo').value = task.tipo || 'tarefa';
+  document.getElementById('inputSubcategoria').value = task.subcategoria || '';
+  toggleSubcategoryVisibility();
 
   document.querySelector('.modal h2').textContent = 'Editar tarefa';
   document.querySelector('.btn-save').textContent = 'Atualizar';
@@ -1818,7 +2051,7 @@ function renderCalendar() {
     const remaining = dayTasks.length - MAX_VISIBLE;
 
     return `
-      <div class="calendar-day ${todayClass} ${emptyClass}">
+      <div class="calendar-day ${todayClass} ${emptyClass}" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleCalendarDrop(event, '${day.date}')">
         <div class="calendar-day-header">
           <span class="calendar-day-name">${day.name}</span>
           <span class="calendar-day-number">${day.number}</span>
@@ -2066,6 +2299,9 @@ function openModal() {
   setTimeout(() => document.getElementById('inputTitle').focus(), 300);
   const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
   document.getElementById('inputDate').value = tomorrow.toISOString().split('T')[0];
+  document.getElementById('inputTipo').value = 'tarefa';
+  document.getElementById('inputSubcategoria').value = '';
+  toggleSubcategoryVisibility();
 }
 
 function closeModal(event) {
@@ -2083,15 +2319,18 @@ async function saveTask(event) {
   const meetingLink = document.getElementById('inputMeetingLink').value || '';
   const platform = detectMeetingPlatform(meetingLink);
 
+  const categoria = document.getElementById('inputCategory').value;
   const taskData = {
     titulo: document.getElementById('inputTitle').value,
-    categoria: document.getElementById('inputCategory').value,
+    categoria: categoria,
     prioridade: document.getElementById('inputPriority').value,
     prazo: document.getElementById('inputDate').value || null,
     horario: document.getElementById('inputTime').value || null,
     meeting_link: meetingLink,
     meeting_platform: platform ? platform.type : null,
     notas: document.getElementById('inputNotes').value,
+    tipo: document.getElementById('inputTipo').value || 'tarefa',
+    subcategoria: categoria === 'Pessoal' ? (document.getElementById('inputSubcategoria').value || null) : null,
   };
 
   closeModal();
@@ -2249,11 +2488,29 @@ async function bulkDelete() {
 
 // ========== REVIEW VIEW ==========
 function renderReview() {
-  const weekDays = getWeekDays();
+  const weekDays = getWeekDaysForOffset(reviewWeekOffset);
   const weekStart = weekDays[0].date;
   const weekEnd = weekDays[6].date;
 
   document.getElementById('reviewPeriod').textContent = `${formatDate(weekStart)} — ${formatDate(weekEnd)}`;
+
+  // Update history nav label
+  const navLabel = document.getElementById('historyNavLabel');
+  if (navLabel) {
+    navLabel.textContent = reviewWeekOffset === 0 ? 'Semana atual' : (reviewWeekOffset === -1 ? 'Semana passada' : formatDate(weekStart) + ' — ' + formatDate(weekEnd));
+  }
+
+  // Load annotation for this week
+  loadWeekAnnotation(weekStart).then(text => {
+    const ann = document.getElementById('weekAnnotation');
+    if (ann) ann.value = text;
+  });
+
+  // Load history list
+  loadWeekHistoryList();
+
+  // Render habit tracker
+  renderHabitTracker();
 
   const weekTasks = tasks.filter(t => t.prazo >= weekStart && t.prazo <= weekEnd);
   const totalWeek = weekTasks.length;
@@ -2394,6 +2651,514 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'n' && !e.ctrlKey && !e.metaKey && !['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName)) openModal();
 });
 
+// ========== GAMIFICATION SYSTEM ==========
+const LEVEL_THRESHOLDS = [0, 100, 300, 600, 1000, 1500, 2500, 4000, 6000, 10000];
+const LEVEL_TITLES = [
+  'Iniciante Organizado', 'Aprendiz Focado', 'Executor Consistente',
+  'Gerente do Caos', 'Estrategista Digital', 'Mestre do Tempo',
+  'Lider Produtivo', 'Arquiteto da Rotina', 'Guru da Organizacao', 'Professor Nivel S'
+];
+
+let gamification = { xp: 0, level: 1, title: LEVEL_TITLES[0], streak: 0, streakRecord: 0 };
+let gamificationEnabled = true; // will be set to false if table doesn't exist
+
+function getLevelForXP(xp) {
+  let lvl = 1;
+  for (let i = LEVEL_THRESHOLDS.length - 1; i >= 0; i--) {
+    if (xp >= LEVEL_THRESHOLDS[i]) { lvl = i + 1; break; }
+  }
+  return Math.min(lvl, 10);
+}
+
+function getXPForNextLevel(level) {
+  if (level >= 10) return LEVEL_THRESHOLDS[9];
+  return LEVEL_THRESHOLDS[level]; // level is 1-based, threshold index for next = level
+}
+
+function getXPForCurrentLevel(level) {
+  return LEVEL_THRESHOLDS[Math.max(0, level - 1)];
+}
+
+async function loadGamification() {
+  try {
+    const { data, error } = await sb.from('gamificacao').select('*').limit(1).single();
+    if (error) throw error;
+    if (data) {
+      gamification.xp = data.xp || 0;
+      gamification.streak = data.streak || 0;
+      gamification.streakRecord = data.streak_record || 0;
+      gamification.level = getLevelForXP(gamification.xp);
+      gamification.title = LEVEL_TITLES[gamification.level - 1];
+    }
+  } catch (e) {
+    console.warn('Gamificacao: tabela nao encontrada ou erro. Usando localStorage fallback.', e.message);
+    gamificationEnabled = false;
+    const saved = localStorage.getItem('gamification');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        gamification = { ...gamification, ...parsed };
+        gamification.level = getLevelForXP(gamification.xp);
+        gamification.title = LEVEL_TITLES[gamification.level - 1];
+      } catch (e2) { /* ignore */ }
+    }
+  }
+  renderGamificationUI();
+}
+
+async function updateGamification(xpGained) {
+  gamification.xp += xpGained;
+  const oldLevel = gamification.level;
+  gamification.level = getLevelForXP(gamification.xp);
+  gamification.title = LEVEL_TITLES[gamification.level - 1];
+
+  // Check streak
+  await checkStreak();
+
+  // Save
+  if (gamificationEnabled) {
+    try {
+      const { data: existing } = await sb.from('gamificacao').select('id').limit(1).single();
+      if (existing) {
+        await sb.from('gamificacao').update({
+          xp: gamification.xp, streak: gamification.streak,
+          streak_record: gamification.streakRecord, updated_at: new Date().toISOString()
+        }).eq('id', existing.id);
+      } else {
+        await sb.from('gamificacao').insert({
+          xp: gamification.xp, streak: gamification.streak,
+          streak_record: gamification.streakRecord
+        });
+      }
+    } catch (e) { console.warn('Erro ao salvar gamificacao no Supabase:', e.message); }
+  }
+
+  // Always save to localStorage as backup
+  localStorage.setItem('gamification', JSON.stringify(gamification));
+
+  // Show XP popup
+  showXPPopup(xpGained);
+
+  // Level up notification
+  if (gamification.level > oldLevel) {
+    setTimeout(() => alert('Nivel ' + gamification.level + '! ' + gamification.title), 500);
+  }
+
+  renderGamificationUI();
+}
+
+function calculateDailyProgress() {
+  const hoje = new Date().toISOString().split('T')[0];
+  const todayTasks = tasks.filter(t => t.prazo === hoje);
+  if (todayTasks.length === 0) return 0;
+  const done = todayTasks.filter(t => t.status === 'concluida').length;
+  return Math.round((done / todayTasks.length) * 100);
+}
+
+function renderProgressRing() {
+  const pct = calculateDailyProgress();
+  const circumference = 2 * Math.PI * 20; // r=20
+  const offset = circumference - (pct / 100) * circumference;
+  const fill = document.getElementById('progressRingFill');
+  const text = document.getElementById('progressRingText');
+  if (fill) fill.style.strokeDashoffset = offset;
+  if (text) text.textContent = pct + '%';
+}
+
+function renderGamificationUI() {
+  renderProgressRing();
+
+  const streakEl = document.getElementById('streakCount');
+  if (streakEl) streakEl.textContent = gamification.streak;
+
+  const levelNum = document.getElementById('levelBadgeNum');
+  const levelTitle = document.getElementById('levelBadgeTitle');
+  if (levelNum) levelNum.textContent = gamification.level;
+  if (levelTitle) levelTitle.textContent = gamification.title.split(' ').slice(0, 2).join(' ');
+
+  const currentLevelXP = getXPForCurrentLevel(gamification.level);
+  const nextLevelXP = getXPForNextLevel(gamification.level);
+  const xpInLevel = gamification.xp - currentLevelXP;
+  const xpNeeded = nextLevelXP - currentLevelXP;
+  const pct = xpNeeded > 0 ? Math.min(100, Math.round((xpInLevel / xpNeeded) * 100)) : 100;
+
+  const xpLabel = document.getElementById('xpLabel');
+  const xpLevelLabel = document.getElementById('xpLevelLabel');
+  const xpBarFill = document.getElementById('xpBarFill');
+  if (xpLabel) xpLabel.textContent = gamification.xp + ' / ' + nextLevelXP + ' XP';
+  if (xpLevelLabel) xpLevelLabel.textContent = 'Nivel ' + gamification.level;
+  if (xpBarFill) xpBarFill.style.width = pct + '%';
+}
+
+async function checkStreak() {
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayStr = yesterday.toISOString().split('T')[0];
+  const yesterdayTasks = tasks.filter(t => t.prazo === yesterdayStr);
+  if (yesterdayTasks.length === 0) return; // no tasks yesterday, keep streak
+
+  const done = yesterdayTasks.filter(t => t.status === 'concluida').length;
+  const rate = done / yesterdayTasks.length;
+
+  if (rate >= 0.7) {
+    // Check if we already counted today
+    const lastStreakDate = localStorage.getItem('lastStreakDate');
+    const hoje = new Date().toISOString().split('T')[0];
+    if (lastStreakDate !== hoje) {
+      gamification.streak++;
+      if (gamification.streak > gamification.streakRecord) {
+        gamification.streakRecord = gamification.streak;
+      }
+      localStorage.setItem('lastStreakDate', hoje);
+    }
+  } else {
+    gamification.streak = 0;
+  }
+}
+
+function showXPPopup(xp) {
+  const popup = document.createElement('div');
+  popup.className = 'xp-popup';
+  popup.textContent = '+' + xp + ' XP';
+  popup.style.left = (window.innerWidth / 2 - 40) + 'px';
+  popup.style.top = '120px';
+  document.body.appendChild(popup);
+  setTimeout(() => popup.remove(), 1600);
+}
+
+function calculateXPForTask(task) {
+  let base = task.tempo_estimado_min || 30;
+  // Bonus: completed before deadline
+  if (task.prazo) {
+    const hoje = new Date().toISOString().split('T')[0];
+    if (hoje <= task.prazo) base = Math.round(base * 1.5);
+  }
+  // Bonus: alta prioridade
+  if (task.prioridade === 'alta') base = Math.round(base * 1.25);
+  return Math.max(5, Math.round(base));
+}
+
+// ========== DRAG & DROP ==========
+let draggedTaskId = null;
+
+function setupDragAndDrop() {
+  // Status tabs as drop zones
+  document.querySelectorAll('.status-tab').forEach(tab => {
+    tab.addEventListener('dragover', handleDragOver);
+    tab.addEventListener('dragleave', handleDragLeave);
+    tab.addEventListener('drop', handleStatusDrop);
+  });
+}
+
+function handleDragStart(e) {
+  draggedTaskId = e.target.closest('.task-card')?.dataset.taskId || e.target.dataset.taskId;
+  if (!draggedTaskId) return;
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', draggedTaskId);
+  setTimeout(() => {
+    const card = e.target.closest('.task-card') || e.target;
+    card.classList.add('dragging');
+  }, 0);
+}
+
+function handleDragEnd(e) {
+  const card = e.target.closest('.task-card') || e.target;
+  card.classList.remove('dragging');
+  draggedTaskId = null;
+  document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+}
+
+function handleDragOver(e) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  e.currentTarget.classList.add('drag-over');
+}
+
+function handleDragLeave(e) {
+  e.currentTarget.classList.remove('drag-over');
+}
+
+async function handleStatusDrop(e) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-over');
+  const taskId = e.dataTransfer.getData('text/plain');
+  if (!taskId) return;
+
+  const statusMap = { 'all': null, 'pendente': 'pendente', 'em_andamento': 'em_andamento', 'concluida': 'concluida' };
+  const newStatus = statusMap[e.currentTarget.dataset.status];
+  if (!newStatus) return;
+
+  const task = tasks.find(t => String(t.id) === String(taskId));
+  if (!task || task.status === newStatus) return;
+
+  const oldStatus = task.status;
+  task.status = newStatus;
+  renderTasks();
+  renderToday();
+
+  // Award XP if moved to concluida
+  if (newStatus === 'concluida' && oldStatus !== 'concluida') {
+    const xp = calculateXPForTask(task);
+    await updateGamification(xp);
+  }
+
+  const ok = await updateTask(taskId, { status: newStatus });
+  if (!ok) {
+    task.status = oldStatus;
+    renderTasks();
+    renderToday();
+  }
+}
+
+async function handleCalendarDrop(e, newDate) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-over');
+  const taskId = e.dataTransfer.getData('text/plain');
+  if (!taskId) return;
+
+  const task = tasks.find(t => String(t.id) === String(taskId));
+  if (!task) return;
+
+  const oldDate = task.prazo;
+  task.prazo = newDate;
+  renderCalendar();
+  renderTasks();
+
+  const ok = await updateTask(taskId, { prazo: newDate });
+  if (!ok) {
+    task.prazo = oldDate;
+    renderCalendar();
+    renderTasks();
+  }
+}
+
+// ========== WEEK HISTORY ==========
+let reviewWeekOffset = 0; // 0 = current week, -1 = last week, etc.
+
+function getWeekDaysForOffset(offset) {
+  const today = new Date();
+  today.setDate(today.getDate() + (offset * 7));
+  const dow = today.getDay();
+  const monday = new Date(today);
+  monday.setDate(today.getDate() - (dow === 0 ? 6 : dow - 1));
+  const days = [];
+  const names = ['Seg','Ter','Qua','Qui','Sex','Sab','Dom'];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(monday); d.setDate(monday.getDate() + i);
+    days.push({ name: names[i], number: d.getDate(), date: d.toISOString().split('T')[0], isToday: d.toDateString() === new Date().toDateString() });
+  }
+  return days;
+}
+
+function navigateWeek(dir) {
+  reviewWeekOffset += dir;
+  if (reviewWeekOffset > 0) reviewWeekOffset = 0; // don't go to future
+  renderReview();
+}
+
+async function saveWeekSnapshot() {
+  const weekDays = getWeekDaysForOffset(reviewWeekOffset);
+  const weekStart = weekDays[0].date;
+  const weekEnd = weekDays[6].date;
+  const weekTasks = tasks.filter(t => t.prazo >= weekStart && t.prazo <= weekEnd);
+  const total = weekTasks.length;
+  const completed = weekTasks.filter(t => t.status === 'concluida').length;
+  const rate = total > 0 ? Math.round((completed / total) * 100) : 0;
+  const annotation = document.getElementById('weekAnnotation')?.value || '';
+
+  const snapshot = {
+    week_start: weekStart, week_end: weekEnd,
+    total_tasks: total, completed_tasks: completed,
+    completion_rate: rate, annotation: annotation,
+    snapshot_data: JSON.stringify({ tasks: weekTasks.map(t => ({ id: t.id, titulo: t.titulo, status: t.status, categoria: t.categoria })) })
+  };
+
+  try {
+    // Check if snapshot already exists for this week
+    const { data: existing } = await sb.from('historico_semanal').select('id').eq('week_start', weekStart).single();
+    if (existing) {
+      await sb.from('historico_semanal').update(snapshot).eq('id', existing.id);
+    } else {
+      await sb.from('historico_semanal').insert(snapshot);
+    }
+    alert('Semana salva com sucesso!');
+  } catch (e) {
+    console.warn('Erro ao salvar snapshot semanal (tabela pode nao existir):', e.message);
+    // Fallback: save to localStorage
+    const key = 'weekSnapshot_' + weekStart;
+    localStorage.setItem(key, JSON.stringify(snapshot));
+    // Also save to history index
+    const historyIndex = JSON.parse(localStorage.getItem('weekHistoryIndex') || '[]');
+    if (!historyIndex.includes(weekStart)) {
+      historyIndex.push(weekStart);
+      historyIndex.sort().reverse();
+      localStorage.setItem('weekHistoryIndex', JSON.stringify(historyIndex));
+    }
+    alert('Semana salva localmente!');
+  }
+  loadWeekHistoryList();
+}
+
+async function saveAnnotation(weekStart, text) {
+  try {
+    const { data: existing } = await sb.from('historico_semanal').select('id').eq('week_start', weekStart).single();
+    if (existing) {
+      await sb.from('historico_semanal').update({ annotation: text }).eq('id', existing.id);
+    }
+  } catch (e) {
+    const key = 'weekSnapshot_' + weekStart;
+    const saved = localStorage.getItem(key);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      parsed.annotation = text;
+      localStorage.setItem(key, JSON.stringify(parsed));
+    }
+  }
+}
+
+function saveCurrentWeek() {
+  saveWeekSnapshot();
+}
+
+async function loadWeekAnnotation(weekStart) {
+  try {
+    const { data } = await sb.from('historico_semanal').select('annotation').eq('week_start', weekStart).single();
+    if (data) return data.annotation || '';
+  } catch (e) {
+    const key = 'weekSnapshot_' + weekStart;
+    const saved = localStorage.getItem(key);
+    if (saved) {
+      try { return JSON.parse(saved).annotation || ''; } catch (e2) { /* ignore */ }
+    }
+  }
+  return '';
+}
+
+async function loadWeekHistoryList() {
+  let histories = [];
+  try {
+    const { data, error } = await sb.from('historico_semanal').select('*').order('week_start', { ascending: false }).limit(10);
+    if (!error && data) histories = data;
+  } catch (e) {
+    // Fallback: localStorage
+    const historyIndex = JSON.parse(localStorage.getItem('weekHistoryIndex') || '[]');
+    histories = historyIndex.map(ws => {
+      const saved = localStorage.getItem('weekSnapshot_' + ws);
+      return saved ? JSON.parse(saved) : null;
+    }).filter(Boolean);
+  }
+
+  const container = document.getElementById('weekHistoryList');
+  if (!container) return;
+  if (histories.length === 0) {
+    container.innerHTML = '<div style="font-size:0.75rem;color:var(--text-muted);padding:0.5rem 0">Nenhuma semana salva ainda.</div>';
+    return;
+  }
+
+  container.innerHTML = '<h3 style="font-size:0.75rem;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.5rem">Historico de semanas</h3>' +
+    histories.map(h => {
+      const rateColor = h.completion_rate >= 70 ? 'var(--cat-pessoal)' : h.completion_rate >= 40 ? 'var(--pri-media)' : 'var(--pri-alta)';
+      return `<div class="history-card">
+        <div class="history-card-header">
+          <span class="history-card-period">${formatDate(h.week_start)} — ${formatDate(h.week_end)}</span>
+          <span class="history-card-rate" style="color:${rateColor}">${h.completion_rate}%</span>
+        </div>
+        <div style="font-size:0.72rem;color:var(--text-secondary)">${h.completed_tasks || 0}/${h.total_tasks || 0} concluidas</div>
+        ${h.annotation ? '<div class="history-card-note">' + h.annotation + '</div>' : ''}
+      </div>`;
+    }).join('');
+}
+
+// ========== HABITS & SUBCATEGORIES ==========
+const SUBCATEGORY_LABELS = {
+  'academia': 'Academia', 'leitura': 'Leitura', 'corrida': 'Corrida',
+  'beach_tennis': 'Beach Tennis', 'estudo': 'Estudo',
+  'meditacao': 'Meditacao', 'ingles': 'Ingles'
+};
+
+const SUBCATEGORY_ICONS = {
+  'academia': '\uD83C\uDFCB', 'leitura': '\uD83D\uDCDA', 'corrida': '\uD83C\uDFC3',
+  'beach_tennis': '\uD83C\uDFBE', 'estudo': '\uD83D\uDCDD',
+  'meditacao': '\uD83E\uDDD8', 'ingles': '\uD83C\uDDFA\uD83C\uDDF8'
+};
+
+let subcategoryFilter = null;
+
+function toggleSubcategoryVisibility() {
+  const catSelect = document.getElementById('inputCategory');
+  const subField = document.getElementById('subcategoryField');
+  if (catSelect && subField) {
+    subField.classList.toggle('visible', catSelect.value === 'Pessoal');
+  }
+}
+
+function getSubcategoryBadgeHTML(task) {
+  if (!task.subcategoria) return '';
+  const label = SUBCATEGORY_LABELS[task.subcategoria] || task.subcategoria;
+  const icon = SUBCATEGORY_ICONS[task.subcategoria] || '';
+  return '<span class="subcategory-badge">' + (icon ? icon + ' ' : '') + label + '</span>';
+}
+
+function getTipoBadgeHTML(task) {
+  if (!task.tipo || task.tipo === 'tarefa') return '';
+  if (task.tipo === 'rotina') return '<span class="routine-badge">&#128260; Rotina</span>';
+  if (task.tipo === 'habito') return '<span class="habit-indicator">&#9889; Habito</span>';
+  return '';
+}
+
+function renderHabitTracker() {
+  const container = document.getElementById('habitTrackerSection');
+  if (!container) return;
+
+  const weekDays = getWeekDaysForOffset(reviewWeekOffset);
+  const habitSubcats = Object.keys(SUBCATEGORY_LABELS);
+
+  // Find habits/routines for this week
+  const weekStart = weekDays[0].date;
+  const weekEnd = weekDays[6].date;
+
+  let hasData = false;
+  let html = '<div class="review-card" style="margin-top:0.75rem"><h3>Rastreador de habitos</h3>';
+  html += '<div class="habit-grid">';
+
+  // Header row
+  html += '<div></div>';
+  weekDays.forEach(d => { html += '<div class="habit-grid-day-label">' + d.name + '</div>'; });
+
+  habitSubcats.forEach(sub => {
+    const subTasks = tasks.filter(t =>
+      t.subcategoria === sub && t.prazo >= weekStart && t.prazo <= weekEnd
+    );
+    if (subTasks.length === 0) return;
+    hasData = true;
+
+    const icon = SUBCATEGORY_ICONS[sub] || '';
+    html += '<div class="habit-grid-label">' + icon + ' ' + SUBCATEGORY_LABELS[sub] + '</div>';
+    weekDays.forEach(day => {
+      const dayTask = subTasks.find(t => t.prazo === day.date);
+      if (dayTask) {
+        const completed = dayTask.status === 'concluida';
+        html += '<div class="habit-grid-cell ' + (completed ? 'completed' : 'partial') + '">' + (completed ? '&#10003;' : '&#9711;') + '</div>';
+      } else {
+        html += '<div class="habit-grid-cell"></div>';
+      }
+    });
+  });
+
+  html += '</div></div>';
+
+  container.innerHTML = hasData ? html : '';
+}
+
+// ========== MODIFY EXISTING FUNCTIONS ==========
+
+// Patch: category select toggles subcategory visibility
+document.addEventListener('change', function(e) {
+  if (e.target && e.target.id === 'inputCategory') {
+    toggleSubcategoryVisibility();
+  }
+});
+
 // ========== INIT ==========
 // Restore theme from localStorage
 if (localStorage.getItem('theme') === 'light') {
@@ -2402,8 +3167,12 @@ if (localStorage.getItem('theme') === 'light') {
 }
 
 updateHeaderDate();
-loadTasks();       // Carrega tarefas do Supabase
-setupRealtime();   // Escuta mudancas em tempo real
+loadTasks().then(() => {
+  loadGamification();
+  renderProgressRing();
+});
+setupRealtime();
+setupDragAndDrop();
 </script>
 </body>
 </html>
