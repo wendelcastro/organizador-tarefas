@@ -188,6 +188,8 @@ body::after {
   opacity: 0.6;
 }
 .stat-card:active { transform: scale(0.96); }
+.stat-card.stat-active { border-color: var(--accent, var(--border-hover)); background: rgba(255,255,255,0.08); }
+.stat-card.stat-active::before { opacity: 1; height: 3px; }
 .stat-number {
   font-family: 'Instrument Serif', serif;
   font-size: 1.5rem; font-weight: 400; line-height: 1; margin-bottom: 0.15rem;
@@ -1167,11 +1169,11 @@ body::after {
 
   <!-- STATS BAR (mobile) -->
   <div class="stats-bar" id="statsBar">
-    <div class="stat-card total"><div class="stat-number" id="mStatTotal">0</div><div class="stat-label">Total</div></div>
-    <div class="stat-card pending"><div class="stat-number" id="mStatPending">0</div><div class="stat-label">Pendentes</div></div>
-    <div class="stat-card done"><div class="stat-number" id="mStatDone">0</div><div class="stat-label">Concluidas</div></div>
-    <div class="stat-card overdue"><div class="stat-number" id="mStatOverdue">0</div><div class="stat-label">Atrasadas</div></div>
-    <div class="stat-card meetings"><div class="stat-number" id="mStatMeetings">0</div><div class="stat-label">Reunioes</div></div>
+    <div class="stat-card total" onclick="filterByStatCard('all')"><div class="stat-number" id="mStatTotal">0</div><div class="stat-label">Total</div></div>
+    <div class="stat-card pending" onclick="filterByStatCard('pendente')"><div class="stat-number" id="mStatPending">0</div><div class="stat-label">Pendentes</div></div>
+    <div class="stat-card done" onclick="filterByStatCard('concluida')"><div class="stat-number" id="mStatDone">0</div><div class="stat-label">Concluidas</div></div>
+    <div class="stat-card overdue" onclick="filterByStatCard('overdue')"><div class="stat-number" id="mStatOverdue">0</div><div class="stat-label">Atrasadas</div></div>
+    <div class="stat-card meetings" onclick="filterByStatCard('meetings')"><div class="stat-number" id="mStatMeetings">0</div><div class="stat-label">Reunioes</div></div>
   </div>
 
   <!-- FILTER CHIPS (mobile) -->
@@ -1186,10 +1188,10 @@ body::after {
   <!-- SIDEBAR (desktop) -->
   <aside class="sidebar">
     <div class="stats-grid">
-      <div class="stat-card total"><div class="stat-number" id="statTotal">0</div><div class="stat-label">Total</div></div>
-      <div class="stat-card pending"><div class="stat-number" id="statPending">0</div><div class="stat-label">Pendentes</div></div>
-      <div class="stat-card done"><div class="stat-number" id="statDone">0</div><div class="stat-label">Concluidas</div></div>
-      <div class="stat-card overdue"><div class="stat-number" id="statOverdue">0</div><div class="stat-label">Atrasadas</div></div>
+      <div class="stat-card total" onclick="filterByStatCard('all')"><div class="stat-number" id="statTotal">0</div><div class="stat-label">Total</div></div>
+      <div class="stat-card pending" onclick="filterByStatCard('pendente')"><div class="stat-number" id="statPending">0</div><div class="stat-label">Pendentes</div></div>
+      <div class="stat-card done" onclick="filterByStatCard('concluida')"><div class="stat-number" id="statDone">0</div><div class="stat-label">Concluidas</div></div>
+      <div class="stat-card overdue" onclick="filterByStatCard('overdue')"><div class="stat-number" id="statOverdue">0</div><div class="stat-label">Atrasadas</div></div>
     </div>
     <div class="sidebar-section">
       <h3>Categorias</h3>
@@ -1383,7 +1385,7 @@ function getMeetingBadgeHTML(url) {
 
 // ========== DATA ==========
 let tasks = [];
-let currentFilters = { category: 'all', priority: 'all', status: 'all' };
+let currentFilters = { category: 'all', priority: 'all', status: 'all', _special: null };
 
 // ========== SUPABASE: CARREGAR TAREFAS ==========
 async function loadTasks() {
@@ -1562,20 +1564,75 @@ function updateStats() {
 // ========== FILTERS ==========
 function filterCategory(cat) {
   currentFilters.category = cat;
+  currentFilters._special = null;
   document.querySelectorAll('.chip[data-category]').forEach(el => el.classList.toggle('active', el.dataset.category === cat));
   document.querySelectorAll('.category-item').forEach(el => el.classList.toggle('active', el.dataset.category === cat));
+  document.querySelectorAll('.stat-card').forEach(el => el.classList.remove('stat-active'));
+  switchView('tasks');
   renderTasks();
 }
 
 function filterPriority(pri) {
   currentFilters.priority = pri;
+  currentFilters._special = null;
   document.querySelectorAll('.priority-item').forEach(el => el.classList.toggle('active', el.dataset.priority === pri));
+  document.querySelectorAll('.stat-card').forEach(el => el.classList.remove('stat-active'));
+  switchView('tasks');
   renderTasks();
 }
 
 function filterStatus(status) {
   currentFilters.status = status;
+  currentFilters._special = null;
   document.querySelectorAll('.status-tab').forEach(el => el.classList.toggle('active', el.dataset.status === status));
+  document.querySelectorAll('.stat-card').forEach(el => el.classList.remove('stat-active'));
+  renderTasks();
+}
+
+// Filtro rapido via stat cards (Total, Pendentes, Concluidas, Atrasadas, Reunioes)
+function filterByStatCard(type) {
+  // Resetar filtros
+  currentFilters.category = 'all';
+  currentFilters.priority = 'all';
+  document.querySelectorAll('.chip[data-category]').forEach(el => el.classList.toggle('active', el.dataset.category === 'all'));
+  document.querySelectorAll('.category-item').forEach(el => el.classList.toggle('active', el.dataset.category === 'all'));
+  document.querySelectorAll('.priority-item').forEach(el => el.classList.toggle('active', el.dataset.priority === 'all'));
+
+  if (type === 'all') {
+    currentFilters.status = 'all';
+  } else if (type === 'pendente') {
+    currentFilters.status = 'pendente';
+  } else if (type === 'concluida') {
+    currentFilters.status = 'concluida';
+  } else if (type === 'overdue' || type === 'meetings') {
+    // Filtros especiais — usar status 'all' e filtrar no getFilteredTasks
+    currentFilters.status = 'all';
+    currentFilters._special = type;
+  }
+
+  // Atualizar visual das status tabs
+  if (type !== 'overdue' && type !== 'meetings') {
+    currentFilters._special = null;
+    document.querySelectorAll('.status-tab').forEach(el => el.classList.toggle('active', el.dataset.status === (type === 'all' ? 'all' : type)));
+  } else {
+    document.querySelectorAll('.status-tab').forEach(el => el.classList.remove('active'));
+  }
+
+  // Destacar stat card ativo
+  document.querySelectorAll('.stat-card').forEach(el => el.classList.remove('stat-active'));
+  if (type === 'all') {
+    document.querySelectorAll('.stat-card.total').forEach(el => el.classList.add('stat-active'));
+  } else if (type === 'pendente') {
+    document.querySelectorAll('.stat-card.pending').forEach(el => el.classList.add('stat-active'));
+  } else if (type === 'concluida') {
+    document.querySelectorAll('.stat-card.done').forEach(el => el.classList.add('stat-active'));
+  } else if (type === 'overdue') {
+    document.querySelectorAll('.stat-card.overdue').forEach(el => el.classList.add('stat-active'));
+  } else if (type === 'meetings') {
+    document.querySelectorAll('.stat-card.meetings').forEach(el => el.classList.add('stat-active'));
+  }
+
+  switchView('tasks');
   renderTasks();
 }
 
@@ -1584,6 +1641,9 @@ function getFilteredTasks() {
     if (currentFilters.category !== 'all' && t.categoria !== currentFilters.category) return false;
     if (currentFilters.priority !== 'all' && t.prioridade !== currentFilters.priority) return false;
     if (currentFilters.status !== 'all' && t.status !== currentFilters.status) return false;
+    // Filtros especiais dos stat cards
+    if (currentFilters._special === 'overdue' && !isOverdue(t)) return false;
+    if (currentFilters._special === 'meetings' && (!t.meeting_link || t.status === 'concluida')) return false;
     return true;
   });
 }
