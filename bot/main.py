@@ -16,6 +16,12 @@ Melhorias v2:
 - Tarefas recorrentes
 - Memoria de contexto da IA
 - Health check HTTP integrado (para deploy no Koyeb/PaaS)
+- Decomposicao de tarefas em subtarefas (Sprint 2)
+- Check-in meio-dia automatico (13:00)
+- Sugestao de reagendamento de atrasadas
+- Alerta preditivo de sobrecarga
+- Deteccao de conflitos de horario
+- Timeout de confirmacao (30 min)
 
 Comandos:
   /start     — Boas-vindas
@@ -25,6 +31,7 @@ Comandos:
   /resumo    — Resumo rapido
   /concluir  — Concluir tarefa (interativo)
   /editar    — Editar tarefa existente
+  /decompor  — Decompor tarefa em subtarefas
   /relatorio — Relatorio semanal manual
   /foco      — Modo foco (silencia interrupcoes)
   /cancelar  — Cancela operacao atual
@@ -113,6 +120,7 @@ STATE_CONFIRMING_MULTI = "confirming_multi"  # Multiplas tarefas
 STATE_CHATTING = "chatting"
 STATE_EDITING = "editing"        # Editando tarefa
 STATE_FOCUS = "focus"            # Modo foco
+STATE_CONFIRMING_DECOMP = "confirming_decomp"  # Confirmando decomposicao
 
 
 def get_state(context):
@@ -128,7 +136,8 @@ def set_state(context, state, **kwargs):
 def clear_state(context):
     context.user_data["state"] = STATE_IDLE
     for key in ["pending_task", "pending_tasks", "confirm_history",
-                "chat_history", "editing_task_id", "focus_until"]:
+                "chat_history", "editing_task_id", "focus_until",
+                "pending_decomp", "decomp_task", "state_timestamp"]:
         context.user_data.pop(key, None)
 
 
@@ -497,6 +506,7 @@ async def processar_nova_tarefa(update, context, texto):
 
             set_state(context, STATE_CONFIRMING_MULTI,
                       pending_tasks=tarefas,
+                      state_timestamp=datetime.now(TZ_RECIFE).isoformat(),
                       confirm_history=[
                           {"role": "user", "content": texto},
                           {"role": "assistant", "content": response},
@@ -506,9 +516,35 @@ async def processar_nova_tarefa(update, context, texto):
             return
 
         # TAREFA UNICA
+        # Detectar conflitos de horario
+        if classificacao.get("horario") and ai_brain:
+            try:
+                conflitos = ai_brain.detectar_conflitos(tarefas_hoje, classificacao)
+                if conflitos:
+                    classificacao["_alerta_conflito"] = conflitos
+            except Exception as e:
+                logger.warning(f"Erro ao detectar conflitos: {e}")
+
+        # Alerta preditivo de sobrecarga
+        if classificacao.get("prazo") and ai_brain:
+            try:
+                alerta = ai_brain.alerta_preditivo(carga_semana)
+                if alerta:
+                    classificacao["_alerta_preditivo"] = alerta
+            except Exception as e:
+                logger.warning(f"Erro no alerta preditivo: {e}")
+
         confirm_msg = formatar_confirmacao(classificacao)
+
+        # Adicionar alertas extras a mensagem
+        if classificacao.get("_alerta_conflito"):
+            confirm_msg += f"\n\n⚠️ *Conflito de horario:* {classificacao['_alerta_conflito']}"
+        if classificacao.get("_alerta_preditivo"):
+            confirm_msg += f"\n\n📈 *Alerta:* {classificacao['_alerta_preditivo']}"
+
         set_state(context, STATE_CONFIRMING,
                   pending_task=classificacao,
+                  state_timestamp=datetime.now(TZ_RECIFE).isoformat(),
                   confirm_history=[
                       {"role": "user", "content": texto},
                       {"role": "assistant", "content": confirm_msg},
@@ -853,6 +889,16 @@ async def resumo_matinal(context):
             msg += f"\n⚠️ *{len(atrasadas)} atrasada{'s' if len(atrasadas) > 1 else ''}:*\n"
             for t in atrasadas[:5]:
                 msg += f"  · {t['titulo']} (prazo: {t.get('prazo', '?')})\n"
+
+            # Sugestao de reagendamento automatico
+            if ai_brain:
+                try:
+                    carga_semana = obter_carga_semana()
+                    sugestao = ai_brain.sugerir_reagendamento(atrasadas, carga_semana)
+                    if sugestao:
+                        msg += f"\n💡 *Sugestao de reagendamento:*\n{sugestao}\n"
+                except Exception as e:
+                    logger.warning(f"Erro ao sugerir reagendamento: {e}")
 
         msg += f"\n💡 _Use /planejar para organizar o dia_"
 
@@ -1325,6 +1371,59 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             await query.edit_message_text("❌ Erro ao concluir.")
 
+    # DECOMPOR tarefa
+    elif data.startswith("decomp:"):
+        task_id = data.split(":", 1)[1]
+        if task_id == "cancel":
+            await query.edit_message_text("Cancelado.")
+            return
+
+        if not ai_brain:
+            await query.edit_message_text("⚠️ Decomposicao requer Claude API.")
+            return
+
+        # Buscar dados da tarefa
+        result = supabase_request("GET", "tarefas", params={
+            "id": f"eq.{task_id}",
+            "select": "id,titulo,categoria,prioridade,prazo,horario,tempo_estimado_min",
+        })
+        if not result:
+            await query.edit_message_text("❌ Tarefa nao encontrada.")
+            return
+
+        tarefa = result[0]
+        await query.edit_message_text("🧠 Decompondo tarefa em subtarefas...")
+
+        try:
+            subtarefas = ai_brain.decompor_tarefa(tarefa)
+            if not subtarefas:
+                await query.edit_message_text("❌ Nao consegui decompor essa tarefa.")
+                return
+
+            msg = f"🔀 *Decomposicao de:* _{tarefa['titulo']}_\n\n"
+            for i, sub in enumerate(subtarefas, 1):
+                msg += f"*{i}.* {sub.get('titulo', 'Subtarefa')}"
+                if sub.get("tempo_estimado_min"):
+                    msg += f" (~{sub['tempo_estimado_min']}min)"
+                msg += "\n"
+            msg += "\n✅ *Confirma a criacao das subtarefas?*"
+
+            set_state(context, STATE_CONFIRMING_DECOMP,
+                      pending_decomp=subtarefas,
+                      decomp_task=tarefa,
+                      state_timestamp=datetime.now(TZ_RECIFE).isoformat())
+
+            await context.bot.send_message(
+                query.message.chat_id, msg,
+                parse_mode="Markdown"
+            )
+        except Exception as e:
+            logger.error(f"Erro ao decompor tarefa: {e}")
+            await context.bot.send_message(
+                query.message.chat_id,
+                "❌ Erro ao decompor tarefa."
+            )
+
     # EDITAR tarefa
     elif data.startswith("edit:"):
         task_id = data.split(":", 1)[1]
@@ -1426,11 +1525,30 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data["state"] = STATE_FOCUS
         return
 
+    # Verificar timeout de confirmacao (30 minutos)
+    if state in (STATE_CONFIRMING, STATE_CONFIRMING_MULTI, STATE_CONFIRMING_DECOMP):
+        ts = context.user_data.get("state_timestamp")
+        if ts:
+            try:
+                state_time = datetime.fromisoformat(ts)
+                agora = datetime.now(TZ_RECIFE)
+                if (agora - state_time).total_seconds() > 1800:  # 30 min
+                    clear_state(context)
+                    await update.message.reply_text(
+                        "⏰ Confirmacao expirou. Mande a tarefa novamente."
+                    )
+                    return
+            except (ValueError, TypeError):
+                pass
+
     if state == STATE_CONFIRMING and ai_brain:
         await processar_confirmacao(update, context, texto)
 
     elif state == STATE_CONFIRMING_MULTI and ai_brain:
         await processar_confirmacao_multi(update, context, texto)
+
+    elif state == STATE_CONFIRMING_DECOMP and ai_brain:
+        await processar_confirmacao_decomp(update, context, texto)
 
     elif state == STATE_EDITING:
         await processar_edicao(update, context, texto)
@@ -1553,6 +1671,130 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await msg.edit_text("❌ Erro ao processar audio.")
 
 
+# ========== CONFIRMACAO DE DECOMPOSICAO ==========
+
+async def processar_confirmacao_decomp(update, context, texto):
+    """Processa confirmacao de decomposicao de tarefa."""
+    subtarefas = context.user_data.get("pending_decomp", [])
+    tarefa_pai = context.user_data.get("decomp_task", {})
+
+    if not subtarefas:
+        clear_state(context)
+        return
+
+    lower = texto.lower().strip()
+
+    # Confirmacao
+    if any(w in lower for w in ["sim", "ok", "confirma", "pode", "bora", "salva"]):
+        categoria = tarefa_pai.get("categoria", "Pessoal")
+        prazo = tarefa_pai.get("prazo")
+        criadas = 0
+
+        for sub in subtarefas:
+            tarefa = criar_tarefa(
+                titulo=sub.get("titulo", "Subtarefa"),
+                categoria=categoria,
+                prioridade=sub.get("prioridade", tarefa_pai.get("prioridade", "media")),
+                prazo=sub.get("prazo", prazo),
+                horario=sub.get("horario"),
+                tempo_estimado=sub.get("tempo_estimado_min"),
+            )
+            if tarefa:
+                criadas += 1
+
+        clear_state(context)
+        await update.message.reply_text(
+            f"✅ *{criadas} subtarefas criadas* a partir de _{tarefa_pai.get('titulo', 'tarefa')}_!\n\n"
+            f"[📊 Dashboard](https://wendelcastro.github.io/organizador-tarefas/web/)",
+            parse_mode="Markdown", disable_web_page_preview=True
+        )
+        return
+
+    # Cancelar
+    if any(w in lower for w in ["nao", "cancela", "esquece"]):
+        clear_state(context)
+        await update.message.reply_text("🚫 Decomposicao cancelada.")
+        return
+
+    await update.message.reply_text(
+        "Diz *'confirma'* pra criar as subtarefas ou *'cancela'* pra desistir.",
+        parse_mode="Markdown"
+    )
+
+
+# ========== DECOMPOR TAREFA ==========
+
+async def cmd_decompor(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Decompor tarefa em subtarefas usando IA."""
+    clear_state(context)
+
+    if not ai_brain:
+        await update.message.reply_text("⚠️ Decomposicao requer Claude API. Configure ANTHROPIC_API_KEY.")
+        return
+
+    tarefas = listar_tarefas_pendentes(10)
+
+    if not tarefas:
+        await update.message.reply_text("✅ Nenhuma tarefa pendente para decompor!")
+        return
+
+    keyboard = []
+    for t in tarefas:
+        emoji = EMOJI_PRIORIDADE.get(t.get("prioridade", ""), "⚪")
+        cat_emoji = EMOJI_CATEGORIA.get(t.get("categoria", ""), "📋")
+        titulo = t["titulo"][:35]
+        keyboard.append([InlineKeyboardButton(
+            f"{emoji}{cat_emoji} {titulo}",
+            callback_data=f"decomp:{t['id']}"
+        )])
+    keyboard.append([InlineKeyboardButton("❌ Cancelar", callback_data="decomp:cancel")])
+
+    await update.message.reply_text(
+        "🔀 *Qual tarefa decompor em subtarefas?*",
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode="Markdown",
+    )
+
+
+# ========== CHECK-IN MEIO-DIA ==========
+
+async def checkin_meiodia(context):
+    """Envia check-in do meio-dia com progresso das tarefas."""
+    chat_id = get_chat_id()
+    if not chat_id:
+        return
+
+    hoje = datetime.now(TZ_RECIFE).strftime("%Y-%m-%d")
+    tarefas_hoje = listar_tarefas_do_dia(hoje)
+    concluidas = listar_concluidas_hoje()
+
+    total = len(tarefas_hoje) + len(concluidas)
+    if total == 0:
+        return  # Nada pra reportar
+
+    n_concluidas = len(concluidas)
+    percentual = (n_concluidas / total * 100) if total > 0 else 0
+
+    if percentual >= 50:
+        encorajamento = "🔥 Otimo ritmo! Mais da metade ja concluida. Continue assim!"
+    elif n_concluidas > 0:
+        encorajamento = "💪 Ja comecou bem! Foca nas prioridades da tarde."
+    else:
+        encorajamento = "🚀 A tarde e sua! Comece pela tarefa mais importante."
+
+    msg = (
+        f"📊 *Check-in do meio-dia*\n\n"
+        f"✅ {n_concluidas}/{total} tarefas concluidas ate agora ({percentual:.0f}%)\n\n"
+        f"{encorajamento}"
+    )
+
+    try:
+        await context.bot.send_message(chat_id, msg, parse_mode="Markdown",
+                                       disable_web_page_preview=True)
+    except Exception as e:
+        logger.error(f"Erro no check-in meio-dia: {e}")
+
+
 # ========== SETUP ==========
 
 async def setup_commands(app):
@@ -1566,6 +1808,7 @@ async def setup_commands(app):
         BotCommand("concluir", "Concluir tarefa"),
         BotCommand("editar", "Editar tarefa"),
         BotCommand("relatorio", "Relatorio semanal"),
+        BotCommand("decompor", "Decompor tarefa em subtarefas"),
         BotCommand("foco", "Modo foco (silenciar)"),
         BotCommand("cancelar", "Cancelar operacao"),
     ]
@@ -1587,6 +1830,13 @@ async def post_init(app):
         resumo_matinal,
         time=dt_time(7, 30, tzinfo=TZ_RECIFE),
         name="morning_summary",
+    )
+
+    # Check-in meio-dia as 13:00 (todos os dias)
+    jq.run_daily(
+        checkin_meiodia,
+        time=dt_time(13, 0, tzinfo=TZ_RECIFE),
+        name="midday_checkin",
     )
 
     # Relatorio semanal sexta 17:00
@@ -1611,7 +1861,7 @@ async def post_init(app):
         name="initial_reminders",
     )
 
-    logger.info("Jobs programados: resumo 7:30, relatorio sex 17:00, recorrentes 6:00")
+    logger.info("Jobs programados: resumo 7:30, check-in 13:00, relatorio sex 17:00, recorrentes 6:00")
 
 
 # ========== HEALTH CHECK (para Koyeb/PaaS) ==========
@@ -1665,6 +1915,7 @@ def main():
     app.add_handler(CommandHandler("concluir", cmd_concluir))
     app.add_handler(CommandHandler("editar", cmd_editar))
     app.add_handler(CommandHandler("relatorio", cmd_relatorio))
+    app.add_handler(CommandHandler("decompor", cmd_decompor))
     app.add_handler(CommandHandler("foco", cmd_foco))
     app.add_handler(CommandHandler("cancelar", cmd_cancelar))
     app.add_handler(CallbackQueryHandler(handle_callback))

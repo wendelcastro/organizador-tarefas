@@ -36,7 +36,7 @@ armazena no Supabase e visualiza num dashboard web.
 - `Procfile` — Declaracao de worker para PaaS
 
 ## Comandos do Bot
-/start, /tarefas, /planejar, /feedback, /resumo, /concluir, /editar, /relatorio, /foco, /cancelar
+/start, /tarefas, /planejar, /feedback, /resumo, /concluir, /editar, /relatorio, /foco, /decompor, /cancelar
 
 ## Supabase
 - URL: (configurar em .env)

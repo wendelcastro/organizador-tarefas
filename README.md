@@ -41,7 +41,7 @@ A IA:
 - [x] Analise de padroes de produtividade
 - [x] Estimativa de tempo por tipo de tarefa
 
-### Bot Telegram (10 comandos)
+### Bot Telegram (11 comandos)
 - [x] `/start` — Boas-vindas + salva chat ID
 - [x] `/tarefas` — Lista pendentes com prioridade
 - [x] `/planejar` — Planejamento inteligente do dia
@@ -51,13 +51,17 @@ A IA:
 - [x] `/editar` — Edita tarefa por inline keyboard + texto livre
 - [x] `/relatorio` — Relatorio semanal on-demand
 - [x] `/foco` — Modo foco (silencia lembretes de baixa prioridade)
+- [x] `/decompor` — Quebra tarefa grande em subtarefas com tempo estimado
 - [x] `/cancelar` — Cancela operacao atual
 
 ### Automacoes (rodam sozinhas)
-- [x] Resumo matinal as 7:30 no Telegram
+- [x] Resumo matinal as 7:30 no Telegram (com sugestao de reagendamento de atrasadas)
+- [x] Check-in do meio-dia as 13:00 (progresso do dia)
 - [x] Relatorio semanal toda sexta as 17:00
 - [x] Lembretes 15min antes de tarefas com horario
 - [x] Criacao automatica de tarefas recorrentes as 6:00
+- [x] Alerta preditivo de sobrecarga ao adicionar tarefas
+- [x] Deteccao automatica de conflitos de horario
 
 ### Dashboard Web
 - [x] Tres views: Todas | Hoje | Semana
@@ -423,6 +427,7 @@ O bot agora roda permanentemente, reinicia se cair, e sobrevive a reboots.
 | `/editar` | Botoes inline + texto para editar campo | `/editar` |
 | `/relatorio` | Relatorio semanal completo | `/relatorio` |
 | `/foco 2h` | Silencia lembretes por 2 horas | `/foco 1h30` |
+| `/decompor` | Quebra tarefa grande em subtarefas | `/decompor` |
 | `/cancelar` | Cancela qualquer operacao em andamento | `/cancelar` |
 
 **Mensagens naturais (sem comando):**
@@ -501,6 +506,11 @@ Este projeto foi construido do zero com a ajuda do Claude Code. Cada etapa ensin
 - **Pos-processamento**: Python valida e corrige o que a IA retorna (datas, categorias)
 - **Contexto acumulativo**: IA aprende associacoes (pessoa + categoria) para melhorar com o tempo
 - **Fallback gracioso**: Se a IA falha, classificacao por keywords assume
+- **Retry com backoff exponencial**: Chamadas a Claude retentam automaticamente em caso de erro 429/503
+- **Deteccao de conflitos**: Python analisa sobreposicao de horarios antes de salvar
+- **Decomposicao de tarefas**: IA quebra tarefas grandes em subtarefas concretas
+- **Planejamento por energia**: Tarefas cognitivas de manha, administrativas de tarde
+- **Alerta preditivo**: Analisa carga futura e avisa antes de sobrecarregar
 
 ### Conceitos de Infraestrutura
 - **Git/GitHub**: Versionamento, branches, push, pull, .gitignore

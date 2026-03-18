@@ -16,6 +16,7 @@ Melhorias v2:
 import json
 import logging
 import re
+import time
 from datetime import datetime, timedelta
 
 import httpx
@@ -218,9 +219,12 @@ Regras:
 4. Jornada: 08:00 ate 18:00 (pode flexibilizar ate 19:00 se necessario)
 5. Se tem tarefa demais, sugira o que ADIAR para outro dia
 6. Margens: adicione 15-20% a mais de tempo em cada tarefa
-7. Reunioes com horario fixo nao podem ser movidas
+7. Reunioes com horario fixo nao podem ser movidas, organize o resto ao redor delas
 8. Use o tempo_estimado_min de cada tarefa para calcular os blocos
 9. Tarefas delegadas: apenas mencione que estao com a pessoa X
+10. Tarefas cognitivas pesadas (preparar aula, corrigir provas, projetos) devem ir para a MANHA (8:00-12:00) quando a energia e maior
+11. Tarefas administrativas e leves (emails, revisoes, delegacoes) devem ir para a TARDE (14:00-18:00)
+12. Apos uma reuniao longa (>60min), sugira 15min de pausa antes da proxima tarefa
 
 Responda em texto formatado para Telegram (Markdown), NAO em JSON.
 Use emojis com moderacao. Seja direto e realista.
@@ -294,6 +298,29 @@ Se pedir pra editar uma tarefa existente, pergunte qual e o que mudar.
 Responda em texto formatado para Telegram (Markdown). Seja conciso.
 """
 
+DECOMPOSE_PROMPT = """Voce e um assistente de decomposicao de tarefas.
+
+O usuario tem a seguinte tarefa:
+{tarefa_json}
+
+Decomponha esta tarefa em 3 a 6 subtarefas CONCRETAS e acionaveis.
+
+Regras:
+1. Cada subtarefa deve ser algo que se possa fazer em uma sessao (15-120min)
+2. Seja realista com estimativas de tempo
+3. A soma dos tempos das subtarefas deve ser compativel com o tempo estimado da tarefa pai
+4. Todas as subtarefas herdam a categoria "{categoria}" da tarefa pai
+5. Prioridade de cada subtarefa pode variar (nem tudo e urgente dentro de uma tarefa grande)
+6. Titulos claros e curtos — deve dar pra entender o que fazer so de ler
+
+Responda APENAS com um JSON array, sem texto antes ou depois:
+[
+  {{"titulo": "...", "tempo_estimado_min": 30, "prioridade": "media"}},
+  {{"titulo": "...", "tempo_estimado_min": 45, "prioridade": "alta"}},
+  ...
+]
+"""
+
 
 class AIBrain:
     """Cerebro do organizador — integra com Claude API."""
@@ -313,25 +340,47 @@ class AIBrain:
     # ========== INFRA ==========
 
     def _call_claude(self, system: str, messages: list, max_tokens: int = 1024) -> str:
-        """Chama a Claude API."""
-        try:
-            resp = self.client.post(
-                "/v1/messages",
-                json={
-                    "model": "claude-sonnet-4-20250514",
-                    "max_tokens": max_tokens,
-                    "system": system,
-                    "messages": messages,
-                },
-            )
-            if resp.status_code != 200:
+        """Chama a Claude API com retry e exponential backoff em erros 429/503."""
+        max_tentativas = 3
+        for tentativa in range(max_tentativas):
+            try:
+                resp = self.client.post(
+                    "/v1/messages",
+                    json={
+                        "model": "claude-sonnet-4-20250514",
+                        "max_tokens": max_tokens,
+                        "system": system,
+                        "messages": messages,
+                    },
+                )
+                if resp.status_code == 200:
+                    data = resp.json()
+                    return data["content"][0]["text"]
+
+                # Erros retriaveis: 429 (rate limit) e 503 (servico indisponivel)
+                if resp.status_code in (429, 503) and tentativa < max_tentativas - 1:
+                    espera = 2 ** tentativa  # 1s, 2s, 4s
+                    logger.warning(
+                        f"Claude API erro {resp.status_code} (tentativa {tentativa + 1}/{max_tentativas}). "
+                        f"Aguardando {espera}s antes de tentar novamente..."
+                    )
+                    time.sleep(espera)
+                    continue
+
                 logger.error(f"Claude API erro {resp.status_code}: {resp.text}")
                 return None
-            data = resp.json()
-            return data["content"][0]["text"]
-        except Exception as e:
-            logger.error(f"Erro ao chamar Claude: {e}")
-            return None
+            except Exception as e:
+                if tentativa < max_tentativas - 1:
+                    espera = 2 ** tentativa
+                    logger.warning(
+                        f"Erro ao chamar Claude (tentativa {tentativa + 1}/{max_tentativas}): {e}. "
+                        f"Aguardando {espera}s..."
+                    )
+                    time.sleep(espera)
+                    continue
+                logger.error(f"Erro ao chamar Claude apos {max_tentativas} tentativas: {e}")
+                return None
+        return None
 
     def _parse_json(self, text: str) -> dict:
         """Extrai JSON de uma resposta que pode ter texto ao redor."""
@@ -971,6 +1020,196 @@ class AIBrain:
         resposta = self._call_claude(system, messages, max_tokens=1024)
         return resposta or "Desculpa, tive um problema. Tenta de novo?"
 
+    # ========== DECOMPOSICAO DE TAREFAS ==========
+
+    def decompor_tarefa(self, tarefa: dict) -> list:
+        """Decomponhe uma tarefa grande em 3-6 subtarefas concretas via Claude."""
+        categoria = tarefa.get("categoria", "Pessoal")
+        tarefa_json = json.dumps(tarefa, ensure_ascii=False, indent=2)
+
+        prompt = DECOMPOSE_PROMPT.format(
+            tarefa_json=tarefa_json,
+            categoria=categoria,
+        )
+
+        messages = [{"role": "user", "content": prompt}]
+        system = SYSTEM_PROMPT.replace("{contexto_memoria}", "")
+        resposta = self._call_claude(system, messages, max_tokens=1024)
+
+        result = self._parse_json(resposta)
+
+        if not result or not isinstance(result, list):
+            logger.warning(f"Decomposicao falhou. Resposta: {resposta}")
+            return []
+
+        # Herdar categoria da tarefa pai e garantir campos
+        subtarefas = []
+        for sub in result:
+            if not isinstance(sub, dict) or "titulo" not in sub:
+                continue
+            sub["categoria"] = categoria
+            sub.setdefault("tempo_estimado_min", 30)
+            sub.setdefault("prioridade", "media")
+            subtarefas.append(sub)
+
+        return subtarefas
+
+    # ========== DETECCAO DE CONFLITOS ==========
+
+    def detectar_conflitos(self, tarefas_dia: list, nova_tarefa: dict) -> str:
+        """
+        Detecta conflitos de horario entre a nova tarefa e as existentes no dia.
+        Retorna mensagem de aviso se houver conflito, ou None se nao houver.
+        """
+        novo_horario = nova_tarefa.get("horario")
+        if not novo_horario:
+            return None
+
+        try:
+            novo_h, novo_m = map(int, novo_horario.split(":"))
+            novo_inicio = novo_h * 60 + novo_m
+            novo_tempo = nova_tarefa.get("tempo_estimado_min") or 30
+            novo_fim = novo_inicio + novo_tempo
+        except (ValueError, AttributeError):
+            return None
+
+        for tarefa in tarefas_dia:
+            horario_existente = tarefa.get("horario")
+            if not horario_existente:
+                continue
+
+            try:
+                ex_h, ex_m = map(int, horario_existente.split(":"))
+                ex_inicio = ex_h * 60 + ex_m
+                ex_tempo = tarefa.get("tempo_estimado_min") or 30
+                ex_fim = ex_inicio + ex_tempo
+            except (ValueError, AttributeError):
+                continue
+
+            # Verifica sobreposicao: novo comeca antes do existente terminar
+            # E novo termina depois do existente comecar
+            if novo_inicio < ex_fim and novo_fim > ex_inicio:
+                titulo_existente = tarefa.get("titulo", "tarefa existente")
+                horario_fim_str = f"{ex_fim // 60:02d}:{ex_fim % 60:02d}"
+                return (
+                    f"⚠️ Conflito: '{titulo_existente}' ja esta marcada as "
+                    f"{horario_existente} (ate ~{horario_fim_str}). Ajuste o horario."
+                )
+
+        return None
+
+    # ========== SUGESTAO DE REAGENDAMENTO ==========
+
+    def sugerir_reagendamento(self, tarefas_atrasadas: list, carga_semana: dict) -> str:
+        """
+        Sugere realocacao de tarefas atrasadas para os dias mais leves da semana.
+        Retorna mensagem formatada com sugestoes.
+        """
+        if not tarefas_atrasadas:
+            return None
+
+        hoje = datetime.now()
+        dias_semana_nomes = {
+            0: "segunda", 1: "terca", 2: "quarta",
+            3: "quinta", 4: "sexta", 5: "sabado", 6: "domingo"
+        }
+
+        # Calcular ocupacao de cada dia nos proximos 7 dias uteis
+        dias_disponiveis = []
+        for i in range(1, 11):
+            dia = hoje + timedelta(days=i)
+            if dia.weekday() >= 5:  # pular fim de semana
+                continue
+            dia_str = dia.strftime("%Y-%m-%d")
+            info = carga_semana.get(dia_str, {"minutos_estimados": 0})
+            minutos = info.get("minutos_estimados", 0)
+            ocupacao = round((minutos / CAPACIDADE_DIA_MIN) * 100) if CAPACIDADE_DIA_MIN > 0 else 100
+            dias_disponiveis.append({
+                "data": dia_str,
+                "nome": dias_semana_nomes.get(dia.weekday(), ""),
+                "ocupacao": ocupacao,
+                "minutos": minutos,
+            })
+            if len(dias_disponiveis) >= 7:
+                break
+
+        # Ordenar por ocupacao (mais leve primeiro)
+        dias_disponiveis.sort(key=lambda d: d["ocupacao"])
+
+        linhas = ["📋 Tarefas atrasadas para realocar:"]
+        for i, tarefa in enumerate(tarefas_atrasadas):
+            if i < len(dias_disponiveis):
+                dia_sugerido = dias_disponiveis[i]
+                titulo = tarefa.get("titulo", "Sem titulo")
+                linhas.append(
+                    f"{i + 1}. '{titulo}' → {dia_sugerido['nome']} ({dia_sugerido['ocupacao']}% ocupado)"
+                )
+            else:
+                titulo = tarefa.get("titulo", "Sem titulo")
+                linhas.append(f"{i + 1}. '{titulo}' → sem dia leve disponivel na proxima semana")
+
+        return "\n".join(linhas)
+
+    # ========== ALERTA PREDITIVO ==========
+
+    def alerta_preditivo(self, carga_semana: dict) -> str:
+        """
+        Verifica os proximos 3 dias e alerta se algum exceder 85% da capacidade.
+        Retorna mensagem de alerta ou None se tudo estiver ok.
+        """
+        hoje = datetime.now()
+        dias_semana_nomes = {
+            0: "segunda", 1: "terca", 2: "quarta",
+            3: "quinta", 4: "sexta", 5: "sabado", 6: "domingo"
+        }
+
+        alertas = []
+        dia_mais_leve = None
+        menor_ocupacao = float('inf')
+
+        for i in range(1, 8):
+            dia = hoje + timedelta(days=i)
+            if dia.weekday() >= 5:
+                continue
+            dia_str = dia.strftime("%Y-%m-%d")
+            info = carga_semana.get(dia_str, {"minutos_estimados": 0})
+            minutos = info.get("minutos_estimados", 0)
+            ocupacao = round((minutos / CAPACIDADE_DIA_MIN) * 100) if CAPACIDADE_DIA_MIN > 0 else 0
+
+            if ocupacao < menor_ocupacao:
+                menor_ocupacao = ocupacao
+                dia_mais_leve = {
+                    "nome": dias_semana_nomes.get(dia.weekday(), ""),
+                    "ocupacao": ocupacao,
+                }
+
+            # Apenas os proximos 3 dias uteis para alerta
+            if len(alertas) < 3 or i <= 3:
+                if ocupacao > 85 and i <= 4:  # proximos 3 dias uteis
+                    nome_dia = dias_semana_nomes.get(dia.weekday(), "")
+                    # Determinar se e amanha, depois de amanha, etc.
+                    if i == 1:
+                        label = f"amanha ({nome_dia})"
+                    elif i == 2:
+                        label = f"depois de amanha ({nome_dia})"
+                    else:
+                        label = nome_dia
+                    alertas.append({"label": label, "ocupacao": ocupacao})
+
+        if not alertas:
+            return None
+
+        # Montar mensagem com sugestao do dia mais leve
+        partes = []
+        for a in alertas:
+            partes.append(f"{a['label']} ja tem {a['ocupacao']}% da capacidade ocupada")
+
+        msg = "🔮 Alerta: " + "; ".join(partes) + "."
+        if dia_mais_leve and dia_mais_leve["ocupacao"] < 70:
+            msg += f" Considere mover algo para {dia_mais_leve['nome']} ({dia_mais_leve['ocupacao']}%)."
+
+        return msg
+
     # ========== ANALISE DE PADROES ==========
 
     def analisar_padroes(self, historico: list, tarefas_recentes: list) -> str:
@@ -998,14 +1237,95 @@ class AIBrain:
                 f"Categoria com mais atrasos: {pior_cat} ({atrasadas_por_cat[pior_cat]} tarefas)"
             )
 
-        # Analisar tempo pessoal
+        # Analisar dia da semana com mais tarefas incompletas
+        incompletas_por_dia = {}
+        for t in tarefas_recentes:
+            if t.get("status") != "concluida" and t.get("prazo"):
+                try:
+                    prazo = datetime.strptime(t["prazo"], "%Y-%m-%d")
+                    dia_semana = prazo.weekday()
+                    dias_nomes = {
+                        0: "segunda", 1: "terca", 2: "quarta",
+                        3: "quinta", 4: "sexta", 5: "sabado", 6: "domingo"
+                    }
+                    nome_dia = dias_nomes.get(dia_semana, str(dia_semana))
+                    incompletas_por_dia[nome_dia] = incompletas_por_dia.get(nome_dia, 0) + 1
+                except (ValueError, TypeError):
+                    pass
+
+        if incompletas_por_dia:
+            pior_dia = max(incompletas_por_dia, key=incompletas_por_dia.get)
+            padroes.append(
+                f"Dia com mais tarefas incompletas: {pior_dia} ({incompletas_por_dia[pior_dia]} tarefas)"
+            )
+
+        # Analisar se estimativas de tempo estao consistentemente erradas
+        tarefas_com_tempo = [
+            t for t in tarefas_recentes
+            if t.get("status") == "concluida"
+            and t.get("tempo_estimado_min")
+            and t.get("tempo_real_min")
+        ]
+        if tarefas_com_tempo:
+            total_estimado = sum(t["tempo_estimado_min"] for t in tarefas_com_tempo)
+            total_real = sum(t["tempo_real_min"] for t in tarefas_com_tempo)
+            if total_real > 0 and total_estimado > 0:
+                razao = total_real / total_estimado
+                if razao > 1.3:
+                    padroes.append(
+                        f"Estimativas de tempo otimistas: tarefas levam em media "
+                        f"{round((razao - 1) * 100)}% mais tempo que o estimado. "
+                        f"Considere adicionar margens maiores."
+                    )
+                elif razao < 0.7:
+                    padroes.append(
+                        f"Estimativas de tempo pessimistas: tarefas levam em media "
+                        f"{round((1 - razao) * 100)}% menos tempo que o estimado. "
+                        f"Pode encaixar mais coisas no dia."
+                    )
+
+        # Analisar categoria negligenciada (menos tarefas concluidas proporcionalmente)
+        concluidas_por_cat = {}
+        total_por_cat = {}
+        for t in tarefas_recentes:
+            cat = t.get("categoria", "Sem categoria")
+            total_por_cat[cat] = total_por_cat.get(cat, 0) + 1
+            if t.get("status") == "concluida":
+                concluidas_por_cat[cat] = concluidas_por_cat.get(cat, 0) + 1
+
+        for cat, total in total_por_cat.items():
+            if total >= 3:  # so analisa se tem amostra significativa
+                concluidas = concluidas_por_cat.get(cat, 0)
+                taxa = concluidas / total
+                if taxa < 0.4:
+                    padroes.append(
+                        f"Categoria '{cat}' pode estar sendo negligenciada: "
+                        f"apenas {round(taxa * 100)}% das tarefas concluidas ({concluidas}/{total})"
+                    )
+
+        # Analisar tempo pessoal (ingles, leitura, academia)
         tarefas_pessoais_concluidas = [
             t for t in tarefas_recentes
             if t.get("categoria") == "Pessoal"
             and t.get("status") == "concluida"
             and any(w in (t.get("titulo", "").lower()) for w in ["ingles", "leitura", "academia"])
         ]
-        if len(tarefas_pessoais_concluidas) < 3:
-            padroes.append("Tempo pessoal (ingles/leitura) pode estar sendo negligenciado")
+
+        # Verificar cada habito separadamente
+        habitos = {"ingles": 0, "leitura": 0, "academia": 0}
+        for t in tarefas_pessoais_concluidas:
+            titulo = t.get("titulo", "").lower()
+            for habito in habitos:
+                if habito in titulo:
+                    habitos[habito] += 1
+
+        habitos_fracos = [h for h, count in habitos.items() if count < 2]
+        if habitos_fracos:
+            padroes.append(
+                f"Habitos pessoais com pouca frequencia: {', '.join(habitos_fracos)}. "
+                f"Tente manter a consistencia."
+            )
+        elif len(tarefas_pessoais_concluidas) < 3:
+            padroes.append("Tempo pessoal (ingles/leitura/academia) pode estar sendo negligenciado")
 
         return "\n".join(padroes) if padroes else "Sem padroes significativos."
