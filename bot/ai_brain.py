@@ -146,13 +146,45 @@ Se o texto indicar repeticao (ex: "toda segunda", "todo dia", "semanalmente",
 - "recorrencia_dia": numero do dia (0=segunda...6=domingo para semanal, 1-31 para mensal)
 
 # DETECCAO DE MULTIPLAS TAREFAS
-Se o texto contem MAIS DE UMA tarefa distinta (ex: "amanha tenho reuniao com Carlos
-as 10h e preciso corrigir as provas"), retorne um array de tarefas.
+Se o texto contem MAIS DE UMA tarefa distinta, retorne um array de tarefas.
 Formato para multiplas tarefas:
 {
   "multiplas": true,
   "tarefas": [ ... array de objetos tarefa ... ]
 }
+
+# FORMATO DE LISTA SEMANAL (MUITO IMPORTANTE)
+O Wendel frequentemente envia a semana INTEIRA de uma vez, organizada por dia.
+Exemplo:
+"Segunda-feira:
+Reuniao com Carlos 10h
+Corrigir provas
+Terca:
+Aula de IA 14h
+..."
+
+Quando receber esse formato:
+1. CADA LINHA e uma tarefa separada (a menos que seja continuacao obvia)
+2. O DIA DA SEMANA no cabecalho define o PRAZO de todas as tarefas abaixo ate o proximo dia
+3. Resolva cada dia para a data correta (ex: "Segunda-feira" = proxima segunda)
+4. Se o usuario ja esta na semana mencionada, use os dias da semana ATUAL
+5. Retorne TODAS as tarefas como array (pode ser 10, 20, 30 — nao tem limite)
+6. Classifique CADA tarefa individualmente (categoria, prioridade, etc)
+
+# DETECCAO DE STATUS (FEITO / NAO FEITO / EM ANDAMENTO)
+O Wendel marca status nas proprias tarefas. Detecte:
+- "feito", "feito ja", "ja fiz", "concluido", "pronto" → status: "concluida"
+- "em andamento", "fazendo", "comecei", "em progresso" → status: "em_andamento"
+- "nao fiz", "nao foi", "pendente", "falta", "nao atendido" → status: "pendente"
+- "sera feito amanha", "amanha", "faremos" → status: "pendente" (com prazo ajustado)
+Se nao mencionar status, assuma "pendente".
+Inclua o campo "status" em cada tarefa do array.
+
+# DETECCAO DE PESSOAS E DELEGACAO
+Se o texto menciona nomes de pessoas entre parenteses ou contexto (ex: "Herica", "Ronedo",
+"Luciana", "Lorena", "Simone"), detecte:
+- Se a pessoa e quem o Wendel VAI encontrar → inclua no titulo
+- Se a pessoa e quem o Wendel DELEGOU algo → coloque em "delegado_para"
 
 # FORMATO DE RESPOSTA (TAREFA UNICA)
 {
@@ -348,7 +380,7 @@ class AIBrain:
 
     # ========== INFRA ==========
 
-    def _call_claude(self, system: str, messages: list, max_tokens: int = 1024) -> str:
+    def _call_claude(self, system: str, messages: list, max_tokens: int = 4096) -> str:
         """Chama a Claude API com retry e exponential backoff em erros 429/503."""
         max_tentativas = 3
         for tentativa in range(max_tentativas):
@@ -624,6 +656,19 @@ class AIBrain:
 
     def _detectar_separadores(self, texto: str) -> bool:
         """Heuristica rapida para detectar se texto pode ter multiplas tarefas."""
+        texto_lower = texto.lower()
+
+        # Formato de lista semanal (dias da semana como cabecalhos)
+        dias_encontrados = sum(1 for dia in ['segunda', 'terca', 'terça', 'quarta', 'quinta', 'sexta']
+                               if re.search(rf'\b{dia}', texto_lower))
+        if dias_encontrados >= 2:
+            return True
+
+        # Muitas linhas = provavelmente lista
+        linhas = [l.strip() for l in texto.strip().split('\n') if l.strip()]
+        if len(linhas) >= 4:
+            return True
+
         indicadores = [
             r'\be\s+(?:tambem|ainda|depois|alem)\b',
             r'\balem\s+disso\b',
@@ -631,7 +676,6 @@ class AIBrain:
             r'\boutra\s+coisa\b',
             r'\b(?:primeiro|segundo|terceiro|depois|alem)\b.*\b(?:e|tambem)\b',
         ]
-        texto_lower = texto.lower()
         matches = sum(1 for p in indicadores if re.search(p, texto_lower))
         # Se tem multiplos verbos de acao
         acoes = re.findall(r'\b(?:preciso|tenho|quero|devo|fazer|preparar|enviar|corrigir|reuniao|reunir)\b', texto_lower)
@@ -734,10 +778,14 @@ class AIBrain:
         # Verificar se pode ter multiplas tarefas
         pode_ser_multiplas = self._detectar_separadores(texto)
         if pode_ser_multiplas:
-            contexto += "\n⚠️ Este texto PODE conter multiplas tarefas. Analise com cuidado.\n"
+            contexto += "\n⚠️ Este texto contem MULTIPLAS tarefas (possivelmente organizadas por dia da semana). "
+            contexto += "Retorne TODAS como array JSON. NAO ignore nenhuma linha.\n"
+            contexto += "Use o formato: {\"multiplas\": true, \"tarefas\": [...]}\n"
 
         messages = [{"role": "user", "content": contexto}]
-        resposta = self._call_claude(system, messages)
+        # Mais tokens para listas grandes
+        tokens = 8192 if pode_ser_multiplas else 4096
+        resposta = self._call_claude(system, messages, max_tokens=tokens)
 
         logger.info(f"Claude respondeu: {resposta[:300] if resposta else 'None'}")
         result = self._parse_json(resposta)
@@ -774,6 +822,7 @@ class AIBrain:
             "titulo": texto[:100],
             "categoria": "Pessoal",
             "prioridade": "media",
+            "status": "pendente",
             "prazo": None,
             "horario": None,
             "meeting_link": None,
@@ -848,10 +897,18 @@ class AIBrain:
             if any(p in url for p in ["zoom", "meet.google", "teams"]):
                 meeting_link = url
 
+        # Detectar status
+        status = "pendente"
+        if any(w in texto_lower for w in ["feito", "ja fiz", "concluido", "pronto"]):
+            status = "concluida"
+        elif any(w in texto_lower for w in ["em andamento", "fazendo", "comecei"]):
+            status = "em_andamento"
+
         return {
             "titulo": texto[:100],
             "categoria": categoria,
             "prioridade": prioridade,
+            "status": status,
             "prazo": prazo,
             "horario": horario,
             "meeting_link": meeting_link,

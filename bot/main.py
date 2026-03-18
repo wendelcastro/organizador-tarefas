@@ -170,13 +170,13 @@ def supabase_request(method, endpoint, data=None, params=None):
 def criar_tarefa(titulo, categoria="Pessoal", prioridade="media", prazo=None,
                  horario=None, meeting_link=None, meeting_platform=None,
                  notas="", tempo_estimado=None, delegado_para=None,
-                 recorrencia=None, recorrencia_dia=None):
+                 recorrencia=None, recorrencia_dia=None, status="pendente"):
     """Cria uma tarefa no Supabase."""
     tarefa = {
         "titulo": titulo,
         "categoria": categoria,
         "prioridade": prioridade,
-        "status": "pendente",
+        "status": status,
         "prazo": prazo,
         "horario": horario,
         "meeting_link": meeting_link or "",
@@ -415,6 +415,12 @@ def formatar_tarefa_card(tarefa):
     if tarefa.get("recorrencia"):
         linhas.append(f"   🔄 {tarefa['recorrencia'].capitalize()}")
 
+    status = tarefa.get("status", "pendente")
+    if status == "concluida":
+        linhas.append("   ✅ Já feito")
+    elif status == "em_andamento":
+        linhas.append("   🔄 Em andamento")
+
     return "\n".join(linhas)
 
 
@@ -499,20 +505,40 @@ async def processar_nova_tarefa(update, context, texto):
         # MULTIPLAS TAREFAS
         if isinstance(classificacao, dict) and classificacao.get("multiplas"):
             tarefas = classificacao["tarefas"]
-            response = f"🧠 *Detectei {len(tarefas)} tarefas:*\n\n"
+
+            # Montar lista de cards em blocos (Telegram limita 4096 chars)
+            header = f"🧠 *Detectei {len(tarefas)} tarefas:*\n\n"
+            footer = "\n✅ *Confirma todas?* Ou diz qual ajustar (ex: 'ajusta a 2')."
+            blocos = []
+            bloco_atual = header
             for i, t in enumerate(tarefas, 1):
-                response += f"*{i}.* {formatar_tarefa_card(t)}\n\n"
-            response += "✅ *Confirma todas?* Ou diz qual ajustar (ex: 'ajusta a 2')."
+                card = f"*{i}.* {formatar_tarefa_card(t)}\n\n"
+                if len(bloco_atual) + len(card) > 3800:
+                    blocos.append(bloco_atual)
+                    bloco_atual = ""
+                bloco_atual += card
+            bloco_atual += footer
+            blocos.append(bloco_atual)
+
+            # Primeira mensagem edita a existente, as demais sao novas
+            response_full = header + "".join(
+                f"*{i}.* {formatar_tarefa_card(t)}\n\n"
+                for i, t in enumerate(tarefas, 1)
+            ) + footer
 
             set_state(context, STATE_CONFIRMING_MULTI,
                       pending_tasks=tarefas,
                       state_timestamp=datetime.now(TZ_RECIFE).isoformat(),
                       confirm_history=[
                           {"role": "user", "content": texto},
-                          {"role": "assistant", "content": response},
+                          {"role": "assistant", "content": response_full[:2000]},
                       ])
-            await msg.edit_text(response, parse_mode="Markdown",
+
+            await msg.edit_text(blocos[0], parse_mode="Markdown",
                                 disable_web_page_preview=True)
+            for bloco in blocos[1:]:
+                await update.message.reply_text(bloco, parse_mode="Markdown",
+                                                 disable_web_page_preview=True)
             return
 
         # TAREFA UNICA
@@ -585,6 +611,7 @@ def _salvar_tarefa_e_contexto(tarefa_data):
         delegado_para=tarefa_data.get("delegado_para"),
         recorrencia=tarefa_data.get("recorrencia"),
         recorrencia_dia=tarefa_data.get("recorrencia_dia"),
+        status=tarefa_data.get("status", "pendente"),
     )
 
     # Salvar contexto aprendido
