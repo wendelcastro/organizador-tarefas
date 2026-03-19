@@ -378,6 +378,40 @@ def save_chat_id(chat_id):
     })
 
 
+async def cmd_status(update, context):
+    """Diagnostico do bot — verifica se IA esta funcionando."""
+    info = []
+    info.append("🔧 *Diagnostico do Bot*\n")
+
+    # Provider de IA
+    if ai_brain:
+        info.append(f"🧠 IA: *{ai_brain.provider.upper()}*")
+        # Teste rapido de chamada
+        try:
+            test_resp = ai_brain._call_llm(
+                "Responda apenas: OK",
+                [{"role": "user", "content": "Teste de conexao. Responda apenas: OK"}],
+                max_tokens=10,
+            )
+            if test_resp:
+                info.append(f"✅ API respondendo: {test_resp[:50]}")
+            else:
+                info.append("❌ API NAO respondeu (retornou None)")
+        except Exception as e:
+            info.append(f"❌ Erro ao chamar API: {e}")
+    else:
+        info.append("⚠️ IA: *DESATIVADA* (sem GEMINI_API_KEY ou ANTHROPIC_API_KEY)")
+
+    # Env vars
+    info.append(f"\n📋 *Variaveis:*")
+    info.append(f"  GEMINI\\_API\\_KEY: {'✅' if GEMINI_API_KEY else '❌'}")
+    info.append(f"  ANTHROPIC\\_API\\_KEY: {'✅' if ANTHROPIC_API_KEY else '❌'}")
+    info.append(f"  GROQ\\_API\\_KEY: {'✅' if GROQ_API_KEY else '❌'}")
+    info.append(f"  SUPABASE: {'✅' if SUPABASE_URL else '❌'}")
+
+    await update.message.reply_text("\n".join(info), parse_mode="Markdown")
+
+
 # ========== FORMATACAO ==========
 
 EMOJI_CATEGORIA = {
@@ -1920,12 +1954,27 @@ def start_health_server():
     thread.start()
     logger.info(f"Health check server rodando na porta {port}")
 
+    # Keep-alive: pinga a propria porta a cada 4 min para evitar sleeping do Koyeb free tier
+    def _keep_alive():
+        import urllib.request
+        while True:
+            time.sleep(240)  # 4 minutos
+            try:
+                urllib.request.urlopen(f"http://localhost:{port}/")
+            except Exception:
+                pass
+    ka_thread = threading.Thread(target=_keep_alive, daemon=True)
+    ka_thread.start()
+
 
 # ========== MAIN ==========
 
 def main():
     logger.info("Iniciando Organizador de Tarefas v2...")
-    modo = "INTELIGENTE v2 (Claude)" if ai_brain else "BASICO (sem IA)"
+    if ai_brain:
+        modo = f"INTELIGENTE v2 ({ai_brain.provider.upper()})"
+    else:
+        modo = "BASICO (sem IA)"
     logger.info(f"Modo: {modo}")
 
     # Health check para Koyeb/PaaS (responde na porta HTTP)
@@ -1950,6 +1999,7 @@ def main():
     app.add_handler(CommandHandler("decompor", cmd_decompor))
     app.add_handler(CommandHandler("foco", cmd_foco))
     app.add_handler(CommandHandler("cancelar", cmd_cancelar))
+    app.add_handler(CommandHandler("status", cmd_status))
     app.add_handler(CallbackQueryHandler(handle_callback))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
     app.add_handler(MessageHandler(filters.VOICE | filters.AUDIO, handle_voice))

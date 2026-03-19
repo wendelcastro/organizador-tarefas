@@ -862,7 +862,7 @@ class AIBrain:
         tokens = 8192 if pode_ser_multiplas else 4096
         resposta = self._call_llm(system, messages, max_tokens=tokens)
 
-        logger.info(f"Claude respondeu: {resposta[:300] if resposta else 'None'}")
+        logger.info(f"IA ({self.provider}) respondeu: {resposta[:300] if resposta else 'NONE — chamada falhou!'}")
         result = self._parse_json(resposta)
 
         # Tratar multiplas tarefas
@@ -940,55 +940,107 @@ class AIBrain:
 
         return result
 
-    def _fallback_classificacao(self, texto: str) -> dict:
-        """Fallback quando Claude falha — classificacao por keywords."""
-        texto_lower = texto.lower()
+    def _classificar_linha(self, linha: str, prazo_atual: str = None) -> dict:
+        """Classifica uma unica linha de tarefa por keywords."""
+        linha_lower = linha.lower().strip()
+        if not linha_lower or len(linha_lower) < 3:
+            return None
 
         categoria = "Pessoal"
-        if any(w in texto_lower for w in ["grupo ser", "ser educacional", "coordenacao", "pedagogico", "carlos"]):
+        if any(w in linha_lower for w in ["grupo ser", "ser educacional", "coordenacao", "pedagogico",
+                                           "carlos", "nde", "colegiado", "comite", "institucional"]):
             categoria = "Grupo Ser"
-        elif any(w in texto_lower for w in ["consultoria", "cliente", "pipeline", "dados para empresa"]):
+        elif any(w in linha_lower for w in ["consultoria", "cliente", "pipeline", "dados para empresa",
+                                             "proposta comercial", "relatorio para empresa"]):
             categoria = "Consultoria"
-        elif any(w in texto_lower for w in ["aula", "prova", "aluno", "tcc", "corrigir", "nota", "disciplina"]):
+        elif any(w in linha_lower for w in ["aula", "prova", "aluno", "tcc", "corrigir", "nota",
+                                             "disciplina", "slide", "videoaula", "plano de ensino",
+                                             "turma", "dpt", "simulado", "oab", "report", "relatorio",
+                                             "reuniao", "reunia", "feedback"]):
             categoria = "Trabalho"
 
         prioridade = "media"
-        if any(w in texto_lower for w in ["urgente", "agora", "critico", "hoje"]):
+        if any(w in linha_lower for w in ["urgente", "agora", "critico"]):
             prioridade = "alta"
-        elif any(w in texto_lower for w in ["quando puder", "sem pressa", "baixa"]):
-            prioridade = "baixa"
 
-        prazo = self._resolver_data(texto)
-
+        # Horario
         horario = None
-        time_match = re.search(r'(\d{1,2})[h:](\d{2})', texto_lower)
+        time_match = re.search(r'(\d{1,2})[h:](\d{2})', linha_lower)
         if time_match:
             h, m = int(time_match.group(1)), int(time_match.group(2))
             if 0 <= h <= 23 and 0 <= m <= 59:
                 horario = f"{h:02d}:{m:02d}"
+                prioridade = "alta"  # tarefa com horario fixo = alta
+        elif re.search(r'(\d{1,2})\s*(?:h(?:oras?)?)\b', linha_lower):
+            hm = re.search(r'(\d{1,2})\s*(?:h(?:oras?)?)\b', linha_lower)
+            h = int(hm.group(1))
+            if 0 <= h <= 23:
+                horario = f"{h:02d}:00"
+                prioridade = "alta"
 
+        # Status
+        status = "pendente"
+        if any(w in linha_lower for w in ["feito", "ja fiz", "concluido", "pronto"]):
+            status = "concluida"
+        elif any(w in linha_lower for w in ["em andamento", "fazendo", "comecei"]):
+            status = "em_andamento"
+
+        # Meeting link
         meeting_link = None
-        url_match = re.search(r'(https?://\S+)', texto)
+        url_match = re.search(r'(https?://\S+)', linha)
         if url_match:
             url = url_match.group(1)
             if any(p in url for p in ["zoom", "meet.google", "teams"]):
                 meeting_link = url
 
-        # Detectar status
-        status = "pendente"
-        if any(w in texto_lower for w in ["feito", "ja fiz", "concluido", "pronto"]):
-            status = "concluida"
-        elif any(w in texto_lower for w in ["em andamento", "fazendo", "comecei"]):
-            status = "em_andamento"
+        # Limpar titulo (remover horarios e status markers do titulo)
+        titulo = linha.strip()
+        titulo = re.sub(r'\b\d{1,2}[h:]\d{2}\s*(?:horas?)?\b', '', titulo)
+        titulo = re.sub(r'\b\d{1,2}\s*(?:h(?:oras?)?)\b', '', titulo)
+        titulo = re.sub(r'\bhoras?\b', '', titulo, flags=re.IGNORECASE)
+        titulo = re.sub(r'\b(?:feito\s*j[aá]?|j[aá]\s*fiz|conclu[ií]do|pronto)\b', '', titulo, flags=re.IGNORECASE)
+        titulo = re.sub(r'\s{2,}', ' ', titulo).strip(' -:,.')
+        if not titulo:
+            titulo = linha.strip()[:100]
 
         return {
-            "titulo": texto[:100],
+            "titulo": titulo[:100],
             "categoria": categoria,
             "prioridade": prioridade,
             "status": status,
-            "prazo": prazo,
+            "prazo": prazo_atual,
             "horario": horario,
             "meeting_link": meeting_link,
+            "meeting_platform": None,
+            "tempo_estimado_min": 60 if horario else 30,
+            "delegado_para": None,
+            "recorrencia": None,
+            "recorrencia_dia": None,
+            "mensagem": "Classificado por keywords (IA indisponivel). Confirma ou ajusta.",
+            "alerta_sobrecarga": False,
+            "alerta_msg": None,
+        }
+
+    def _fallback_classificacao(self, texto: str):
+        """Fallback quando IA falha — classificacao por keywords com suporte a listas."""
+        # Detectar se e lista semanal (multiplas tarefas)
+        if self._detectar_separadores(texto):
+            return self._fallback_multiplas(texto)
+
+        # Tarefa unica
+        result = self._classificar_linha(texto, self._resolver_data(texto))
+        if result:
+            result["mensagem"] = "Nao consegui classificar com IA. Confirma ou ajusta."
+            return result
+
+        return {
+            "titulo": texto[:100],
+            "categoria": "Pessoal",
+            "prioridade": "media",
+            "status": "pendente",
+            "prazo": None,
+            "horario": None,
+            "meeting_link": None,
             "meeting_platform": None,
             "tempo_estimado_min": 30,
             "delegado_para": None,
@@ -998,6 +1050,55 @@ class AIBrain:
             "alerta_sobrecarga": False,
             "alerta_msg": None,
         }
+
+    def _fallback_multiplas(self, texto: str) -> dict:
+        """Fallback para listas semanais — separa por dia da semana."""
+        hoje = datetime.now()
+        linhas = texto.strip().split('\n')
+        tarefas = []
+        prazo_atual = None
+
+        for linha in linhas:
+            linha_strip = linha.strip()
+            if not linha_strip:
+                continue
+
+            # Detectar cabecalho de dia da semana
+            linha_lower = linha_strip.lower().rstrip(':. ')
+            dia_encontrado = False
+            for nome_dia, num_dia in DIAS_SEMANA_PT.items():
+                if linha_lower == nome_dia or linha_lower.startswith(nome_dia + ':') or \
+                   linha_lower.startswith(nome_dia + ' ') or linha_lower.endswith(nome_dia):
+                    # Resolver data para esse dia da semana
+                    dias_ate = (num_dia - hoje.weekday()) % 7
+                    if dias_ate == 0 and hoje.hour >= 18:
+                        dias_ate = 7
+                    prazo_atual = (hoje + timedelta(days=dias_ate)).strftime("%Y-%m-%d")
+                    dia_encontrado = True
+                    break
+
+            if dia_encontrado:
+                # Se a linha tem mais que so o dia (ex: "Sexta: reuniao 9h")
+                resto = re.sub(r'^(?:segunda|terca|terça|quarta|quinta|sexta|sabado|domingo)(?:-feira)?[:\s]*',
+                               '', linha_strip, flags=re.IGNORECASE).strip()
+                if resto and len(resto) > 3:
+                    t = self._classificar_linha(resto, prazo_atual)
+                    if t:
+                        tarefas.append(t)
+                continue
+
+            # Linha normal = tarefa
+            if len(linha_strip) > 3:
+                t = self._classificar_linha(linha_strip, prazo_atual)
+                if t:
+                    tarefas.append(t)
+
+        if tarefas:
+            logger.info(f"Fallback detectou {len(tarefas)} tarefas por keywords")
+            return {"multiplas": True, "tarefas": tarefas}
+
+        # Se nao conseguiu separar, retorna como unica
+        return self._classificar_linha(texto, self._resolver_data(texto))
 
     def processar_confirmacao(self, resposta_usuario: str, tarefa_pendente: dict,
                                historico_conversa: list = None) -> dict:
