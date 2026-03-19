@@ -11,7 +11,8 @@
 [Telegram Bot] --- transcreve audio (Whisper via Groq)
         |
         v
-[AI Brain v2] --- classifica, resolve datas, detecta multiplas,
+[AI Brain v2] --- Gemini 2.5 Flash (primario) | Claude (fallback)
+        |         classifica, resolve datas, detecta multiplas,
         |         analisa sobrecarga, sugere realocacao,
         |         aprende contexto (memoria), detecta conflitos,
         |         decomposicao de tarefas, alerta preditivo,
@@ -42,7 +43,9 @@
 - **Transcricao**: Whisper via Groq API (gratuito, rapido)
 
 ### AI Brain v2 (O Cerebro)
-- **Modelo**: Claude Sonnet (`claude-sonnet-4-20250514`) — equilibrio entre inteligencia e custo
+- **Modelo primario**: Gemini 2.5 Flash (`gemini-2.5-flash`) — gratuito, rapido, excelente para classificacao
+- **Modelo fallback**: Claude Sonnet (`claude-sonnet-4-20250514`) — usado se Gemini falhar
+- **Arquitetura dual-provider**: AIBrain aceita `provider="gemini"` ou `provider="claude"`, com metodos `_call_gemini()`, `_call_claude()` e um router `_call_llm()` que direciona para o provider correto. Troca de provider e transparente para o resto do codigo.
 - **Funcoes**:
   - Classificar tarefas em 4 categorias com contexto profundo
   - Resolver expressoes temporais ("amanha", "sexta", "daqui 3 dias")
@@ -59,9 +62,12 @@
   - **Sugerir reagendamento automatico** de tarefas atrasadas (Sprint 2)
   - **Planejamento por energia**: cognitivas de manha, administrativas de tarde (Sprint 2)
   - **Analise de padroes melhorada**: categorias, dias da semana, habitos (Sprint 2)
+- **Parsing de lista semanal**: Usuario pode enviar semana inteira organizada por dia (Segunda/Terca/etc) e todas as tarefas sao detectadas
+- **Deteccao de status**: "feito ja" → concluida, "em andamento" → em_andamento, "nao fiz" → pendente
 - **Seguranca**: Pos-processamento em Python valida datas e corrige erros da IA
-- **Resiliencia**: Retry com backoff exponencial para Claude API (429/503)
-- **Fallback**: Se Claude falha, classificacao por keywords assume
+- **Resiliencia**: Retry com backoff exponencial para APIs (429/503)
+- **Fallback inteligente**: Se a IA falha, classificacao por keywords assume — agora com deteccao de multiplas tarefas por cabecalhos de dia (antes retornava so 1)
+- **Message splitting**: Mensagens com 20+ tarefas sao divididas em blocos para respeitar o limite de 4096 caracteres do Telegram
 
 ### Supabase (A Secretaria)
 - **O que e?** Um "Firebase open source" - banco de dados + API pronta + Realtime
@@ -241,9 +247,10 @@ Wendel confirma -> Salva no Supabase -> Dashboard atualiza em tempo real
 | Supabase (plano free) | Gratis | 500MB banco, 50K requests/mes |
 | GitHub Pages | Gratis | Hospedagem do dashboard |
 | Groq (Whisper) | Gratis | Transcricao de audio |
-| Claude API (Sonnet) | ~R$0,01/tarefa | ~R$5-15/mes com uso pessoal |
+| Gemini 2.5 Flash | Gratis | IA principal — classificacao, planejamento, feedback |
+| Claude API (Sonnet) | ~R$5-15/mes | Fallback opcional (so se configurar ANTHROPIC_API_KEY) |
 | Koyeb (deploy bot) | Gratis | 1 instancia, 512MB RAM |
-| **Total mensal estimado** | **~R$5-15/mes** | Apenas a Claude API tem custo |
+| **Total mensal estimado** | **R$0/mes** | 100% gratuito com Gemini como IA principal |
 
 ---
 

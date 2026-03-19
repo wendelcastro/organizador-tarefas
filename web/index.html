@@ -906,6 +906,270 @@ body::after {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 2px; }
 
+/* ========== HEATMAP 365 (GitHub-style) ========== */
+.heatmap365-container {
+  margin: 0.75rem 0;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+.heatmap365-container::-webkit-scrollbar { height: 4px; }
+.heatmap365-container::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 2px; }
+.heatmap365-months {
+  display: flex;
+  gap: 0;
+  padding-left: 0;
+  margin-bottom: 2px;
+  min-width: max-content;
+}
+.heatmap365-month-label {
+  font-size: 0.55rem;
+  color: var(--text-muted);
+  text-align: left;
+}
+.heatmap365-grid {
+  display: grid;
+  grid-template-rows: repeat(7, 11px);
+  grid-auto-flow: column;
+  grid-auto-columns: 11px;
+  gap: 2px;
+  min-width: max-content;
+}
+.heatmap365-cell {
+  width: 11px; height: 11px;
+  border-radius: 2px;
+  background: rgba(255,255,255,0.04);
+  position: relative;
+  cursor: default;
+}
+.heatmap365-cell.h-level-1 { background: rgba(34,197,94,0.2); }
+.heatmap365-cell.h-level-2 { background: rgba(34,197,94,0.4); }
+.heatmap365-cell.h-level-3 { background: rgba(34,197,94,0.6); }
+.heatmap365-cell.h-level-4 { background: rgba(34,197,94,0.85); }
+.heatmap365-tooltip {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-hover);
+  border-radius: 4px;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.6rem;
+  color: var(--text-primary);
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 10;
+  display: none;
+}
+.heatmap365-cell:hover .heatmap365-tooltip { display: block; }
+.heatmap365-legend {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-top: 0.4rem;
+  font-size: 0.55rem;
+  color: var(--text-muted);
+  justify-content: flex-end;
+}
+.heatmap365-legend-cell {
+  width: 11px; height: 11px; border-radius: 2px;
+}
+
+/* ========== SWIPE GESTURES (mobile) ========== */
+.task-card-swipe-wrapper {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius);
+}
+.swipe-bg {
+  position: absolute;
+  top: 0; bottom: 0;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: white;
+  padding: 0 1.2rem;
+  z-index: 0;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+.swipe-bg-right {
+  left: 0;
+  background: var(--cat-pessoal);
+  justify-content: flex-start;
+}
+.swipe-bg-left {
+  right: 0;
+  background: var(--pri-media);
+  justify-content: flex-end;
+}
+.swipe-bg.visible { opacity: 1; }
+.task-card.swiping {
+  transition: none !important;
+  position: relative;
+  z-index: 1;
+}
+.task-card.swipe-completing {
+  transition: transform 0.3s ease, opacity 0.3s ease !important;
+  transform: translateX(100%) !important;
+  opacity: 0 !important;
+}
+.task-card.swipe-postponing {
+  transition: transform 0.3s ease, opacity 0.3s ease !important;
+  transform: translateX(-100%) !important;
+  opacity: 0 !important;
+}
+
+/* ========== POMODORO TIMER ========== */
+.pomodoro-widget {
+  position: fixed;
+  bottom: calc(80px + var(--safe-bottom));
+  right: 1rem;
+  z-index: 50;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-hover);
+  border-radius: var(--radius);
+  padding: 0.85rem 1rem;
+  min-width: 200px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  display: none;
+  animation: slideUp 0.35s ease;
+}
+.pomodoro-widget.active { display: block; }
+.pomodoro-task-name {
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.4rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 180px;
+}
+.pomodoro-time {
+  font-family: 'Instrument Serif', serif;
+  font-size: 2rem;
+  color: var(--text-primary);
+  text-align: center;
+  line-height: 1;
+  margin-bottom: 0.5rem;
+  font-variant-numeric: tabular-nums;
+}
+.pomodoro-controls {
+  display: flex;
+  gap: 0.4rem;
+  justify-content: center;
+}
+.pomodoro-btn {
+  width: 32px; height: 32px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--bg-glass);
+  border: 1px solid var(--border-subtle);
+  border-radius: 50%;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: var(--transition);
+  padding: 0;
+  font-size: 0.8rem;
+}
+.pomodoro-btn:hover { border-color: var(--border-hover); background: rgba(255,255,255,0.08); }
+.pomodoro-btn.stop { color: var(--pri-alta); }
+.pomodoro-accumulated {
+  font-size: 0.6rem;
+  color: var(--text-muted);
+  margin-top: 0.3rem;
+  text-align: center;
+}
+.task-pomo-time {
+  font-size: 0.6rem;
+  color: var(--cat-consultoria);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+}
+
+/* ========== EISENHOWER MATRIX ========== */
+.matrix-view { display: none; animation: fadeIn 0.4s ease; }
+.matrix-view.active { display: block; }
+.matrix-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: auto auto;
+  gap: 0.6rem;
+  margin-top: 0.5rem;
+}
+.matrix-quadrant {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
+  padding: 0.75rem;
+  min-height: 120px;
+  display: flex;
+  flex-direction: column;
+}
+.matrix-quadrant-header {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.5rem;
+  padding-bottom: 0.4rem;
+  border-bottom: 2px solid var(--q-accent);
+}
+.matrix-quadrant-label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--q-accent);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.matrix-quadrant-subtitle {
+  font-size: 0.55rem;
+  color: var(--text-muted);
+  margin-left: auto;
+}
+.matrix-quadrant.q1 { --q-accent: var(--pri-alta); }
+.matrix-quadrant.q2 { --q-accent: var(--cat-pessoal); }
+.matrix-quadrant.q3 { --q-accent: var(--pri-media); }
+.matrix-quadrant.q4 { --q-accent: var(--pri-baixa); }
+.matrix-task-list {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  overflow-y: auto;
+  max-height: 200px;
+}
+.matrix-task-item {
+  padding: 0.4rem 0.55rem;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  background: var(--bg-glass);
+  border-left: 3px solid var(--cat-color, var(--text-muted));
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: var(--transition);
+  line-height: 1.3;
+}
+.matrix-task-item:hover { background: rgba(255,255,255,0.08); }
+.matrix-task-meta {
+  font-size: 0.6rem;
+  color: var(--text-muted);
+  margin-top: 0.15rem;
+}
+.matrix-empty {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  text-align: center;
+  padding: 1rem 0;
+  opacity: 0.6;
+}
+@media (max-width: 480px) {
+  .matrix-grid { grid-template-columns: 1fr; }
+  .matrix-quadrant { min-height: 80px; }
+}
+
 /* ================================================================
    TABLET (768px+)
    ================================================================ */
@@ -1090,7 +1354,7 @@ body::after {
 .status-indicator.concluida { background: rgba(34,197,94,0.1); color: var(--cat-pessoal); }
 
 /* ========== BULK ACTIONS ========== */
-.bulk-bar { position: fixed; bottom: 5rem; left: 50%; transform: translateX(-50%) translateY(100%); background: var(--bg-surface); border: 1px solid var(--border-hover); border-radius: 2rem; padding: 0.5rem 1rem; display: flex; align-items: center; gap: 0.75rem; z-index: 90; transition: var(--transition); box-shadow: 0 8px 32px rgba(0,0,0,0.4); }
+.bulk-bar { position: fixed; bottom: calc(5rem + var(--safe-bottom) + 10px); left: 50%; transform: translateX(-50%) translateY(100%); background: var(--bg-surface); border: 1px solid var(--border-hover); border-radius: 2rem; padding: 0.5rem 1rem; display: flex; align-items: center; gap: 0.75rem; z-index: 90; transition: var(--transition); box-shadow: 0 8px 32px rgba(0,0,0,0.4); }
 .bulk-bar.active { transform: translateX(-50%) translateY(0); }
 .bulk-bar .bulk-count { font-size: 0.85rem; color: var(--text-primary); font-weight: 600; }
 .bulk-bar button { background: none; border: 1px solid var(--border-subtle); color: var(--text-primary); padding: 0.4rem 0.8rem; border-radius: 1rem; cursor: pointer; font-size: 0.8rem; transition: var(--transition); font-family: inherit; }
@@ -1318,6 +1582,7 @@ body::after {
         <button data-view="today" onclick="switchView('today')">Hoje</button>
         <button data-view="calendar" onclick="switchView('calendar')">Semana</button>
         <button data-view="review" onclick="switchView('review')">Revisao</button>
+        <button data-view="matrix" onclick="switchView('matrix')">Matriz</button>
       </div>
       <button class="theme-toggle" onclick="toggleTheme()" title="Alternar tema">
         <span id="themeIcon">☀️</span>
@@ -1440,9 +1705,11 @@ body::after {
       <textarea class="week-annotation" id="weekAnnotation" placeholder="Anotacoes sobre esta semana..."></textarea>
       <button class="btn-save-week" onclick="saveCurrentWeek()">Salvar semana</button>
       <div id="reviewContent"></div>
+      <div id="heatmap365Section"></div>
       <div id="habitTrackerSection"></div>
       <div id="weekHistoryList" style="margin-top:1rem"></div>
     </div>
+    <div class="matrix-view" id="matrixView"></div>
   </main>
 </div>
 
@@ -1467,6 +1734,10 @@ body::after {
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
     Revisao
   </button>
+  <button class="nav-item" data-view="matrix" onclick="switchView('matrix')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="8" rx="1"/><rect x="3" y="13" width="8" height="8" rx="1"/><rect x="13" y="13" width="8" height="8" rx="1"/></svg>
+    Matriz
+  </button>
 </nav>
 
 <!-- BULK ACTION BAR -->
@@ -1475,6 +1746,17 @@ body::after {
   <button onclick="bulkComplete()">Concluir</button>
   <button onclick="bulkDelete()" class="danger">Excluir</button>
   <button onclick="exitBulkMode()">Cancelar</button>
+</div>
+
+<!-- POMODORO WIDGET -->
+<div class="pomodoro-widget" id="pomodoroWidget">
+  <div class="pomodoro-task-name" id="pomodoroTaskName">—</div>
+  <div class="pomodoro-time" id="pomodoroTime">25:00</div>
+  <div class="pomodoro-controls">
+    <button class="pomodoro-btn" id="pomodoroPlayPause" onclick="togglePomodoro()" title="Play/Pause">&#9654;</button>
+    <button class="pomodoro-btn stop" id="pomodoroStop" onclick="stopPomodoro()" title="Parar">&#9632;</button>
+  </div>
+  <div class="pomodoro-accumulated" id="pomodoroAccum"></div>
 </div>
 
 <!-- MODAL -->
@@ -3164,6 +3446,521 @@ document.addEventListener('change', function(e) {
   }
 });
 
+// ========== FEATURE 1: HEATMAP 365 (GitHub-style) ==========
+async function renderHeatmap365() {
+  const container = document.getElementById('heatmap365Section');
+  if (!container) return;
+
+  // Fetch completed tasks for last 365 days
+  const endDate = new Date();
+  const startDate = new Date();
+  startDate.setDate(endDate.getDate() - 364);
+  const startStr = startDate.toISOString().split('T')[0];
+
+  let completedDates = [];
+  try {
+    const { data, error } = await sb
+      .from('tarefas')
+      .select('prazo')
+      .eq('status', 'concluida')
+      .gte('prazo', startStr);
+    if (!error && data) {
+      completedDates = data.map(t => t.prazo).filter(Boolean);
+    }
+  } catch (e) {
+    // fallback: use local tasks array
+    completedDates = tasks
+      .filter(t => t.status === 'concluida' && t.prazo && t.prazo >= startStr)
+      .map(t => t.prazo);
+  }
+
+  // Count per date
+  const countByDate = {};
+  completedDates.forEach(d => { countByDate[d] = (countByDate[d] || 0) + 1; });
+  const maxCount = Math.max(...Object.values(countByDate), 1);
+
+  // Build 365 days array starting from startDate (aligned to Sunday start for columns)
+  const days = [];
+  const d = new Date(startDate);
+  // Align to start of week (Sunday)
+  while (d.getDay() !== 0) { d.setDate(d.getDate() - 1); }
+  const alignedStart = new Date(d);
+  while (d <= endDate) {
+    days.push(new Date(d));
+    d.setDate(d.getDate() + 1);
+  }
+  // Fill remaining week
+  while (days.length % 7 !== 0) {
+    days.push(new Date(d));
+    d.setDate(d.getDate() + 1);
+  }
+
+  const totalWeeks = Math.ceil(days.length / 7);
+
+  // Month labels
+  const monthNames = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+  let monthsHTML = '<div class="heatmap365-months">';
+  let lastMonth = -1;
+  for (let w = 0; w < totalWeeks; w++) {
+    const firstDayOfWeek = days[w * 7];
+    const m = firstDayOfWeek.getMonth();
+    if (m !== lastMonth) {
+      monthsHTML += '<span class="heatmap365-month-label" style="width:13px;min-width:13px">' + monthNames[m] + '</span>';
+      lastMonth = m;
+    } else {
+      monthsHTML += '<span style="width:13px;min-width:13px"></span>';
+    }
+  }
+  monthsHTML += '</div>';
+
+  // Cells
+  let cellsHTML = '';
+  days.forEach(day => {
+    const dateStr = day.toISOString().split('T')[0];
+    const count = countByDate[dateStr] || 0;
+    let level = 0;
+    if (count > 0) {
+      const ratio = count / maxCount;
+      if (ratio <= 0.25) level = 1;
+      else if (ratio <= 0.5) level = 2;
+      else if (ratio <= 0.75) level = 3;
+      else level = 4;
+    }
+    const isBeforeStart = day < startDate;
+    const isAfterEnd = day > endDate;
+    const opacity = (isBeforeStart || isAfterEnd) ? 'opacity:0.2;' : '';
+    const dayLabel = day.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short', year: 'numeric' });
+    cellsHTML += '<div class="heatmap365-cell h-level-' + level + '" style="' + opacity + '">'
+      + '<span class="heatmap365-tooltip">' + dayLabel + ': ' + count + ' concluida(s)</span></div>';
+  });
+
+  const legendHTML = '<div class="heatmap365-legend">Menos '
+    + '<div class="heatmap365-legend-cell" style="background:rgba(255,255,255,0.04)"></div>'
+    + '<div class="heatmap365-legend-cell" style="background:rgba(34,197,94,0.2)"></div>'
+    + '<div class="heatmap365-legend-cell" style="background:rgba(34,197,94,0.4)"></div>'
+    + '<div class="heatmap365-legend-cell" style="background:rgba(34,197,94,0.6)"></div>'
+    + '<div class="heatmap365-legend-cell" style="background:rgba(34,197,94,0.85)"></div>'
+    + ' Mais</div>';
+
+  container.innerHTML = '<div class="review-card" style="margin-top:0.75rem">'
+    + '<h3 style="font-size:0.75rem;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.5rem">Atividade (365 dias)</h3>'
+    + '<div class="heatmap365-container">' + monthsHTML
+    + '<div class="heatmap365-grid">' + cellsHTML + '</div></div>'
+    + legendHTML + '</div>';
+}
+
+// ========== FEATURE 2: SWIPE GESTURES (mobile) ==========
+let swipeState = { startX: 0, startY: 0, currentX: 0, swiping: false, card: null, wrapper: null };
+const SWIPE_THRESHOLD = 80;
+const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+
+function setupSwipeGestures() {
+  if (!isTouchDevice) return;
+
+  document.addEventListener('touchstart', handleSwipeStart, { passive: true });
+  document.addEventListener('touchmove', handleSwipeMove, { passive: false });
+  document.addEventListener('touchend', handleSwipeEnd, { passive: true });
+}
+
+function handleSwipeStart(e) {
+  const card = e.target.closest('.task-card');
+  if (!card || !card.dataset.taskId) return;
+  // Ignore if inside action buttons
+  if (e.target.closest('.task-action-btn') || e.target.closest('.task-check') || e.target.closest('.bulk-check')) return;
+
+  const touch = e.touches[0];
+  swipeState.startX = touch.clientX;
+  swipeState.startY = touch.clientY;
+  swipeState.card = card;
+  swipeState.swiping = false;
+  swipeState.dirLocked = false;
+}
+
+function handleSwipeMove(e) {
+  if (!swipeState.card) return;
+  const touch = e.touches[0];
+  const dx = touch.clientX - swipeState.startX;
+  const dy = touch.clientY - swipeState.startY;
+
+  // Lock direction on first significant move
+  if (!swipeState.dirLocked) {
+    if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
+    swipeState.dirLocked = true;
+    // If scrolling vertically, cancel swipe
+    if (Math.abs(dy) > Math.abs(dx)) {
+      swipeState.card = null;
+      return;
+    }
+  }
+
+  e.preventDefault();
+  swipeState.swiping = true;
+  swipeState.currentX = dx;
+
+  const card = swipeState.card;
+  card.classList.add('swiping');
+  card.style.transform = 'translateX(' + dx + 'px)';
+
+  // Show swipe backgrounds
+  let wrapper = card.closest('.task-card-swipe-wrapper');
+  if (!wrapper) {
+    // Dynamically wrap
+    wrapper = document.createElement('div');
+    wrapper.className = 'task-card-swipe-wrapper';
+    card.parentNode.insertBefore(wrapper, card);
+    wrapper.appendChild(card);
+
+    const bgRight = document.createElement('div');
+    bgRight.className = 'swipe-bg swipe-bg-right';
+    bgRight.textContent = 'Concluir';
+    wrapper.insertBefore(bgRight, card);
+
+    const bgLeft = document.createElement('div');
+    bgLeft.className = 'swipe-bg swipe-bg-left';
+    bgLeft.textContent = 'Adiar';
+    wrapper.insertBefore(bgLeft, card);
+  }
+  swipeState.wrapper = wrapper;
+
+  const bgRight = wrapper.querySelector('.swipe-bg-right');
+  const bgLeft = wrapper.querySelector('.swipe-bg-left');
+  if (dx > 30) {
+    bgRight.classList.add('visible');
+    bgLeft.classList.remove('visible');
+  } else if (dx < -30) {
+    bgLeft.classList.add('visible');
+    bgRight.classList.remove('visible');
+  } else {
+    bgRight.classList.remove('visible');
+    bgLeft.classList.remove('visible');
+  }
+}
+
+function handleSwipeEnd(e) {
+  if (!swipeState.card || !swipeState.swiping) {
+    swipeState.card = null;
+    return;
+  }
+
+  const card = swipeState.card;
+  const dx = swipeState.currentX;
+  const taskId = card.dataset.taskId;
+
+  if (dx > SWIPE_THRESHOLD) {
+    // Swipe right -> complete
+    card.classList.remove('swiping');
+    card.classList.add('swipe-completing');
+    setTimeout(() => {
+      const task = tasks.find(t => String(t.id) === String(taskId));
+      if (task && task.status !== 'concluida') {
+        toggleTask(taskId);
+      }
+    }, 300);
+  } else if (dx < -SWIPE_THRESHOLD) {
+    // Swipe left -> postpone to tomorrow
+    card.classList.remove('swiping');
+    card.classList.add('swipe-postponing');
+    setTimeout(() => {
+      postponeTask(taskId);
+    }, 300);
+  } else {
+    // Snap back
+    card.classList.remove('swiping');
+    card.style.transform = '';
+    if (swipeState.wrapper) {
+      const bgs = swipeState.wrapper.querySelectorAll('.swipe-bg');
+      bgs.forEach(bg => bg.classList.remove('visible'));
+    }
+  }
+
+  swipeState.card = null;
+  swipeState.swiping = false;
+  swipeState.currentX = 0;
+}
+
+async function postponeTask(id) {
+  const task = tasks.find(t => String(t.id) === String(id));
+  if (!task) return;
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const newDate = tomorrow.toISOString().split('T')[0];
+  const oldDate = task.prazo;
+  task.prazo = newDate;
+  renderTasks();
+  renderToday();
+  renderCalendar();
+  const ok = await updateTask(id, { prazo: newDate });
+  if (!ok) {
+    task.prazo = oldDate;
+    renderTasks();
+    renderToday();
+    renderCalendar();
+  }
+}
+
+// ========== FEATURE 3: POMODORO TIMER ==========
+let pomodoroState = {
+  taskId: null,
+  taskName: '',
+  running: false,
+  paused: false,
+  remainingSeconds: 25 * 60,
+  intervalId: null,
+  accumulatedByTask: {} // taskId -> seconds
+};
+
+function startPomodoro(taskId) {
+  const task = tasks.find(t => String(t.id) === String(taskId));
+  if (!task) return;
+
+  // Stop existing
+  if (pomodoroState.intervalId) clearInterval(pomodoroState.intervalId);
+
+  pomodoroState.taskId = taskId;
+  pomodoroState.taskName = task.titulo;
+  pomodoroState.remainingSeconds = 25 * 60;
+  pomodoroState.running = true;
+  pomodoroState.paused = false;
+
+  // Load accumulated from localStorage
+  const saved = localStorage.getItem('pomodoro_accum');
+  if (saved) {
+    try { pomodoroState.accumulatedByTask = JSON.parse(saved); } catch(e) {}
+  }
+
+  updatePomodoroUI();
+  document.getElementById('pomodoroWidget').classList.add('active');
+  document.getElementById('pomodoroPlayPause').innerHTML = '&#10074;&#10074;';
+
+  pomodoroState.intervalId = setInterval(() => {
+    if (!pomodoroState.running || pomodoroState.paused) return;
+    pomodoroState.remainingSeconds--;
+
+    // Track accumulated time
+    if (!pomodoroState.accumulatedByTask[taskId]) pomodoroState.accumulatedByTask[taskId] = 0;
+    pomodoroState.accumulatedByTask[taskId]++;
+    if (pomodoroState.remainingSeconds % 30 === 0) {
+      localStorage.setItem('pomodoro_accum', JSON.stringify(pomodoroState.accumulatedByTask));
+    }
+
+    updatePomodoroUI();
+
+    if (pomodoroState.remainingSeconds <= 0) {
+      clearInterval(pomodoroState.intervalId);
+      pomodoroState.running = false;
+      pomodoroState.intervalId = null;
+      localStorage.setItem('pomodoro_accum', JSON.stringify(pomodoroState.accumulatedByTask));
+      pomodoroFinished();
+    }
+  }, 1000);
+}
+
+function togglePomodoro() {
+  if (!pomodoroState.running) return;
+  pomodoroState.paused = !pomodoroState.paused;
+  document.getElementById('pomodoroPlayPause').innerHTML = pomodoroState.paused ? '&#9654;' : '&#10074;&#10074;';
+}
+
+function stopPomodoro() {
+  if (pomodoroState.intervalId) clearInterval(pomodoroState.intervalId);
+  // Save accumulated
+  localStorage.setItem('pomodoro_accum', JSON.stringify(pomodoroState.accumulatedByTask));
+  pomodoroState.running = false;
+  pomodoroState.paused = false;
+  pomodoroState.intervalId = null;
+  pomodoroState.taskId = null;
+  document.getElementById('pomodoroWidget').classList.remove('active');
+  renderTasks();
+  renderToday();
+}
+
+function pomodoroFinished() {
+  // Browser notification
+  if ('Notification' in window && Notification.permission === 'granted') {
+    new Notification('Pomodoro concluido!', { body: pomodoroState.taskName, icon: '🍅' });
+  } else if ('Notification' in window && Notification.permission !== 'denied') {
+    Notification.requestPermission();
+  }
+
+  // Beep sound
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.frequency.value = 880;
+    gain.gain.value = 0.3;
+    osc.start();
+    setTimeout(() => { osc.stop(); ctx.close(); }, 500);
+  } catch(e) {}
+
+  document.getElementById('pomodoroPlayPause').innerHTML = '&#9654;';
+  document.getElementById('pomodoroTime').textContent = 'Fim!';
+  setTimeout(() => {
+    document.getElementById('pomodoroWidget').classList.remove('active');
+    renderTasks();
+    renderToday();
+  }, 3000);
+}
+
+function updatePomodoroUI() {
+  const min = Math.floor(pomodoroState.remainingSeconds / 60);
+  const sec = pomodoroState.remainingSeconds % 60;
+  document.getElementById('pomodoroTime').textContent = String(min).padStart(2, '0') + ':' + String(sec).padStart(2, '0');
+  document.getElementById('pomodoroTaskName').textContent = pomodoroState.taskName;
+
+  const accum = pomodoroState.accumulatedByTask[pomodoroState.taskId] || 0;
+  if (accum > 0) {
+    const accumMin = Math.floor(accum / 60);
+    document.getElementById('pomodoroAccum').textContent = 'Acumulado: ' + accumMin + 'min';
+  } else {
+    document.getElementById('pomodoroAccum').textContent = '';
+  }
+}
+
+function getPomodoroAccumMinutes(taskId) {
+  const saved = localStorage.getItem('pomodoro_accum');
+  if (!saved) return 0;
+  try {
+    const data = JSON.parse(saved);
+    return Math.floor((data[taskId] || 0) / 60);
+  } catch(e) { return 0; }
+}
+
+// Request notification permission early
+if ('Notification' in window && Notification.permission === 'default') {
+  // Will request on first pomodoro start
+}
+
+// ========== FEATURE 4: EISENHOWER MATRIX VIEW ==========
+function renderMatrix() {
+  const container = document.getElementById('matrixView');
+  if (!container) return;
+
+  const hoje = new Date().toISOString().split('T')[0];
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const tomorrowStr = tomorrow.toISOString().split('T')[0];
+
+  const activeTasks = tasks.filter(t => t.status !== 'concluida');
+
+  function isUrgent(t) {
+    if (!t.prazo) return false;
+    return t.prazo <= tomorrowStr; // today, tomorrow, or overdue
+  }
+  function isImportant(t) {
+    return t.prioridade === 'alta';
+  }
+
+  const q1 = activeTasks.filter(t => isUrgent(t) && isImportant(t));
+  const q2 = activeTasks.filter(t => !isUrgent(t) && isImportant(t));
+  const q3 = activeTasks.filter(t => isUrgent(t) && !isImportant(t));
+  const q4 = activeTasks.filter(t => !isUrgent(t) && !isImportant(t));
+
+  function renderQuadrantTasks(list) {
+    if (list.length === 0) return '<div class="matrix-empty">Nenhuma tarefa</div>';
+    return list.map(t => {
+      const catColor = CATEGORY_COLORS[t.categoria] || 'var(--text-muted)';
+      return '<div class="matrix-task-item" style="--cat-color:' + catColor + '" data-task-id="' + t.id + '">'
+        + '<div>' + t.titulo + '</div>'
+        + '<div class="matrix-task-meta">' + (t.prazo ? formatDate(t.prazo) : 'Sem prazo') + ' · ' + t.categoria + '</div>'
+        + '</div>';
+    }).join('');
+  }
+
+  container.innerHTML = '<h2 style="font-family:\'Instrument Serif\',serif;font-size:1.3rem;color:var(--text-primary);margin-bottom:0.5rem">Matriz de Eisenhower</h2>'
+    + '<div style="font-size:0.72rem;color:var(--text-secondary);margin-bottom:0.75rem">Classifique suas tarefas por urgencia e importancia</div>'
+    + '<div class="matrix-grid">'
+    + '<div class="matrix-quadrant q1">'
+    + '<div class="matrix-quadrant-header"><span class="matrix-quadrant-label">Fazer Agora</span><span class="matrix-quadrant-subtitle">Urgente + Importante</span></div>'
+    + '<div class="matrix-task-list">' + renderQuadrantTasks(q1) + '</div></div>'
+    + '<div class="matrix-quadrant q2">'
+    + '<div class="matrix-quadrant-header"><span class="matrix-quadrant-label">Agendar</span><span class="matrix-quadrant-subtitle">Importante</span></div>'
+    + '<div class="matrix-task-list">' + renderQuadrantTasks(q2) + '</div></div>'
+    + '<div class="matrix-quadrant q3">'
+    + '<div class="matrix-quadrant-header"><span class="matrix-quadrant-label">Delegar</span><span class="matrix-quadrant-subtitle">Urgente</span></div>'
+    + '<div class="matrix-task-list">' + renderQuadrantTasks(q3) + '</div></div>'
+    + '<div class="matrix-quadrant q4">'
+    + '<div class="matrix-quadrant-header"><span class="matrix-quadrant-label">Eliminar</span><span class="matrix-quadrant-subtitle">Nem Urgente nem Importante</span></div>'
+    + '<div class="matrix-task-list">' + renderQuadrantTasks(q4) + '</div></div>'
+    + '</div>';
+
+  // Attach click events
+  container.querySelectorAll('.matrix-task-item[data-task-id]').forEach(el => {
+    el.addEventListener('click', () => showTaskDetail(el.dataset.taskId));
+  });
+}
+
+// ========== PATCH: switchView to handle 'matrix' ==========
+const _originalSwitchView = switchView;
+switchView = function(view) {
+  const mv = document.getElementById('matrixView');
+  mv.classList.remove('active');
+  mv.style.display = 'none';
+
+  if (view === 'matrix') {
+    // Hide all other views
+    document.getElementById('tasksView').classList.add('hidden');
+    document.getElementById('todayView').classList.remove('active');
+    document.getElementById('calendarView').classList.remove('active');
+    document.getElementById('reviewView').style.display = 'none';
+    mv.style.display = 'block';
+    mv.classList.add('active');
+    document.querySelectorAll('.view-toggle button').forEach(b => b.classList.toggle('active', b.dataset.view === 'matrix'));
+    document.querySelectorAll('.nav-item').forEach(b => b.classList.toggle('active', b.dataset.view === 'matrix'));
+    renderMatrix();
+  } else {
+    _originalSwitchView(view);
+  }
+};
+
+// ========== PATCH: renderReview to call renderHeatmap365 ==========
+const _originalRenderReview = renderReview;
+renderReview = function() {
+  _originalRenderReview();
+  renderHeatmap365();
+};
+
+// ========== PATCH: renderTasks to include pomodoro button & accum time ==========
+const _originalRenderTasks = renderTasks;
+renderTasks = function() {
+  _originalRenderTasks();
+  // Add pomodoro buttons to task actions
+  document.querySelectorAll('#taskList .task-actions').forEach(actionsDiv => {
+    const card = actionsDiv.closest('.task-card');
+    if (!card || card.classList.contains('completed')) return;
+    const taskId = card.dataset.taskId;
+
+    // Add accumulated time display
+    const accumMin = getPomodoroAccumMinutes(taskId);
+    if (accumMin > 0) {
+      const meta = card.querySelector('.task-meta');
+      if (meta && !meta.querySelector('.task-pomo-time')) {
+        const span = document.createElement('span');
+        span.className = 'task-pomo-time';
+        span.innerHTML = '&#127813; ' + accumMin + 'min';
+        meta.appendChild(span);
+      }
+    }
+
+    // Add play button if not already there
+    if (actionsDiv.querySelector('.pomo-start-btn')) return;
+    const btn = document.createElement('button');
+    btn.className = 'task-action-btn pomo-start-btn';
+    btn.title = 'Pomodoro';
+    btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>';
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      startPomodoro(taskId);
+      if ('Notification' in window && Notification.permission === 'default') {
+        Notification.requestPermission();
+      }
+    });
+    actionsDiv.insertBefore(btn, actionsDiv.firstChild);
+  });
+};
+
 // ========== INIT ==========
 // Restore theme from localStorage
 if (localStorage.getItem('theme') === 'light') {
@@ -3178,6 +3975,7 @@ loadTasks().then(() => {
 });
 setupRealtime();
 setupDragAndDrop();
+setupSwipeGestures();
 </script>
 </body>
 </html>

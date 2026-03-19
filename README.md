@@ -1,7 +1,7 @@
 # Organizador de Tarefas Inteligente v2
 
 > Sistema pessoal de gestao de tarefas com IA que PENSA.
-> Captura por voz/texto no Telegram, classifica com Claude API,
+> Captura por voz/texto no Telegram, classifica com Gemini 2.5 Flash (gratuito),
 > armazena no Supabase e visualiza num dashboard web.
 
 **Dashboard ao vivo**: [wendelcastro.github.io/organizador-tarefas/web](https://wendelcastro.github.io/organizador-tarefas/web/)
@@ -31,7 +31,8 @@ A IA:
 ### IA (AI Brain v2)
 - [x] Classificacao inteligente em 4 categorias (Trabalho, Consultoria, Grupo Ser, Pessoal)
 - [x] Resolucao temporal robusta: "amanha", "sexta", "semana que vem", "daqui 3 dias", "dia 25/03", "fim do mes"
-- [x] Validacao pos-Claude: Python corrige se a IA errar a data
+- [x] Dual provider: Gemini 2.5 Flash (primario, gratuito) + Claude Sonnet (fallback)
+- [x] Validacao pos-IA: Python corrige se a IA errar a data
 - [x] Analise de sobrecarga real (baseada em tempo estimado, nao contagem)
 - [x] Sugestao de realocacao para dias mais leves
 - [x] Deteccao de multiplas tarefas numa mensagem
@@ -46,8 +47,12 @@ A IA:
 - [x] Sugestao de reagendamento automatico de atrasadas
 - [x] Planejamento por energia (cognitivas manha, admin tarde)
 - [x] Retry com backoff exponencial (tolerancia a falhas da API)
+- [x] Parsing de lista semanal completa (Segunda/Terca/etc com multiplas tarefas por dia)
+- [x] Deteccao de status na mensagem ("feito ja" → concluida, "em andamento", "nao fiz" → pendente)
+- [x] Fallback inteligente: mesmo sem IA, detecta multiplas tarefas por cabecalhos de dia
+- [x] Splitting automatico de mensagens longas (20+ tarefas, limite 4096 chars do Telegram)
 
-### Bot Telegram (11 comandos)
+### Bot Telegram (12 comandos)
 - [x] `/start` — Boas-vindas + salva chat ID
 - [x] `/tarefas` — Lista pendentes com prioridade
 - [x] `/planejar` — Planejamento inteligente do dia
@@ -58,6 +63,7 @@ A IA:
 - [x] `/relatorio` — Relatorio semanal on-demand
 - [x] `/foco` — Modo foco (silencia lembretes de baixa prioridade)
 - [x] `/decompor` — Quebra tarefa grande em subtarefas com tempo estimado
+- [x] `/status` — Diagnostico: testa conexao com APIs e mostra status das variaveis de ambiente
 - [x] `/cancelar` — Cancela operacao atual
 
 ### Automacoes (rodam sozinhas)
@@ -68,6 +74,7 @@ A IA:
 - [x] Criacao automatica de tarefas recorrentes as 6:00
 - [x] Alerta preditivo de sobrecarga ao adicionar tarefas
 - [x] Deteccao automatica de conflitos de horario
+- [x] Keep-alive interno: ping a cada 4 minutos para evitar sleep no free tier do Koyeb
 
 ### Dashboard Web
 - [x] Tres views: Todas | Hoje | Semana + Revisao Semanal
@@ -119,7 +126,8 @@ A IA:
 |------------|-----------|--------|
 | Bot | Python 3.10+ | Logica do bot Telegram |
 | Bot Framework | python-telegram-bot 22+ | Interacao com Telegram API |
-| IA | Claude API (Sonnet) | Classificacao, planejamento, feedback |
+| IA (primaria) | Gemini 2.5 Flash (Google) | Classificacao, planejamento, feedback (gratuito) |
+| IA (fallback) | Claude API (Sonnet) | Fallback caso Gemini falhe |
 | Transcricao | Groq API (Whisper) | Audio para texto |
 | Banco de dados | Supabase (PostgreSQL) | Armazenamento + API REST + Realtime |
 | Frontend | HTML/CSS/JS (vanilla) | Dashboard single-file |
@@ -137,7 +145,8 @@ A IA:
 - Git instalado
 - Conta no Telegram
 - Conta no Supabase (gratis)
-- Conta na Anthropic (Claude API)
+- Conta no Google AI Studio (Gemini API — gratis)
+- (Opcional) Conta na Anthropic (Claude API — fallback, pago)
 - (Opcional) Conta no Groq (para audio — gratis)
 - (Opcional) ffmpeg instalado (para converter audio)
 
@@ -202,7 +211,7 @@ Cada script cria tabelas, triggers e views necessarias.
 
 ### Passo 7: Obter chaves de API
 
-Voce precisa de 4 chaves. Aqui esta onde gerar cada uma, passo a passo:
+Voce precisa de 4 chaves obrigatorias + 1 opcional. Aqui esta onde gerar cada uma, passo a passo:
 
 **A) Token do Bot Telegram (TELEGRAM_BOT_TOKEN):**
 1. Abra o Telegram e busque `@BotFather`
@@ -221,7 +230,15 @@ Voce precisa de 4 chaves. Aqui esta onde gerar cada uma, passo a passo:
 6. Na secao "Project API keys", copie a chave **anon public** — e o `SUPABASE_ANON_KEY` (formato: `eyJhbGci...`)
 7. **NAO** copie a chave "service_role" — ela da acesso total ao banco
 
-**C) Chave da Claude API (ANTHROPIC_API_KEY):**
+**C) Chave do Gemini (GEMINI_API_KEY) — IA principal (gratuita):**
+1. Acesse [aistudio.google.com](https://aistudio.google.com)
+2. Crie uma conta Google (se nao tem)
+3. Clique em **Get API Key** > **Create API Key**
+4. Selecione ou crie um projeto no Google Cloud
+5. Copie a chave (formato: `AIza...`) — e o `GEMINI_API_KEY`
+6. **Custo**: Gratis (Gemini 2.5 Flash tem tier gratuito generoso)
+
+**D) Chave da Claude API (ANTHROPIC_API_KEY) — opcional, fallback:**
 1. Acesse [console.anthropic.com](https://console.anthropic.com)
 2. Crie uma conta (se nao tem)
 3. Adicione creditos: **Settings > Billing > Add credits** ($5 minimo — dura meses com uso pessoal)
@@ -229,8 +246,9 @@ Voce precisa de 4 chaves. Aqui esta onde gerar cada uma, passo a passo:
 5. De um nome (ex: "organizador-tarefas")
 6. Copie a chave (formato: `sk-ant-api03-...`) — e o `ANTHROPIC_API_KEY`
 7. **IMPORTANTE**: A chave so aparece uma vez. Se perder, crie outra.
+8. **NOTA**: Opcional — o bot funciona perfeitamente so com Gemini. Claude e usado como fallback.
 
-**D) Chave do Groq (GROQ_API_KEY) — opcional, para transcricao de audio:**
+**E) Chave do Groq (GROQ_API_KEY) — opcional, para transcricao de audio:**
 1. Acesse [console.groq.com](https://console.groq.com)
 2. Crie uma conta (gratis, nao precisa de cartao)
 3. No menu lateral, va em **API Keys**
@@ -245,7 +263,8 @@ Voce precisa de 4 chaves. Aqui esta onde gerar cada uma, passo a passo:
 | `TELEGRAM_BOT_TOKEN` | Telegram > @BotFather > /newbot | Gratis | `1234567890:ABC...` |
 | `SUPABASE_URL` | supabase.com > Settings > API | Gratis | `https://xxx.supabase.co` |
 | `SUPABASE_ANON_KEY` | supabase.com > Settings > API | Gratis | `eyJhbGci...` |
-| `ANTHROPIC_API_KEY` | console.anthropic.com > API Keys | ~R$5-15/mes | `sk-ant-api03-...` |
+| `GEMINI_API_KEY` | aistudio.google.com > Get API Key | Gratis | `AIza...` |
+| `ANTHROPIC_API_KEY` | console.anthropic.com > API Keys | ~R$5-15/mes (opcional) | `sk-ant-api03-...` |
 | `GROQ_API_KEY` | console.groq.com > API Keys | Gratis | `gsk_...` |
 
 ### Passo 8: Configurar variaveis de ambiente
@@ -259,6 +278,7 @@ Edite o `.env` com seus valores:
 TELEGRAM_BOT_TOKEN=1234567890:ABCdefGHIjklMNOpqr
 SUPABASE_URL=https://seu-projeto.supabase.co
 SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIs...
+GEMINI_API_KEY=AIza...
 ANTHROPIC_API_KEY=sk-ant-api03-...
 GROQ_API_KEY=gsk_...
 ```
@@ -271,9 +291,9 @@ python bot/main.py
 
 Deve aparecer:
 ```
-Claude API conectada — modo inteligente v2 ativado!
+Gemini API conectada — modo inteligente v2 ativado!
 Iniciando Organizador de Tarefas v2...
-Modo: INTELIGENTE v2 (Claude)
+Modo: INTELIGENTE v2 (Gemini 2.5 Flash)
 Bot v2 rodando! Mande /start no Telegram.
 Jobs programados: resumo 7:30, relatorio sex 17:00, recorrentes 6:00
 ```
@@ -344,7 +364,8 @@ Na secao "Environment variables", adicione uma por uma:
 | `TELEGRAM_BOT_TOKEN` | @BotFather no Telegram | `1234567890:ABCdef...` |
 | `SUPABASE_URL` | Supabase > Settings > API > Project URL | `https://abc123.supabase.co` |
 | `SUPABASE_ANON_KEY` | Supabase > Settings > API > anon public | `eyJhbGci...` |
-| `ANTHROPIC_API_KEY` | console.anthropic.com > API Keys | `sk-ant-api03-...` |
+| `GEMINI_API_KEY` | aistudio.google.com > Get API Key | `AIza...` |
+| `ANTHROPIC_API_KEY` | console.anthropic.com > API Keys (opcional) | `sk-ant-api03-...` |
 | `GROQ_API_KEY` | console.groq.com > API Keys (opcional) | `gsk_...` |
 | `PORT` | (deixe 8000 ou o padrao do Koyeb) | `8000` |
 
@@ -465,6 +486,7 @@ O bot agora roda permanentemente, reinicia se cair, e sobrevive a reboots.
 | `/relatorio` | Relatorio semanal completo | `/relatorio` |
 | `/foco 2h` | Silencia lembretes por 2 horas | `/foco 1h30` |
 | `/decompor` | Quebra tarefa grande em subtarefas | `/decompor` |
+| `/status` | Diagnostico: testa APIs e mostra env vars | `/status` |
 | `/cancelar` | Cancela qualquer operacao em andamento | `/cancelar` |
 
 **Mensagens naturais (sem comando):**
@@ -523,9 +545,10 @@ organizador-tarefas/
 | Supabase | Gratis | 500MB banco, 50K requests/mes |
 | GitHub Pages | Gratis | Hospedagem do dashboard |
 | Groq (Whisper) | Gratis | Transcricao de audio |
-| Claude API (Sonnet) | ~R$0,01/tarefa | ~R$5-15/mes com uso pessoal |
+| Gemini 2.5 Flash | Gratis | IA principal — classificacao, planejamento, feedback |
+| Claude API (Sonnet) | ~R$5-15/mes | Fallback opcional (so se configurar ANTHROPIC_API_KEY) |
 | Koyeb (deploy 24/7) | Gratis | 1 instancia, 512MB RAM, health check integrado |
-| **Total estimado** | **~R$5-15/mes** | Apenas a Claude API tem custo |
+| **Total estimado** | **R$0/mes** | 100% gratuito com Gemini como IA principal |
 
 ---
 
@@ -543,8 +566,9 @@ Este projeto foi construido do zero com a ajuda do Claude Code. Cada etapa ensin
 - **System Prompt Engineering**: Escrito com categorias detalhadas, exemplos, regras de classificacao
 - **Pos-processamento**: Python valida e corrige o que a IA retorna (datas, categorias)
 - **Contexto acumulativo**: IA aprende associacoes (pessoa + categoria) para melhorar com o tempo
-- **Fallback gracioso**: Se a IA falha, classificacao por keywords assume
-- **Retry com backoff exponencial**: Chamadas a Claude retentam automaticamente em caso de erro 429/503
+- **Dual provider (Gemini + Claude)**: Arquitetura com provider primario e fallback, router `_call_llm()` transparente
+- **Fallback gracioso**: Se a IA falha, classificacao por keywords assume (com deteccao de cabecalhos de dia)
+- **Retry com backoff exponencial**: Chamadas a API retentam automaticamente em caso de erro 429/503
 - **Deteccao de conflitos**: Python analisa sobreposicao de horarios antes de salvar
 - **Decomposicao de tarefas**: IA quebra tarefas grandes em subtarefas concretas
 - **Planejamento por energia**: Tarefas cognitivas de manha, administrativas de tarde
@@ -599,4 +623,4 @@ Este projeto foi construido do zero com a ajuda do Claude Code. Cada etapa ensin
 
 ---
 
-*Construido com Claude Code — cada linha de codigo explicada, cada decisao documentada.*
+*Construido com Claude Code + Gemini 2.5 Flash — cada linha de codigo explicada, cada decisao documentada.*

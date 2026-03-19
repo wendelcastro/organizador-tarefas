@@ -2,12 +2,12 @@
 
 ## Sobre
 Sistema pessoal de organizacao de tarefas com IA inteligente.
-Captura por voz/texto via Telegram, classifica com Claude API (Sonnet),
+Captura por voz/texto via Telegram, classifica com Gemini 2.5 Flash (gratuito, com Claude como fallback),
 armazena no Supabase e visualiza num dashboard web.
 
 ## Stack
 - **Bot**: Python 3.10+ + python-telegram-bot[job-queue] + Whisper (Groq)
-- **IA**: Claude API (Sonnet) — cerebro que classifica, planeja e da feedback
+- **IA**: Gemini 2.5 Flash (primario, gratuito) + Claude Sonnet (fallback) — cerebro que classifica, planeja e da feedback
 - **Backend**: Supabase (PostgreSQL + API REST + Realtime)
 - **Frontend**: HTML/CSS/JS (vanilla) hospedado no GitHub Pages
 - **Deploy**: Koyeb (bot 24/7, Web Service com health check na porta 8000) + GitHub Pages (frontend)
@@ -29,7 +29,7 @@ armazena no Supabase e visualiza num dashboard web.
 
 ## Arquivos Chave
 - `bot/main.py` — Ponto de entrada, handlers, jobs programados, health check HTTP (porta 8000)
-- `bot/ai_brain.py` — Cerebro IA: classificacao, resolucao temporal, sobrecarga, multiplas tarefas
+- `bot/ai_brain.py` — Cerebro IA: dual provider (Gemini/Claude), classificacao, resolucao temporal, sobrecarga, multiplas tarefas
 - `web/index.html` — Dashboard Premium (gamificacao, drag&drop, historico semanal, habitos, timeline, bulk, dark/light, realtime)
 - `supabase/003_melhorias_inteligentes.sql` — Migration v2 (tempo estimado, recorrencia, delegacao, contexto IA)
 - `Dockerfile` — Build para Koyeb (python:3.11-slim + ffmpeg, EXPOSE 8000)
@@ -37,7 +37,7 @@ armazena no Supabase e visualiza num dashboard web.
 - `supabase/004_gamificacao_historico_habitos.sql` — Migration v3 (gamificacao, historico semanal, habitos)
 
 ## Comandos do Bot
-/start, /tarefas, /planejar, /feedback, /resumo, /concluir, /editar, /relatorio, /foco, /decompor, /cancelar
+/start, /tarefas, /planejar, /feedback, /resumo, /concluir, /editar, /relatorio, /foco, /decompor, /status, /cancelar
 
 ## Supabase
 - URL: (configurar em .env)
@@ -48,7 +48,8 @@ armazena no Supabase e visualiza num dashboard web.
 ## Chaves API (.env)
 - TELEGRAM_BOT_TOKEN — @BotFather
 - SUPABASE_URL + SUPABASE_ANON_KEY — supabase.com
-- ANTHROPIC_API_KEY — console.anthropic.com
+- GEMINI_API_KEY — aistudio.google.com (IA principal, gratuita)
+- ANTHROPIC_API_KEY — console.anthropic.com (fallback, opcional)
 - GROQ_API_KEY — console.groq.com (opcional, para audio)
 
 ## Regras

@@ -126,6 +126,7 @@ STATE_CHATTING = "chatting"
 STATE_EDITING = "editing"        # Editando tarefa
 STATE_FOCUS = "focus"            # Modo foco
 STATE_CONFIRMING_DECOMP = "confirming_decomp"  # Confirmando decomposicao
+STATE_REFLEXAO = "reflexao"  # Reflexao noturna
 
 
 def get_state(context):
@@ -142,7 +143,8 @@ def clear_state(context):
     context.user_data["state"] = STATE_IDLE
     for key in ["pending_task", "pending_tasks", "confirm_history",
                 "chat_history", "editing_task_id", "focus_until",
-                "pending_decomp", "decomp_task", "state_timestamp"]:
+                "pending_decomp", "decomp_task", "state_timestamp",
+                "reflexao_timestamp"]:
         context.user_data.pop(key, None)
 
 
@@ -1636,7 +1638,54 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if any(w in texto.lower() for w in ["nova tarefa", "adicionar", "/sair", "tchau", "valeu"]):
             clear_state(context)
 
+    elif state == STATE_REFLEXAO:
+        # Salvar reflexao noturna no Supabase
+        global _reflexao_pendente, _reflexao_timestamp
+        try:
+            hoje = datetime.now(TZ_RECIFE).strftime("%Y-%m-%d")
+            supabase_request("POST", "reflexoes", {
+                "data": hoje,
+                "pergunta": "reflexao_noturna",
+                "resposta": texto,
+            })
+            await update.message.reply_text(
+                "✨ Reflexao salva! Vai aparecer na sua revisao semanal.\n\n"
+                "Descanse bem, amanha e um novo dia! 💪",
+            )
+        except Exception as e:
+            logger.error(f"Erro ao salvar reflexao: {e}")
+            await update.message.reply_text("Anotei mentalmente! 😊")
+        _reflexao_pendente = False
+        _reflexao_timestamp = None
+        clear_state(context)
+
     else:
+        # Verificar se ha reflexao pendente (dentro de 2 horas)
+        if _reflexao_pendente and _reflexao_timestamp:
+            agora = datetime.now(TZ_RECIFE)
+            if (agora - _reflexao_timestamp).total_seconds() <= 7200:  # 2 horas
+                # Salvar como reflexao em vez de criar tarefa
+                try:
+                    hoje = agora.strftime("%Y-%m-%d")
+                    supabase_request("POST", "reflexoes", {
+                        "data": hoje,
+                        "pergunta": "reflexao_noturna",
+                        "resposta": texto,
+                    })
+                    await update.message.reply_text(
+                        "✨ Reflexao salva! Vai aparecer na sua revisao semanal.\n\n"
+                        "Descanse bem, amanha e um novo dia! 💪",
+                    )
+                except Exception as e:
+                    logger.error(f"Erro ao salvar reflexao: {e}")
+                    await update.message.reply_text("Anotei mentalmente! 😊")
+                _reflexao_pendente = False
+                _reflexao_timestamp = None
+                return
+            else:
+                # Expirou, limpar flag
+                _reflexao_pendente = False
+                _reflexao_timestamp = None
         await processar_nova_tarefa(update, context, texto)
 
 
@@ -1861,6 +1910,45 @@ async def checkin_meiodia(context):
         logger.error(f"Erro no check-in meio-dia: {e}")
 
 
+# Flag global para reflexao noturna
+_reflexao_pendente = False
+_reflexao_timestamp = None
+
+
+async def reflexao_noturna(context):
+    """Reflexao do final do dia - 18:00."""
+    global _reflexao_pendente, _reflexao_timestamp
+    chat_id = get_chat_id()
+    if not chat_id:
+        return
+    try:
+        # Stats do dia
+        concluidas = listar_concluidas_hoje()
+        pendentes = listar_tarefas_do_dia()
+        n_concluidas = len(concluidas) if concluidas else 0
+        n_pendentes = len(pendentes) if pendentes else 0
+
+        msg = "🌅 *Reflexao do dia*\n\n"
+        msg += f"Hoje voce concluiu *{n_concluidas}* tarefa(s)"
+        if n_pendentes > 0:
+            msg += f" e ficaram *{n_pendentes}* pendente(s)"
+        msg += ".\n\n"
+        msg += "💭 *Como foi seu dia?*\n"
+        msg += "Me conta: o que fez de melhor? O que ficou pra amanha?\n\n"
+        msg += "_Responde com texto livre — vou guardar pra sua revisao semanal._"
+
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text=msg,
+            parse_mode="Markdown",
+        )
+        # Ativar flag para capturar resposta (valida por 2 horas)
+        _reflexao_pendente = True
+        _reflexao_timestamp = datetime.now(TZ_RECIFE)
+    except Exception as e:
+        logger.error(f"Erro na reflexao noturna: {e}")
+
+
 # ========== SETUP ==========
 
 async def setup_commands(app):
@@ -1905,6 +1993,13 @@ async def post_init(app):
         name="midday_checkin",
     )
 
+    # Reflexao noturna as 18:00 (todos os dias)
+    jq.run_daily(
+        reflexao_noturna,
+        time=dt_time(18, 0, tzinfo=TZ_RECIFE),
+        name="evening_reflection",
+    )
+
     # Relatorio semanal sexta 17:00
     jq.run_daily(
         relatorio_semanal_auto,
@@ -1927,7 +2022,7 @@ async def post_init(app):
         name="initial_reminders",
     )
 
-    logger.info("Jobs programados: resumo 7:30, check-in 13:00, relatorio sex 17:00, recorrentes 6:00")
+    logger.info("Jobs programados: resumo 7:30, check-in 13:00, reflexao 18:00, relatorio sex 17:00, recorrentes 6:00")
 
 
 # ========== HEALTH CHECK (para Koyeb/PaaS) ==========
