@@ -81,6 +81,7 @@ SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_ANON_KEY")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 if not all([TELEGRAM_TOKEN, SUPABASE_URL, SUPABASE_KEY]):
     print("ERRO: Preencha TELEGRAM_BOT_TOKEN, SUPABASE_URL e SUPABASE_ANON_KEY no .env")
@@ -89,14 +90,18 @@ if not all([TELEGRAM_TOKEN, SUPABASE_URL, SUPABASE_KEY]):
 if not GROQ_API_KEY:
     print("AVISO: GROQ_API_KEY nao configurada. Transcricao de audio desabilitada.")
 
-# IA: importar cerebro
+# IA: importar cerebro (Gemini gratuito como prioridade, Claude como alternativa)
 ai_brain = None
-if ANTHROPIC_API_KEY:
+if GEMINI_API_KEY:
     from ai_brain import AIBrain
-    ai_brain = AIBrain(ANTHROPIC_API_KEY)
+    ai_brain = AIBrain(GEMINI_API_KEY, provider="gemini")
+    print("Gemini API conectada — modo inteligente v2 ativado (free tier)!")
+elif ANTHROPIC_API_KEY:
+    from ai_brain import AIBrain
+    ai_brain = AIBrain(ANTHROPIC_API_KEY, provider="claude")
     print("Claude API conectada — modo inteligente v2 ativado!")
 else:
-    print("AVISO: ANTHROPIC_API_KEY nao configurada. Bot em modo basico (sem IA).")
+    print("AVISO: Nenhuma API de IA configurada (GEMINI_API_KEY ou ANTHROPIC_API_KEY). Bot em modo basico.")
 
 # Logging
 logging.basicConfig(

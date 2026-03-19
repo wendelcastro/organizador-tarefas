@@ -366,17 +366,26 @@ Responda APENAS com um JSON array, sem texto antes ou depois:
 class AIBrain:
     """Cerebro do organizador — integra com Claude API."""
 
-    def __init__(self, api_key: str):
+    def __init__(self, api_key: str, provider: str = "claude"):
         self.api_key = api_key
-        self.client = httpx.Client(
-            base_url="https://api.anthropic.com",
-            headers={
-                "x-api-key": api_key,
-                "anthropic-version": "2023-06-01",
-                "content-type": "application/json",
-            },
-            timeout=60,
-        )
+        self.provider = provider  # "claude" ou "gemini"
+
+        if provider == "claude":
+            self.client = httpx.Client(
+                base_url="https://api.anthropic.com",
+                headers={
+                    "x-api-key": api_key,
+                    "anthropic-version": "2023-06-01",
+                    "content-type": "application/json",
+                },
+                timeout=60,
+            )
+        else:  # gemini
+            self.client = httpx.Client(
+                base_url="https://generativelanguage.googleapis.com",
+                headers={"content-type": "application/json"},
+                timeout=60,
+            )
 
     # ========== INFRA ==========
 
@@ -422,6 +431,72 @@ class AIBrain:
                 logger.error(f"Erro ao chamar Claude apos {max_tentativas} tentativas: {e}")
                 return None
         return None
+
+    def _call_gemini(self, system: str, messages: list, max_tokens: int = 4096) -> str:
+        """Chama a Gemini API com retry e exponential backoff."""
+        contents = []
+        for msg in messages:
+            role = "user" if msg["role"] == "user" else "model"
+            contents.append({
+                "role": role,
+                "parts": [{"text": msg["content"]}]
+            })
+
+        body = {
+            "system_instruction": {"parts": [{"text": system}]},
+            "contents": contents,
+            "generationConfig": {
+                "maxOutputTokens": max_tokens,
+                "temperature": 0.1,
+            },
+        }
+
+        max_tentativas = 3
+        for tentativa in range(max_tentativas):
+            try:
+                resp = self.client.post(
+                    f"/v1beta/models/gemini-2.5-flash:generateContent?key={self.api_key}",
+                    json=body,
+                )
+                if resp.status_code == 200:
+                    data = resp.json()
+                    candidates = data.get("candidates", [])
+                    if candidates:
+                        parts = candidates[0].get("content", {}).get("parts", [])
+                        if parts:
+                            return parts[0].get("text", "")
+                    logger.error(f"Gemini resposta sem candidates: {data}")
+                    return None
+
+                if resp.status_code in (429, 503) and tentativa < max_tentativas - 1:
+                    espera = 2 ** tentativa
+                    logger.warning(
+                        f"Gemini API erro {resp.status_code} (tentativa {tentativa + 1}/{max_tentativas}). "
+                        f"Aguardando {espera}s..."
+                    )
+                    time.sleep(espera)
+                    continue
+
+                logger.error(f"Gemini API erro {resp.status_code}: {resp.text[:500]}")
+                return None
+            except Exception as e:
+                if tentativa < max_tentativas - 1:
+                    espera = 2 ** tentativa
+                    logger.warning(
+                        f"Erro ao chamar Gemini (tentativa {tentativa + 1}/{max_tentativas}): {e}. "
+                        f"Aguardando {espera}s..."
+                    )
+                    time.sleep(espera)
+                    continue
+                logger.error(f"Erro ao chamar Gemini apos {max_tentativas} tentativas: {e}")
+                return None
+        return None
+
+    def _call_llm(self, system: str, messages: list, max_tokens: int = 4096) -> str:
+        """Roteador: chama Gemini ou Claude conforme o provider configurado."""
+        if self.provider == "gemini":
+            return self._call_gemini(system, messages, max_tokens)
+        return self._call_llm(system, messages, max_tokens)
 
     def _parse_json(self, text: str) -> dict:
         """Extrai JSON de uma resposta que pode ter texto ao redor."""
@@ -785,16 +860,18 @@ class AIBrain:
         messages = [{"role": "user", "content": contexto}]
         # Mais tokens para listas grandes
         tokens = 8192 if pode_ser_multiplas else 4096
-        resposta = self._call_claude(system, messages, max_tokens=tokens)
+        resposta = self._call_llm(system, messages, max_tokens=tokens)
 
         logger.info(f"Claude respondeu: {resposta[:300] if resposta else 'None'}")
         result = self._parse_json(resposta)
 
         # Tratar multiplas tarefas
+        # IMPORTANTE: passar titulo individual (nao texto completo) para pos-processamento
+        # para evitar que _resolver_data sobrescreva datas corretas da IA
         if isinstance(result, dict) and result.get("multiplas") and result.get("tarefas"):
             tarefas_multiplas = []
             for t in result["tarefas"]:
-                t = self._pos_processar_tarefa(t, texto, tarefas_do_dia, carga_semana)
+                t = self._pos_processar_tarefa(t, t.get("titulo", ""), tarefas_do_dia, carga_semana)
                 tarefas_multiplas.append(t)
             return {"multiplas": True, "tarefas": tarefas_multiplas}
 
@@ -802,7 +879,7 @@ class AIBrain:
             tarefas_multiplas = []
             for t in result:
                 if isinstance(t, dict) and "titulo" in t:
-                    t = self._pos_processar_tarefa(t, texto, tarefas_do_dia, carga_semana)
+                    t = self._pos_processar_tarefa(t, t.get("titulo", ""), tarefas_do_dia, carga_semana)
                     tarefas_multiplas.append(t)
             if tarefas_multiplas:
                 return {"multiplas": True, "tarefas": tarefas_multiplas}
@@ -943,7 +1020,7 @@ class AIBrain:
         system += temporal
 
         messages = [{"role": "user", "content": resposta_usuario}]
-        resposta = self._call_claude(system, messages)
+        resposta = self._call_llm(system, messages)
 
         logger.info(f"Confirmacao - Claude respondeu: {resposta[:200] if resposta else 'None'}")
         result = self._parse_json(resposta)
@@ -1027,7 +1104,7 @@ class AIBrain:
 
         messages = [{"role": "user", "content": prompt}]
         system = SYSTEM_PROMPT.replace("{contexto_memoria}", "")
-        resposta = self._call_claude(system, messages, max_tokens=2048)
+        resposta = self._call_llm(system, messages, max_tokens=2048)
         return resposta or "Nao consegui gerar o planejamento. Tente novamente."
 
     # ========== FEEDBACK DO DIA ==========
@@ -1047,7 +1124,7 @@ class AIBrain:
 
         messages = [{"role": "user", "content": prompt}]
         system = SYSTEM_PROMPT.replace("{contexto_memoria}", "")
-        resposta = self._call_claude(system, messages, max_tokens=2048)
+        resposta = self._call_llm(system, messages, max_tokens=2048)
         return resposta or "Nao consegui gerar o feedback. Tente novamente."
 
     # ========== RELATORIO SEMANAL ==========
@@ -1068,7 +1145,7 @@ class AIBrain:
 
         messages = [{"role": "user", "content": prompt}]
         system = SYSTEM_PROMPT.replace("{contexto_memoria}", "")
-        resposta = self._call_claude(system, messages, max_tokens=2048)
+        resposta = self._call_llm(system, messages, max_tokens=2048)
         return resposta or "Nao consegui gerar o relatorio. Tente novamente."
 
     # ========== CONVERSA LIVRE ==========
@@ -1083,7 +1160,7 @@ class AIBrain:
             messages.append({"role": role, "content": msg.get("content", "")})
         messages.append({"role": "user", "content": mensagem})
 
-        resposta = self._call_claude(system, messages, max_tokens=1024)
+        resposta = self._call_llm(system, messages, max_tokens=1024)
         return resposta or "Desculpa, tive um problema. Tenta de novo?"
 
     # ========== DECOMPOSICAO DE TAREFAS ==========
@@ -1100,7 +1177,7 @@ class AIBrain:
 
         messages = [{"role": "user", "content": prompt}]
         system = SYSTEM_PROMPT.replace("{contexto_memoria}", "")
-        resposta = self._call_claude(system, messages, max_tokens=1024)
+        resposta = self._call_llm(system, messages, max_tokens=1024)
 
         result = self._parse_json(resposta)
 
