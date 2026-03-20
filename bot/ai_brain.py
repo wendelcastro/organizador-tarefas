@@ -267,7 +267,8 @@ Regras:
 11. Tarefas administrativas e leves (emails, revisoes, delegacoes) devem ir para a TARDE (14:00-18:00)
 12. Apos uma reuniao longa (>60min), sugira 15min de pausa antes da proxima tarefa
 
-Responda em texto formatado para Telegram (Markdown), NAO em JSON.
+
+{energia_historico}Responda em texto formatado para Telegram (Markdown), NAO em JSON.
 Use emojis com moderacao. Seja direto e realista.
 Se o dia esta pesado demais, DIGA CLARAMENTE e sugira o que mover.
 """
@@ -1183,7 +1184,7 @@ class AIBrain:
 
     # ========== PLANEJAR DIA ==========
 
-    def planejar_dia(self, tarefas: list, data: str = None) -> str:
+    def planejar_dia(self, tarefas: list, data: str = None, energia_info: str = "") -> str:
         """Gera planejamento inteligente do dia."""
         if not data:
             data = datetime.now().strftime("%Y-%m-%d")
@@ -1198,9 +1199,21 @@ class AIBrain:
             f"(limite: {CAPACIDADE_DIA_MIN}min uteis)"
         )
 
+        # Montar bloco de energia se disponivel
+        if energia_info:
+            energia_historico = (
+                f"HISTORICO DE ENERGIA DO USUARIO (ultimos dias):\n"
+                f"{energia_info}\n"
+                f"Use esses dados para sugerir tarefas pesadas nos periodos de alta energia "
+                f"e tarefas leves nos periodos de baixa energia.\n\n"
+            )
+        else:
+            energia_historico = ""
+
         tarefas_json = json.dumps(tarefas, ensure_ascii=False, indent=2)
         prompt = PLANNING_PROMPT.format(
-            data=data, tarefas_json=tarefas_json, carga_info=carga_info
+            data=data, tarefas_json=tarefas_json, carga_info=carga_info,
+            energia_historico=energia_historico,
         )
 
         messages = [{"role": "user", "content": prompt}]

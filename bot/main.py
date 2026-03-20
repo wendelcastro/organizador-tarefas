@@ -33,6 +33,7 @@ Comandos:
   /editar    — Editar tarefa existente
   /decompor  — Decompor tarefa em subtarefas
   /relatorio — Relatorio semanal manual
+  /energia   — Registrar nivel de energia (1-5)
   /foco      — Modo foco (silencia interrupcoes)
   /cancelar  — Cancela operacao atual
 
@@ -150,7 +151,7 @@ def clear_state(context):
 
 # ========== SUPABASE HELPERS ==========
 
-def supabase_request(method, endpoint, data=None, params=None):
+def supabase_request(method, endpoint, data=None, params=None, extra_headers=None):
     """Faz requisicao HTTP para a API REST do Supabase."""
     url = f"{SUPABASE_URL}/rest/v1/{endpoint}"
     if params:
@@ -162,6 +163,8 @@ def supabase_request(method, endpoint, data=None, params=None):
         "Content-Type": "application/json",
         "Prefer": "return=representation",
     }
+    if extra_headers:
+        headers.update(extra_headers)
 
     body = json.dumps(data).encode("utf-8") if data else None
     req = Request(url, data=body, headers=headers, method=method)
@@ -1194,7 +1197,24 @@ async def cmd_planejar(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    planejamento = ai_brain.planejar_dia(todas, hoje)
+    # Buscar historico de energia dos ultimos 7 dias
+    energia_info = ""
+    try:
+        data_7dias = (datetime.now(TZ_RECIFE) - timedelta(days=7)).strftime("%Y-%m-%d")
+        registros = supabase_request("GET", "energia_diaria", params={
+            "data": f"gte.{data_7dias}",
+            "order": "data.desc,periodo.asc",
+        }) or []
+        if registros:
+            linhas = []
+            for r in registros:
+                bolas = "●" * r["nivel"] + "○" * (5 - r["nivel"])
+                linhas.append(f"  {r['data']} {r['periodo']}: {bolas} ({r['nivel']}/5)")
+            energia_info = "\n".join(linhas)
+    except Exception as e:
+        logger.warning(f"Erro ao buscar energia: {e}")
+
+    planejamento = ai_brain.planejar_dia(todas, hoje, energia_info=energia_info)
 
     set_state(context, STATE_CHATTING, chat_history=[
         {"role": "assistant", "content": planejamento}
@@ -1202,6 +1222,73 @@ async def cmd_planejar(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await msg.edit_text(planejamento, parse_mode="Markdown",
                         disable_web_page_preview=True)
+
+
+async def cmd_energia(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Registrar nivel de energia do periodo (1-5)."""
+    clear_state(context)
+
+    args = context.args or []
+
+    if not args:
+        await update.message.reply_text(
+            "⚡ *Registrar energia do periodo*\n\n"
+            "Uso:\n"
+            "• `/energia 4` — registra no periodo atual (auto)\n"
+            "• `/energia 3 manha` — registra para manha\n\n"
+            "Niveis: 1 (exausto) a 5 (energia total)\n"
+            "Periodos: manha, tarde, noite",
+            parse_mode="Markdown",
+        )
+        return
+
+    # Validar nivel
+    try:
+        nivel = int(args[0])
+    except ValueError:
+        await update.message.reply_text("❌ Nivel deve ser um numero de 1 a 5.")
+        return
+
+    if nivel < 1 or nivel > 5:
+        await update.message.reply_text("❌ Nivel deve ser entre 1 e 5.")
+        return
+
+    # Detectar periodo
+    if len(args) >= 2:
+        periodo = args[1].lower()
+        if periodo not in ("manha", "tarde", "noite"):
+            await update.message.reply_text(
+                "❌ Periodo invalido. Use: manha, tarde ou noite."
+            )
+            return
+    else:
+        hora = datetime.now(TZ_RECIFE).hour
+        if 6 <= hora <= 11:
+            periodo = "manha"
+        elif 12 <= hora <= 17:
+            periodo = "tarde"
+        else:
+            periodo = "noite"
+
+    hoje = datetime.now(TZ_RECIFE).strftime("%Y-%m-%d")
+
+    # Upsert no Supabase (merge-duplicates usa a constraint UNIQUE(data, periodo))
+    result = supabase_request(
+        "POST", "energia_diaria",
+        data={"data": hoje, "periodo": periodo, "nivel": nivel},
+        extra_headers={"Prefer": "return=representation,resolution=merge-duplicates"},
+    )
+
+    if not result:
+        await update.message.reply_text("❌ Erro ao salvar energia. Tente novamente.")
+        return
+
+    # Feedback visual
+    bolas = "●" * nivel + "○" * (5 - nivel)
+    periodo_display = {"manha": "manha", "tarde": "tarde", "noite": "noite"}[periodo]
+    await update.message.reply_text(
+        f"⚡ Energia da {periodo_display}: {bolas} ({nivel}/5)"
+    )
 
 
 async def cmd_feedback(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1963,6 +2050,7 @@ async def setup_commands(app):
         BotCommand("editar", "Editar tarefa"),
         BotCommand("relatorio", "Relatorio semanal"),
         BotCommand("decompor", "Decompor tarefa em subtarefas"),
+        BotCommand("energia", "Registrar nivel de energia (1-5)"),
         BotCommand("foco", "Modo foco (silenciar)"),
         BotCommand("cancelar", "Cancelar operacao"),
     ]
@@ -2092,6 +2180,7 @@ def main():
     app.add_handler(CommandHandler("editar", cmd_editar))
     app.add_handler(CommandHandler("relatorio", cmd_relatorio))
     app.add_handler(CommandHandler("decompor", cmd_decompor))
+    app.add_handler(CommandHandler("energia", cmd_energia))
     app.add_handler(CommandHandler("foco", cmd_foco))
     app.add_handler(CommandHandler("cancelar", cmd_cancelar))
     app.add_handler(CommandHandler("status", cmd_status))

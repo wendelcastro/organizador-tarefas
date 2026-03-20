@@ -744,6 +744,9 @@ body::after {
   border-top: 1px solid var(--border-subtle);
 }
 
+.bottom-nav::-webkit-scrollbar { display: none; }
+.bottom-nav { scrollbar-width: none; }
+
 .nav-item {
   display: flex;
   flex-direction: column;
@@ -756,6 +759,7 @@ body::after {
   font-size: 0.6rem;
   cursor: pointer;
   transition: var(--transition);
+  flex-shrink: 0;
 }
 .nav-item.active { color: var(--amber); }
 .nav-item:active { transform: scale(0.9); }
@@ -1659,6 +1663,154 @@ body::after {
 .detail-field-label {
   letter-spacing: 0.12em;
 }
+
+/* ========== ENERGY MAPPING WIDGET ========== */
+.energy-logger { display: flex; gap: 0.5rem; margin-bottom: 0.75rem; }
+.energy-period {
+  flex: 1; padding: 0.6rem; background: var(--bg-card);
+  border: 1px solid var(--border-subtle); border-radius: var(--radius-sm);
+  text-align: center;
+}
+.energy-period-label {
+  font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.15em;
+  color: var(--text-muted); margin-bottom: 0.4rem; font-weight: 500;
+}
+.energy-dots { display: flex; justify-content: center; gap: 0.3rem; }
+.energy-dot {
+  width: 20px; height: 20px; border-radius: 50%;
+  border: 2px solid var(--border-hover); background: transparent;
+  cursor: pointer; transition: var(--transition); font-size: 0;
+}
+.energy-dot:hover { border-color: var(--amber); }
+.energy-dot.active { background: var(--amber); border-color: var(--amber); }
+.energy-dot.active ~ .energy-dot { background: transparent; border-color: var(--border-hover); }
+.energy-period[data-nivel="1"] .energy-dot.active { background: var(--pri-alta); border-color: var(--pri-alta); }
+.energy-period[data-nivel="2"] .energy-dot.active { background: hsl(25, 60%, 50%); border-color: hsl(25, 60%, 50%); }
+.energy-period[data-nivel="3"] .energy-dot.active { background: var(--pri-media); border-color: var(--pri-media); }
+.energy-period.current-period { border-color: hsla(43,52%,54%,0.3); box-shadow: 0 0 12px hsla(43,52%,54%,0.06); }
+
+/* ========== TIME BLOCKING VIEW ========== */
+.timeblock-view { display: none; animation: fadeIn 0.4s ease; }
+.timeblock-view.active { display: block; }
+
+.timeblock-day-selector {
+  display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem;
+}
+.timeblock-day-btn {
+  padding: 0.4rem 0.8rem; background: var(--bg-glass); border: 1px solid var(--border-subtle);
+  border-radius: 50px; color: var(--text-secondary); font-family: inherit;
+  font-size: 0.75rem; cursor: pointer; transition: var(--transition);
+}
+.timeblock-day-btn.active { background: hsla(43,52%,54%,0.15); border-color: var(--amber); color: var(--text-primary); }
+
+.timeblock-container { display: flex; flex-direction: column; gap: 0.75rem; }
+
+.timeblock-section {
+  background: var(--bg-card); border: 1px solid var(--border-subtle);
+  border-radius: var(--radius); padding: 0.85rem; overflow: hidden;
+}
+
+.timeblock-section-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 0.6rem; padding-bottom: 0.45rem;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.timeblock-period-name {
+  font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.15em;
+  color: var(--text-muted); font-weight: 500;
+}
+.timeblock-period-icon { font-size: 0.9rem; }
+.timeblock-period-hours {
+  font-size: 0.6rem; color: var(--text-muted);
+  font-family: 'DM Sans', sans-serif;
+}
+
+.timeblock-tasks { display: flex; flex-direction: column; gap: 0.4rem; }
+
+.timeblock-task {
+  display: flex; align-items: center; gap: 0.6rem;
+  padding: 0.55rem 0.65rem; background: var(--bg-glass);
+  border: 1px solid var(--border-subtle); border-radius: var(--radius-sm);
+  border-left: 3px solid var(--cat-color);
+  cursor: pointer; transition: var(--transition);
+}
+.timeblock-task:hover { border-color: var(--border-hover); }
+
+.timeblock-task-time {
+  font-size: 0.7rem; color: var(--amber); font-weight: 500;
+  min-width: 40px; font-family: 'DM Sans', sans-serif;
+}
+.timeblock-task-title {
+  font-size: 0.8rem; flex: 1; color: var(--text-secondary);
+}
+.timeblock-task-duration {
+  font-size: 0.6rem; color: var(--text-muted); white-space: nowrap;
+}
+.timeblock-task.completed .timeblock-task-title {
+  text-decoration: line-through; color: var(--text-muted);
+}
+
+.timeblock-empty {
+  text-align: center; padding: 1rem; color: var(--text-muted);
+  font-size: 0.75rem; font-style: italic;
+}
+
+.timeblock-free-slot {
+  padding: 0.4rem 0.65rem; border: 1px dashed var(--border-subtle);
+  border-radius: var(--radius-sm); color: var(--text-muted);
+  font-size: 0.7rem; text-align: center; opacity: 0.5;
+}
+
+/* ========== KPIs DASHBOARD VIEW ========== */
+.kpis-view { display: none; animation: fadeIn 0.4s ease; }
+.kpis-view.active { display: block; }
+
+.kpis-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem;
+  margin-bottom: 0.75rem;
+}
+
+.kpi-card {
+  background: var(--bg-card); border: 1px solid var(--border-subtle);
+  border-radius: var(--radius); padding: 0.85rem;
+  animation: fadeUp 0.5s ease backwards;
+}
+.kpi-card.full-width { grid-column: 1 / -1; }
+.kpi-card-label {
+  font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.15em;
+  color: var(--text-muted); margin-bottom: 0.4rem; font-weight: 500;
+}
+.kpi-card-value {
+  font-family: 'Cormorant Garamond', serif; font-size: 2rem;
+  line-height: 1; color: var(--amber);
+}
+.kpi-card-subtitle { font-size: 0.7rem; color: var(--text-secondary); margin-top: 0.2rem; }
+
+/* Bar Chart */
+.kpi-bar-chart {
+  display: flex; align-items: flex-end; gap: 4px;
+  height: 100px; padding-top: 0.5rem;
+}
+.kpi-bar-wrapper { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 0.2rem; }
+.kpi-bar {
+  width: 100%; min-height: 4px; border-radius: 3px 3px 0 0;
+  background: linear-gradient(to top, var(--amber-dark), var(--amber));
+  transition: height 0.6s ease;
+}
+.kpi-bar-label { font-size: 0.55rem; color: var(--text-muted); }
+.kpi-bar-value { font-size: 0.6rem; color: var(--text-secondary); }
+
+/* Donut Chart */
+.kpi-donut-container { display: flex; align-items: center; gap: 1rem; }
+.kpi-donut { width: 80px; height: 80px; }
+.kpi-donut-legend { display: flex; flex-direction: column; gap: 0.3rem; }
+.kpi-legend-item { display: flex; align-items: center; gap: 0.4rem; font-size: 0.7rem; color: var(--text-secondary); }
+.kpi-legend-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+/* Sparkline */
+.kpi-sparkline { width: 100%; height: 40px; margin-top: 0.3rem; }
+.kpi-sparkline polyline { fill: none; stroke: var(--amber); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.kpi-sparkline .sparkline-area { fill: url(#sparklineGrad); stroke: none; }
 </style>
 </head>
 <body>
@@ -1680,6 +1832,8 @@ body::after {
         <button data-view="calendar" onclick="switchView('calendar')">Semana</button>
         <button data-view="review" onclick="switchView('review')">Revisao</button>
         <button data-view="matrix" onclick="switchView('matrix')">Matriz</button>
+        <button data-view="timeblock" onclick="switchView('timeblock')">Blocos</button>
+        <button data-view="kpis" onclick="switchView('kpis')">KPIs</button>
       </div>
       <button class="theme-toggle" onclick="toggleTheme()" title="Alternar tema">
         <span id="themeIcon">☀️</span>
@@ -1807,11 +1961,13 @@ body::after {
       <div id="weekHistoryList" style="margin-top:1rem"></div>
     </div>
     <div class="matrix-view" id="matrixView"></div>
+    <div class="timeblock-view" id="timeblockView"></div>
+    <div class="kpis-view" id="kpisView"></div>
   </main>
 </div>
 
 <!-- BOTTOM NAV (mobile) -->
-<nav class="bottom-nav">
+<nav class="bottom-nav" style="overflow-x:auto;justify-content:flex-start;gap:0;scrollbar-width:none;-webkit-overflow-scrolling:touch">
   <button class="nav-item active" data-view="tasks" onclick="switchView('tasks')">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
     Todas
@@ -1822,6 +1978,14 @@ body::after {
   </button>
   <button class="nav-fab" onclick="openModal()">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+  </button>
+  <button class="nav-item" data-view="timeblock" onclick="switchView('timeblock')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="3" y1="16" x2="21" y2="16"/><line x1="9" y1="4" x2="9" y2="22"/></svg>
+    Blocos
+  </button>
+  <button class="nav-item" data-view="kpis" onclick="switchView('kpis')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
+    KPIs
   </button>
   <button class="nav-item" data-view="calendar" onclick="switchView('calendar')">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
@@ -3989,24 +4153,459 @@ function renderMatrix() {
   });
 }
 
-// ========== PATCH: switchView to handle 'matrix' ==========
+// ========== FEATURE: ENERGY MAPPING WIDGET ==========
+let energyData = { manha: 0, tarde: 0, noite: 0 };
+
+function renderEnergyLogger() {
+  const hour = new Date().getHours();
+  let currentPeriod = '';
+  if (hour >= 6 && hour < 12) currentPeriod = 'manha';
+  else if (hour >= 12 && hour < 18) currentPeriod = 'tarde';
+  else currentPeriod = 'noite';
+
+  const periods = [
+    { key: 'manha', label: 'Manha', icon: '\u2600\uFE0F' },
+    { key: 'tarde', label: 'Tarde', icon: '\uD83C\uDF24\uFE0F' },
+    { key: 'noite', label: 'Noite', icon: '\uD83C\uDF19' }
+  ];
+
+  return '<div class="energy-logger" id="energyLogger">' + periods.map(p => {
+    const nivel = energyData[p.key] || 0;
+    const isCurrent = p.key === currentPeriod ? ' current-period' : '';
+    return '<div class="energy-period' + isCurrent + '" data-period="' + p.key + '" data-nivel="' + nivel + '">'
+      + '<div class="energy-period-label">' + p.icon + ' ' + p.label + '</div>'
+      + '<div class="energy-dots">'
+      + [1,2,3,4,5].map(n =>
+          '<div class="energy-dot' + (n <= nivel ? ' active' : '') + '" data-level="' + n + '"></div>'
+        ).join('')
+      + '</div></div>';
+  }).join('') + '</div>';
+}
+
+function initEnergyLogger() {
+  const logger = document.getElementById('energyLogger');
+  if (!logger) return;
+
+  logger.querySelectorAll('.energy-dot').forEach(dot => {
+    dot.addEventListener('click', async function() {
+      const period = this.closest('.energy-period');
+      const periodKey = period.dataset.period;
+      const level = parseInt(this.dataset.level);
+
+      // Toggle: if clicking the same level, reset to 0
+      const currentLevel = energyData[periodKey] || 0;
+      const newLevel = currentLevel === level ? 0 : level;
+      energyData[periodKey] = newLevel;
+      period.dataset.nivel = newLevel;
+
+      // Update dots visual
+      period.querySelectorAll('.energy-dot').forEach((d, i) => {
+        d.classList.toggle('active', (i + 1) <= newLevel);
+      });
+
+      // Save to Supabase
+      const today = new Date().toISOString().split('T')[0];
+      try {
+        await fetch(SUPABASE_URL + '/rest/v1/energia_diaria', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': SUPABASE_KEY,
+            'Authorization': 'Bearer ' + SUPABASE_KEY,
+            'Prefer': 'resolution=merge-duplicates'
+          },
+          body: JSON.stringify({
+            data: today,
+            manha: energyData.manha,
+            tarde: energyData.tarde,
+            noite: energyData.noite
+          })
+        });
+      } catch (e) {
+        console.warn('Erro ao salvar energia:', e.message);
+        localStorage.setItem('energy_' + today, JSON.stringify(energyData));
+      }
+    });
+  });
+}
+
+async function loadEnergyData() {
+  const today = new Date().toISOString().split('T')[0];
+  try {
+    const res = await fetch(SUPABASE_URL + '/rest/v1/energia_diaria?data=eq.' + today, {
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': 'Bearer ' + SUPABASE_KEY
+      }
+    });
+    const data = await res.json();
+    if (data && data.length > 0) {
+      energyData.manha = data[0].manha || 0;
+      energyData.tarde = data[0].tarde || 0;
+      energyData.noite = data[0].noite || 0;
+    }
+  } catch (e) {
+    // Fallback: localStorage
+    const saved = localStorage.getItem('energy_' + today);
+    if (saved) {
+      try { energyData = JSON.parse(saved); } catch (e2) { /* ignore */ }
+    }
+  }
+}
+
+// ========== FEATURE: TIME BLOCKING VIEW ==========
+let timeblockSelectedDate = new Date().toISOString().split('T')[0];
+
+function renderTimeBlocks(dateStr) {
+  const container = document.getElementById('timeblockView');
+  if (!container) return;
+
+  const today = new Date().toISOString().split('T')[0];
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const tomorrowStr = tomorrow.toISOString().split('T')[0];
+
+  // Day selector
+  let html = '<h2 style="font-family:\'Cormorant Garamond\',serif;font-size:1.3rem;color:var(--text-primary);margin-bottom:0.5rem">Blocos de Tempo</h2>';
+  html += '<div class="timeblock-day-selector">';
+  html += '<button class="timeblock-day-btn' + (dateStr === today ? ' active' : '') + '" onclick="timeblockSelectedDate=\'' + today + '\';renderTimeBlocks(\'' + today + '\')">Hoje</button>';
+  html += '<button class="timeblock-day-btn' + (dateStr === tomorrowStr ? ' active' : '') + '" onclick="timeblockSelectedDate=\'' + tomorrowStr + '\';renderTimeBlocks(\'' + tomorrowStr + '\')">Amanha</button>';
+  html += '<input type="date" class="timeblock-day-btn" value="' + dateStr + '" onchange="timeblockSelectedDate=this.value;renderTimeBlocks(this.value)" style="color-scheme:dark;background:var(--bg-glass);min-width:auto">';
+  html += '</div>';
+
+  // Filter tasks for this date
+  const dayTasks = tasks.filter(t => t.prazo === dateStr);
+
+  // Group by period
+  const periods = [
+    { key: 'manha', label: 'Manha', icon: '\u2600\uFE0F', hours: '6h - 12h', start: 6, end: 12 },
+    { key: 'tarde', label: 'Tarde', icon: '\uD83C\uDF24\uFE0F', hours: '12h - 18h', start: 12, end: 18 },
+    { key: 'noite', label: 'Noite', icon: '\uD83C\uDF19', hours: '18h - 24h', start: 18, end: 24 },
+    { key: 'sem_horario', label: 'Sem horario', icon: '\uD83D\uDCCB', hours: '', start: -1, end: -1 }
+  ];
+
+  const grouped = { manha: [], tarde: [], noite: [], sem_horario: [] };
+
+  dayTasks.forEach(t => {
+    if (!t.horario) {
+      grouped.sem_horario.push(t);
+      return;
+    }
+    const hour = parseInt(t.horario.split(':')[0], 10);
+    if (hour >= 6 && hour < 12) grouped.manha.push(t);
+    else if (hour >= 12 && hour < 18) grouped.tarde.push(t);
+    else if (hour >= 18 || hour < 6) grouped.noite.push(t);
+    else grouped.sem_horario.push(t);
+  });
+
+  // Sort within each period by horario
+  ['manha', 'tarde', 'noite'].forEach(k => {
+    grouped[k].sort((a, b) => (a.horario || '').localeCompare(b.horario || ''));
+  });
+
+  html += '<div class="timeblock-container">';
+
+  periods.forEach(period => {
+    const pTasks = grouped[period.key];
+    // Skip empty "Sem horario" if no tasks
+    if (period.key === 'sem_horario' && pTasks.length === 0) return;
+
+    html += '<div class="timeblock-section">';
+    html += '<div class="timeblock-section-header">';
+    html += '<span class="timeblock-period-icon">' + period.icon + '</span>';
+    html += '<span class="timeblock-period-name">' + period.label + '</span>';
+    if (period.hours) html += '<span class="timeblock-period-hours">' + period.hours + '</span>';
+    html += '</div>';
+
+    if (pTasks.length === 0) {
+      html += '<div class="timeblock-empty">Nenhuma tarefa neste periodo</div>';
+      html += '<div class="timeblock-free-slot">Horario livre</div>';
+    } else {
+      html += '<div class="timeblock-tasks">';
+      pTasks.forEach(t => {
+        const catColor = CATEGORY_COLORS[t.categoria] || 'var(--text-muted)';
+        const completedClass = t.status === 'concluida' ? ' completed' : '';
+        const duration = t.tempo_estimado_min ? t.tempo_estimado_min + 'min' : '';
+        html += '<div class="timeblock-task' + completedClass + '" style="--cat-color:' + catColor + '" data-task-id="' + t.id + '">';
+        html += '<span class="timeblock-task-time">' + (t.horario || '--:--') + '</span>';
+        html += '<span class="timeblock-task-title">' + t.titulo + '</span>';
+        if (duration) html += '<span class="timeblock-task-duration">' + duration + '</span>';
+        html += '</div>';
+      });
+      html += '</div>';
+    }
+    html += '</div>';
+  });
+
+  html += '</div>';
+  container.innerHTML = html;
+
+  // Attach click events
+  container.querySelectorAll('.timeblock-task[data-task-id]').forEach(el => {
+    el.addEventListener('click', () => showTaskDetail(el.dataset.taskId));
+  });
+}
+
+// ========== FEATURE: KPIs DASHBOARD ==========
+function renderKPIs() {
+  const container = document.getElementById('kpisView');
+  if (!container) return;
+
+  const hoje = new Date().toISOString().split('T')[0];
+  const now = new Date();
+
+  // -- Calculate week boundaries (ISO week: Mon-Sun) --
+  function getISOWeekStart(d) {
+    const dt = new Date(d);
+    const day = dt.getDay();
+    const diff = dt.getDate() - day + (day === 0 ? -6 : 1);
+    dt.setDate(diff);
+    dt.setHours(0,0,0,0);
+    return dt;
+  }
+
+  // Current week stats
+  const weekStart = getISOWeekStart(now);
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekEnd.getDate() + 6);
+  const weekStartStr = weekStart.toISOString().split('T')[0];
+  const weekEndStr = weekEnd.toISOString().split('T')[0];
+
+  const thisWeekTasks = tasks.filter(t => t.prazo >= weekStartStr && t.prazo <= weekEndStr);
+  const completedThisWeek = thisWeekTasks.filter(t => t.status === 'concluida').length;
+  const totalThisWeek = thisWeekTasks.length;
+  const productivityScore = totalThisWeek > 0 ? Math.round((completedThisWeek / totalThisWeek) * 100) : 0;
+
+  // Color for productivity score
+  const scoreColor = productivityScore >= 70 ? 'var(--amber)' : productivityScore >= 40 ? 'var(--pri-media)' : 'var(--pri-alta)';
+
+  // -- Streak --
+  const streak = gamification.streak || 0;
+  const streakRecord = gamification.streakRecord || 0;
+
+  // -- Tasks per week (last 8 weeks) --
+  const weeklyData = [];
+  for (let w = 7; w >= 0; w--) {
+    const ws = new Date(now);
+    ws.setDate(ws.getDate() - (w * 7));
+    const wStart = getISOWeekStart(ws);
+    const wEnd = new Date(wStart);
+    wEnd.setDate(wEnd.getDate() + 6);
+    const wStartStr = wStart.toISOString().split('T')[0];
+    const wEndStr = wEnd.toISOString().split('T')[0];
+    const count = tasks.filter(t => t.status === 'concluida' && t.prazo >= wStartStr && t.prazo <= wEndStr).length;
+    weeklyData.push({ label: 'S' + (8 - w), count });
+  }
+  const maxWeekly = Math.max(...weeklyData.map(w => w.count), 1);
+
+  // -- Completion rate donut --
+  const allActive = tasks.filter(t => t.status !== 'concluida' && t.prazo && t.prazo <= hoje);
+  const completed = tasks.filter(t => t.status === 'concluida').length;
+  const inProgress = tasks.filter(t => t.status === 'em_andamento').length;
+  const pending = tasks.filter(t => t.status === 'pendente').length;
+  const overdue = tasks.filter(t => isOverdue(t)).length;
+  const totalForDonut = completed + inProgress + pending;
+
+  // Donut segments (stroke-dasharray based)
+  const circumference = 2 * Math.PI * 35;
+  const segments = [];
+  if (totalForDonut > 0) {
+    const completedPct = completed / totalForDonut;
+    const inProgressPct = inProgress / totalForDonut;
+    const overduePct = overdue / totalForDonut;
+    const pendingPct = Math.max(0, (pending - overdue) / totalForDonut);
+    segments.push({ pct: completedPct, color: 'var(--amber)', label: 'Concluidas', count: completed });
+    segments.push({ pct: inProgressPct, color: 'var(--cat-consultoria)', label: 'Em andamento', count: inProgress });
+    segments.push({ pct: overduePct, color: 'var(--pri-alta)', label: 'Atrasadas', count: overdue });
+    segments.push({ pct: pendingPct, color: 'var(--text-muted)', label: 'Pendentes', count: pending - overdue });
+  }
+
+  // -- Category distribution --
+  const categories = ['Trabalho', 'Consultoria', 'Grupo Ser', 'Pessoal'];
+  const catCounts = {};
+  categories.forEach(c => { catCounts[c] = tasks.filter(t => t.categoria === c).length; });
+  const maxCat = Math.max(...Object.values(catCounts), 1);
+
+  // -- Weekly trend (completion rate per week, last 8 weeks) --
+  const weeklyRates = [];
+  for (let w = 7; w >= 0; w--) {
+    const ws = new Date(now);
+    ws.setDate(ws.getDate() - (w * 7));
+    const wStart = getISOWeekStart(ws);
+    const wEnd = new Date(wStart);
+    wEnd.setDate(wEnd.getDate() + 6);
+    const wStartStr = wStart.toISOString().split('T')[0];
+    const wEndStr = wEnd.toISOString().split('T')[0];
+    const wTasks = tasks.filter(t => t.prazo >= wStartStr && t.prazo <= wEndStr);
+    const wDone = wTasks.filter(t => t.status === 'concluida').length;
+    const rate = wTasks.length > 0 ? Math.round((wDone / wTasks.length) * 100) : 0;
+    weeklyRates.push(rate);
+  }
+
+  // Build HTML
+  let html = '<h2 style="font-family:\'Cormorant Garamond\',serif;font-size:1.3rem;color:var(--text-primary);margin-bottom:0.75rem">KPIs & Metricas</h2>';
+
+  html += '<div class="kpis-grid">';
+
+  // 1. Productivity Score (full width)
+  html += '<div class="kpi-card full-width" style="animation-delay:0.05s">';
+  html += '<div class="kpi-card-label">Produtividade da Semana</div>';
+  html += '<div class="kpi-card-value" style="color:' + scoreColor + '">' + productivityScore + '%</div>';
+  html += '<div class="kpi-card-subtitle">' + completedThisWeek + ' de ' + totalThisWeek + ' tarefas concluidas</div>';
+  html += '</div>';
+
+  // 2. Streak
+  html += '<div class="kpi-card" style="animation-delay:0.1s">';
+  html += '<div class="kpi-card-label">Streak Atual</div>';
+  html += '<div class="kpi-card-value">' + streak + '</div>';
+  html += '<div class="kpi-card-subtitle">Recorde: ' + streakRecord + ' dias</div>';
+  html += '</div>';
+
+  // 3. Total concluidas
+  html += '<div class="kpi-card" style="animation-delay:0.15s">';
+  html += '<div class="kpi-card-label">Total Concluidas</div>';
+  html += '<div class="kpi-card-value">' + completed + '</div>';
+  html += '<div class="kpi-card-subtitle">De ' + tasks.length + ' tarefas</div>';
+  html += '</div>';
+
+  // 4. Tasks Per Week (bar chart, full width)
+  html += '<div class="kpi-card full-width" style="animation-delay:0.2s">';
+  html += '<div class="kpi-card-label">Tarefas Concluidas por Semana</div>';
+  html += '<div class="kpi-bar-chart">';
+  weeklyData.forEach(w => {
+    const h = maxWeekly > 0 ? Math.max(4, Math.round((w.count / maxWeekly) * 90)) : 4;
+    html += '<div class="kpi-bar-wrapper">';
+    html += '<div class="kpi-bar-value">' + w.count + '</div>';
+    html += '<div class="kpi-bar" style="height:' + h + 'px"></div>';
+    html += '<div class="kpi-bar-label">' + w.label + '</div>';
+    html += '</div>';
+  });
+  html += '</div></div>';
+
+  // 5. Completion Rate Donut (full width)
+  html += '<div class="kpi-card full-width" style="animation-delay:0.25s">';
+  html += '<div class="kpi-card-label">Distribuicao de Status</div>';
+  html += '<div class="kpi-donut-container">';
+
+  // SVG Donut
+  html += '<svg class="kpi-donut" viewBox="0 0 80 80">';
+  if (totalForDonut > 0) {
+    let offset = 0;
+    segments.forEach(seg => {
+      if (seg.pct <= 0) return;
+      const dash = seg.pct * circumference;
+      const gap = circumference - dash;
+      html += '<circle cx="40" cy="40" r="35" fill="none" stroke-width="8" '
+        + 'stroke="' + seg.color + '" '
+        + 'stroke-dasharray="' + dash.toFixed(2) + ' ' + gap.toFixed(2) + '" '
+        + 'stroke-dashoffset="' + (-offset).toFixed(2) + '" '
+        + 'transform="rotate(-90 40 40)"/>';
+      offset += dash;
+    });
+  } else {
+    html += '<circle cx="40" cy="40" r="35" fill="none" stroke-width="8" stroke="var(--border-subtle)"/>';
+  }
+  html += '</svg>';
+
+  // Legend
+  html += '<div class="kpi-donut-legend">';
+  segments.forEach(seg => {
+    if (seg.count <= 0) return;
+    html += '<div class="kpi-legend-item">';
+    html += '<div class="kpi-legend-dot" style="background:' + seg.color + '"></div>';
+    html += seg.label + ' (' + seg.count + ')';
+    html += '</div>';
+  });
+  html += '</div></div></div>';
+
+  // 6. Category Distribution
+  html += '<div class="kpi-card full-width" style="animation-delay:0.3s">';
+  html += '<div class="kpi-card-label">Distribuicao por Categoria</div>';
+  categories.forEach(cat => {
+    const count = catCounts[cat];
+    const pct = maxCat > 0 ? Math.round((count / maxCat) * 100) : 0;
+    html += '<div style="display:flex;align-items:center;gap:0.5rem;margin-top:0.4rem">';
+    html += '<div style="width:8px;height:8px;border-radius:50%;background:' + CATEGORY_COLORS[cat] + ';flex-shrink:0"></div>';
+    html += '<span style="font-size:0.75rem;color:var(--text-secondary);min-width:70px">' + cat + '</span>';
+    html += '<div style="flex:1;height:6px;border-radius:3px;background:rgba(255,255,255,0.06);overflow:hidden">';
+    html += '<div style="height:100%;width:' + pct + '%;border-radius:3px;background:' + CATEGORY_COLORS[cat] + ';transition:width 0.6s ease"></div>';
+    html += '</div>';
+    html += '<span style="font-size:0.7rem;color:var(--text-muted);min-width:24px;text-align:right">' + count + '</span>';
+    html += '</div>';
+  });
+  html += '</div>';
+
+  // 7. Weekly Trend Sparkline (full width)
+  html += '<div class="kpi-card full-width" style="animation-delay:0.35s">';
+  html += '<div class="kpi-card-label">Tendencia Semanal (Taxa de Conclusao)</div>';
+
+  // Build SVG sparkline
+  const svgW = 280;
+  const svgH = 40;
+  const maxRate = Math.max(...weeklyRates, 1);
+  const points = weeklyRates.map((r, i) => {
+    const x = (i / (weeklyRates.length - 1)) * svgW;
+    const y = svgH - (r / 100) * svgH;
+    return x.toFixed(1) + ',' + y.toFixed(1);
+  });
+  const areaPoints = points.join(' ') + ' ' + svgW + ',' + svgH + ' 0,' + svgH;
+
+  html += '<svg class="kpi-sparkline" viewBox="0 0 ' + svgW + ' ' + svgH + '" preserveAspectRatio="none">';
+  html += '<defs><linearGradient id="sparklineGrad" x1="0" y1="0" x2="0" y2="1">';
+  html += '<stop offset="0%" stop-color="var(--amber)" stop-opacity="0.3"/>';
+  html += '<stop offset="100%" stop-color="var(--amber)" stop-opacity="0.02"/>';
+  html += '</linearGradient></defs>';
+  html += '<polygon class="sparkline-area" points="' + areaPoints + '"/>';
+  html += '<polyline points="' + points.join(' ') + '"/>';
+  html += '</svg>';
+
+  // Labels below sparkline
+  html += '<div style="display:flex;justify-content:space-between;margin-top:0.15rem">';
+  weeklyRates.forEach((r, i) => {
+    html += '<span style="font-size:0.5rem;color:var(--text-muted)">' + r + '%</span>';
+  });
+  html += '</div>';
+
+  html += '</div>';
+
+  html += '</div>'; // close kpis-grid
+
+  container.innerHTML = html;
+}
+
+// ========== PATCH: switchView to handle 'matrix', 'timeblock', 'kpis' ==========
 const _originalSwitchView = switchView;
 switchView = function(view) {
   const mv = document.getElementById('matrixView');
-  mv.classList.remove('active');
-  mv.style.display = 'none';
+  const tbv = document.getElementById('timeblockView');
+  const kv = document.getElementById('kpisView');
 
-  if (view === 'matrix') {
-    // Hide all other views
+  // Always hide extra views
+  mv.classList.remove('active'); mv.style.display = 'none';
+  tbv.classList.remove('active'); tbv.style.display = 'none';
+  kv.classList.remove('active'); kv.style.display = 'none';
+
+  if (view === 'matrix' || view === 'timeblock' || view === 'kpis') {
+    // Hide all standard views
     document.getElementById('tasksView').classList.add('hidden');
     document.getElementById('todayView').classList.remove('active');
     document.getElementById('calendarView').classList.remove('active');
     document.getElementById('reviewView').style.display = 'none';
-    mv.style.display = 'block';
-    mv.classList.add('active');
-    document.querySelectorAll('.view-toggle button').forEach(b => b.classList.toggle('active', b.dataset.view === 'matrix'));
-    document.querySelectorAll('.nav-item').forEach(b => b.classList.toggle('active', b.dataset.view === 'matrix'));
-    renderMatrix();
+
+    // Show the target
+    if (view === 'matrix') {
+      mv.style.display = 'block'; mv.classList.add('active');
+      renderMatrix();
+    } else if (view === 'timeblock') {
+      tbv.style.display = 'block'; tbv.classList.add('active');
+      renderTimeBlocks(timeblockSelectedDate);
+    } else if (view === 'kpis') {
+      kv.style.display = 'block'; kv.classList.add('active');
+      renderKPIs();
+    }
+
+    document.querySelectorAll('.view-toggle button').forEach(b => b.classList.toggle('active', b.dataset.view === view));
+    document.querySelectorAll('.nav-item').forEach(b => b.classList.toggle('active', b.dataset.view === view));
   } else {
     _originalSwitchView(view);
   }
@@ -4017,6 +4616,18 @@ const _originalRenderReview = renderReview;
 renderReview = function() {
   _originalRenderReview();
   renderHeatmap365();
+};
+
+// ========== PATCH: renderToday to include energy logger ==========
+const _originalRenderToday = renderToday;
+renderToday = function() {
+  _originalRenderToday();
+  // Insert energy logger after the header and before the task list
+  const todayTaskList = document.getElementById('todayTaskList');
+  if (todayTaskList && !document.getElementById('energyLogger')) {
+    todayTaskList.insertAdjacentHTML('beforebegin', renderEnergyLogger());
+    initEnergyLogger();
+  }
 };
 
 // ========== PATCH: renderTasks to include pomodoro button & accum time ==========
@@ -4066,6 +4677,7 @@ if (localStorage.getItem('theme') === 'light') {
 }
 
 updateHeaderDate();
+loadEnergyData();
 loadTasks().then(() => {
   loadGamification();
   renderProgressRing();
