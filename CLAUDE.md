@@ -35,14 +35,15 @@ armazena no Supabase e visualiza num dashboard web.
 - `Dockerfile` — Build para Koyeb (python:3.11-slim + ffmpeg, EXPOSE 8000)
 - `Procfile` — Declaracao de worker para PaaS
 - `supabase/004_gamificacao_historico_habitos.sql` — Migration v3 (gamificacao, historico semanal, habitos)
+- `supabase/008_subtarefas.sql` — Migration v4 (subtarefas/checklist vinculadas a tarefas)
 
 ## Comandos do Bot
-/start, /tarefas, /planejar, /feedback, /resumo, /concluir, /editar, /relatorio, /foco, /decompor, /status, /cancelar
+/start, /tarefas, /planejar, /feedback, /resumo, /concluir, /editar, /relatorio, /foco, /decompor, /coaching, /energia, /status, /cancelar
 
 ## Supabase
 - URL: (configurar em .env)
 - Anon Key: (configurar em .env)
-- Tabelas: tarefas, categorias, historico, configuracoes, contexto_ia, gamificacao, historico_semanal, xp_log
+- Tabelas: tarefas, categorias, historico, configuracoes, contexto_ia, gamificacao, historico_semanal, xp_log, subtarefas
 - Views: resumo_semanal, carga_por_dia
 
 ## Chaves API (.env)

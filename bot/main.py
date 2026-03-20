@@ -1479,6 +1479,45 @@ async def _fim_foco(context):
         logger.error(f"Erro ao encerrar foco: {e}")
 
 
+async def cmd_coaching(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Coaching IA — dica personalizada baseada nos padroes de tarefas."""
+    clear_state(context)
+
+    if not ai_brain:
+        await update.message.reply_text(
+            "⚠️ Coaching requer IA. Configure GEMINI_API_KEY ou ANTHROPIC_API_KEY."
+        )
+        return
+
+    msg = await update.message.reply_text("🧠 Analisando seus padroes...")
+
+    tarefas = listar_tarefas_pendentes(20)
+    concluidas = listar_concluidas_hoje()
+    atrasadas = listar_tarefas_atrasadas()
+
+    todas = tarefas + concluidas + atrasadas
+    if not todas:
+        await msg.edit_text("📭 Sem tarefas para analisar. Crie algumas primeiro!")
+        return
+
+    # Montar historico resumido
+    historico = ""
+    if concluidas:
+        historico += f"Concluidas hoje: {len(concluidas)}. "
+    if atrasadas:
+        historico += f"Atrasadas: {len(atrasadas)}. "
+
+    try:
+        dica = ai_brain.gerar_coaching(todas, historico)
+        await msg.edit_text(
+            f"🎯 *Coaching IA*\n\n{dica}",
+            parse_mode="Markdown",
+        )
+    except Exception as e:
+        logger.error(f"Erro no coaching: {e}")
+        await msg.edit_text("❌ Erro ao gerar coaching. Tente novamente.")
+
+
 async def cmd_cancelar(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Cancela operacao atual."""
     state = get_state(context)
@@ -1888,25 +1927,23 @@ async def processar_confirmacao_decomp(update, context, texto):
 
     # Confirmacao
     if any(w in lower for w in ["sim", "ok", "confirma", "pode", "bora", "salva"]):
-        categoria = tarefa_pai.get("categoria", "Pessoal")
-        prazo = tarefa_pai.get("prazo")
+        tarefa_id = tarefa_pai.get("id")
         criadas = 0
 
-        for sub in subtarefas:
-            tarefa = criar_tarefa(
-                titulo=sub.get("titulo", "Subtarefa"),
-                categoria=categoria,
-                prioridade=sub.get("prioridade", tarefa_pai.get("prioridade", "media")),
-                prazo=sub.get("prazo", prazo),
-                horario=sub.get("horario"),
-                tempo_estimado=sub.get("tempo_estimado_min"),
-            )
-            if tarefa:
+        for i, sub in enumerate(subtarefas):
+            # Salvar na tabela subtarefas (vinculada a tarefa pai)
+            result = supabase_request("POST", "subtarefas", {
+                "tarefa_id": tarefa_id,
+                "titulo": sub.get("titulo", "Subtarefa"),
+                "ordem": i,
+                "concluida": False,
+            })
+            if result:
                 criadas += 1
 
         clear_state(context)
         await update.message.reply_text(
-            f"✅ *{criadas} subtarefas criadas* a partir de _{tarefa_pai.get('titulo', 'tarefa')}_!\n\n"
+            f"✅ *{criadas} subtarefas criadas* para _{tarefa_pai.get('titulo', 'tarefa')}_!\n\n"
             f"[📊 Dashboard](https://wendelcastro.github.io/organizador-tarefas/web/)",
             parse_mode="Markdown", disable_web_page_preview=True
         )
@@ -2051,6 +2088,7 @@ async def setup_commands(app):
         BotCommand("relatorio", "Relatorio semanal"),
         BotCommand("decompor", "Decompor tarefa em subtarefas"),
         BotCommand("energia", "Registrar nivel de energia (1-5)"),
+        BotCommand("coaching", "Dica personalizada de produtividade"),
         BotCommand("foco", "Modo foco (silenciar)"),
         BotCommand("cancelar", "Cancelar operacao"),
     ]
@@ -2181,6 +2219,7 @@ def main():
     app.add_handler(CommandHandler("relatorio", cmd_relatorio))
     app.add_handler(CommandHandler("decompor", cmd_decompor))
     app.add_handler(CommandHandler("energia", cmd_energia))
+    app.add_handler(CommandHandler("coaching", cmd_coaching))
     app.add_handler(CommandHandler("foco", cmd_foco))
     app.add_handler(CommandHandler("cancelar", cmd_cancelar))
     app.add_handler(CommandHandler("status", cmd_status))

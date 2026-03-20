@@ -1586,3 +1586,28 @@ class AIBrain:
             padroes.append("Tempo pessoal (ingles/leitura/academia) pode estar sendo negligenciado")
 
         return "\n".join(padroes) if padroes else "Sem padroes significativos."
+
+    # ========== COACHING IA ==========
+
+    def gerar_coaching(self, tarefas: list, historico: str = "") -> str:
+        """
+        Analisa padroes das tarefas e gera uma dica personalizada (max 2 frases).
+        Chamado pelo comando /coaching no Telegram.
+        """
+        tarefas_json = json.dumps(tarefas[:30], ensure_ascii=False, default=str)
+
+        system = """Voce e um coach de produtividade pessoal do Professor Wendel Castro.
+Analise as tarefas dele e de UMA dica curta, personalizada e acionavel (maximo 2 frases).
+Foque em padroes reais que voce observa nos dados: sobrecarga, falta de tempo pessoal,
+tarefas atrasadas, concentracao excessiva em uma categoria, etc.
+Tom: amigavel, direto, motivacional. Nunca generico.
+Responda APENAS com a dica em texto puro, sem formatacao markdown."""
+
+        historico_ctx = f"\nHistorico recente:\n{historico}" if historico else ""
+
+        messages = [
+            {"role": "user", "content": f"Tarefas atuais:\n{tarefas_json}{historico_ctx}\n\nDe uma dica personalizada de produtividade."}
+        ]
+
+        result = self._call_llm(system, messages, max_tokens=200)
+        return result.strip() if result else "Continue focando nas prioridades do dia. Voce esta no caminho certo!"

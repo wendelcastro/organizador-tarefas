@@ -7,6 +7,9 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#0D1B2A">
 <title>Organizador — Wendel Castro</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/svg+xml" href="icons/icon.svg">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,700&display=swap" rel="stylesheet">
 <style>
@@ -1725,6 +1728,97 @@ body::after {
 .energy-period[data-nivel="3"] .energy-dot.active { background: var(--pri-media); border-color: var(--pri-media); }
 .energy-period.current-period { border-color: hsla(43,52%,54%,0.3); box-shadow: 0 0 12px hsla(43,52%,54%,0.06); }
 
+/* ========== AI COACHING CARD ========== */
+.coaching-card {
+  background: linear-gradient(135deg, hsla(210,40%,18%,0.8), hsla(210,55%,14%,0.8));
+  border: 1px solid hsla(43,52%,54%,0.2);
+  border-radius: var(--radius);
+  padding: 0.85rem;
+  margin-bottom: 0.75rem;
+  animation: fadeUp 0.5s ease backwards;
+  animation-delay: 0.2s;
+}
+.coaching-header {
+  display: flex; align-items: center; gap: 0.4rem;
+  margin-bottom: 0.5rem;
+}
+.coaching-icon { font-size: 1rem; }
+.coaching-label {
+  font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.15em;
+  color: var(--amber); font-weight: 500;
+}
+.coaching-dismiss {
+  margin-left: auto; background: none; border: none;
+  color: var(--text-muted); cursor: pointer; font-size: 0.8rem;
+  padding: 0.2rem; transition: var(--transition);
+}
+.coaching-dismiss:hover { color: var(--text-primary); }
+.coaching-text {
+  font-size: 0.8rem; color: var(--text-secondary); line-height: 1.5;
+}
+.coaching-text strong { color: var(--amber); font-weight: 500; }
+
+/* ========== SUBTASK PROGRESS (task card) ========== */
+.subtask-progress {
+  display: flex; align-items: center; gap: 0.4rem;
+  margin-top: 0.3rem;
+}
+.subtask-bar {
+  flex: 1; height: 3px; background: var(--border-subtle);
+  border-radius: 2px; overflow: hidden;
+}
+.subtask-bar-fill {
+  height: 100%; background: var(--amber);
+  border-radius: 2px; transition: width 0.4s ease;
+}
+.subtask-count { font-size: 0.6rem; color: var(--text-muted); }
+
+/* ========== SUBTASK CHECKLIST (detail overlay) ========== */
+.detail-subtasks { margin-bottom: 1rem; }
+.detail-subtasks-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+.detail-subtasks-title {
+  font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.1em;
+  color: var(--text-muted);
+}
+.detail-subtask-add {
+  background: none; border: none; color: var(--amber);
+  font-size: 0.75rem; cursor: pointer; padding: 0.2rem 0.4rem;
+  transition: var(--transition);
+}
+.detail-subtask-add:hover { color: var(--amber-dark); }
+.subtask-item {
+  display: flex; align-items: center; gap: 0.5rem;
+  padding: 0.4rem 0; border-bottom: 1px solid var(--border-subtle);
+}
+.subtask-item:last-child { border-bottom: none; }
+.subtask-check {
+  width: 18px; height: 18px; border-radius: 4px;
+  border: 2px solid var(--border-hover); display: flex;
+  align-items: center; justify-content: center;
+  cursor: pointer; transition: var(--transition); flex-shrink: 0;
+}
+.subtask-check.done { background: var(--amber); border-color: var(--amber); }
+.subtask-check.done::after { content: '\2713'; color: var(--navy); font-size: 0.6rem; font-weight: 700; }
+.subtask-text { font-size: 0.8rem; color: var(--text-secondary); flex: 1; }
+.subtask-item.done .subtask-text { text-decoration: line-through; color: var(--text-muted); }
+.subtask-delete {
+  background: none; border: none; color: var(--text-muted);
+  cursor: pointer; font-size: 0.7rem; opacity: 0; transition: var(--transition);
+  padding: 0.2rem;
+}
+.subtask-item:hover .subtask-delete { opacity: 1; }
+.subtask-delete:hover { color: var(--pri-alta); }
+.subtask-input {
+  width: 100%; padding: 0.4rem 0.5rem; background: var(--bg-glass);
+  border: 1px solid var(--border-subtle); border-radius: 6px;
+  color: var(--text-primary); font-family: inherit; font-size: 0.8rem;
+  outline: none; margin-top: 0.3rem;
+}
+.subtask-input:focus { border-color: var(--amber); }
+
 /* ========== TIME BLOCKING VIEW ========== */
 .timeblock-view { display: none; animation: fadeIn 0.4s ease; }
 .timeblock-view.active { display: block; }
@@ -1847,6 +1941,35 @@ body::after {
 .kpi-sparkline { width: 100%; height: 40px; margin-top: 0.3rem; }
 .kpi-sparkline polyline { fill: none; stroke: var(--amber); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .kpi-sparkline .sparkline-area { fill: url(#sparklineGrad); stroke: none; }
+
+/* ========== PWA INSTALL BANNER ========== */
+.pwa-install-banner {
+  position: fixed;
+  bottom: calc(70px + var(--safe-bottom) + 10px);
+  left: 50%; transform: translateX(-50%);
+  background: linear-gradient(135deg, var(--navy-light), hsla(210,55%,14%,0.95));
+  border: 1px solid hsla(43,52%,54%,0.3);
+  border-radius: 50px;
+  padding: 0.5rem 1rem;
+  display: flex; align-items: center; gap: 0.5rem;
+  z-index: 100;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  animation: fadeUp 0.4s ease;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+}
+.pwa-install-text { font-size: 0.75rem; color: var(--text-secondary); white-space: nowrap; }
+.pwa-install-btn {
+  background: var(--amber); color: var(--navy); border: none;
+  padding: 0.3rem 0.8rem; border-radius: 50px;
+  font-family: inherit; font-size: 0.72rem; font-weight: 600;
+  cursor: pointer; transition: var(--transition); white-space: nowrap;
+}
+.pwa-install-btn:hover { background: var(--amber-dark); }
+.pwa-install-close {
+  background: none; border: none; color: var(--text-muted);
+  cursor: pointer; font-size: 1rem; padding: 0.2rem; line-height: 1;
+}
 </style>
 </head>
 <body>
@@ -2504,6 +2627,7 @@ function renderTasks() {
             ${task.recorrencia ? '<span>🔄' + task.recorrencia + '</span>' : ''}
             ${meetingHTML}
           </div>
+          ${getSubtaskProgressHTML(task.id)}
         </div>
         <div class="task-right">
           <span class="task-date-badge ${overdueClass}">${task.prazo ? formatDate(task.prazo) : ''}</span>
@@ -2722,6 +2846,9 @@ function showTaskDetail(id) {
     html += `<div class="detail-notes">${task.notas}</div>`;
   }
 
+  // Placeholder for subtasks — will be loaded async
+  html += '<div id="detailSubtasksContainer"></div>';
+
   html += `
     <div class="detail-actions">
       <button class="detail-btn detail-btn-edit" onclick="closeDetail();editTask('${task.id}')">
@@ -2737,6 +2864,14 @@ function showTaskDetail(id) {
 
   document.getElementById('detailContent').innerHTML = html;
   document.getElementById('detailOverlay').classList.add('active');
+
+  // Load subtasks asynchronously
+  loadSubtasksForTask(task.id).then(subtasks => {
+    const container = document.getElementById('detailSubtasksContainer');
+    if (container) {
+      container.innerHTML = renderSubtasksSection(task.id, subtasks);
+    }
+  });
 }
 
 function closeDetail(event) {
@@ -2809,6 +2944,7 @@ function renderToday() {
             ${isLate ? '<span style="color:var(--pri-alta)">⚠️ Atrasada</span>' : ''}
             ${meetingHTML}
           </div>
+          ${getSubtaskProgressHTML(task.id)}
         </div>
         <div class="task-right">
           <span class="task-date-badge ${overdueClass}">${task.prazo ? formatDate(task.prazo) : ''}</span>
@@ -4783,15 +4919,306 @@ renderReview = function() {
   renderHeatmap365();
 };
 
-// ========== PATCH: renderToday to include energy logger ==========
+// ========== FEATURE: AI COACHING WIDGET ==========
+
+function generateCoachingInsight() {
+  const hoje = new Date().toISOString().split('T')[0];
+  const cacheKey = 'coaching_' + hoje;
+  const dismissKey = 'coaching_dismiss_' + hoje;
+
+  // Dismissed for today
+  if (localStorage.getItem(dismissKey)) return null;
+
+  // Already generated today — use cached
+  const cached = localStorage.getItem(cacheKey);
+  if (cached) return cached;
+
+  // Analyze tasks to generate insight
+  const hojeDate = new Date();
+  const startOfWeek = new Date(hojeDate);
+  startOfWeek.setDate(hojeDate.getDate() - hojeDate.getDay() + 1); // Monday
+  const weekStart = startOfWeek.toISOString().split('T')[0];
+
+  const pendentes = tasks.filter(t => t.status !== 'concluida');
+  const overdue = tasks.filter(t => t.prazo && t.prazo < hoje && t.status !== 'concluida');
+  const weekTasks = tasks.filter(t => t.created_at >= weekStart || (t.prazo && t.prazo >= weekStart));
+  const weekCompleted = weekTasks.filter(t => t.status === 'concluida');
+  const weekTotal = weekTasks.length;
+  const completionRate = weekTotal > 0 ? Math.round((weekCompleted.length / weekTotal) * 100) : 0;
+
+  // Count categories
+  const catCount = {};
+  pendentes.forEach(t => { catCount[t.categoria] = (catCount[t.categoria] || 0) + 1; });
+  const totalPendentes = pendentes.length;
+  let dominantCat = null, dominantPct = 0;
+  for (const [cat, count] of Object.entries(catCount)) {
+    const pct = Math.round((count / totalPendentes) * 100);
+    if (pct > dominantPct) { dominantPct = pct; dominantCat = cat; }
+  }
+
+  // Personal tasks this week
+  const pessoalWeek = weekTasks.filter(t => t.categoria === 'Pessoal');
+
+  // Evening tasks (after 18h)
+  const withTime = pendentes.filter(t => t.horario);
+  const eveningTasks = withTime.filter(t => parseInt(t.horario) >= 18);
+  const eveningPct = withTime.length > 0 ? Math.round((eveningTasks.length / withTime.length) * 100) : 0;
+
+  // Streak (from gamification bar if available)
+  const streakEl = document.querySelector('.streak-num');
+  const streak = streakEl ? parseInt(streakEl.textContent) || 0 : 0;
+
+  // Pick the most relevant insight
+  let insight = null;
+
+  if (completionRate > 80 && weekCompleted.length >= 3) {
+    insight = 'Semana excelente! <strong>' + weekCompleted.length + ' tarefas concluidas</strong>. Continue assim! \uD83D\uDCAA';
+  } else if (overdue.length >= 3) {
+    insight = 'Voce tem <strong>' + overdue.length + ' tarefas atrasadas</strong>. Que tal reservar 30min agora para resolver as mais rapidas?';
+  } else if (pessoalWeek.length === 0) {
+    insight = 'Essa semana nao tem nenhuma tarefa pessoal. <strong>Cuidar de voce tambem e produtividade.</strong>';
+  } else if (streak > 3) {
+    insight = '\uD83D\uDD25 <strong>' + streak + ' dias consecutivos!</strong> Voce esta construindo um habito poderoso.';
+  } else if (dominantPct > 70 && dominantCat && totalPendentes >= 4) {
+    const outraCat = dominantCat === 'Trabalho' ? 'Pessoal' : (dominantCat === 'Pessoal' ? 'Trabalho' : 'Pessoal');
+    insight = 'Suas tarefas estao <strong>' + dominantPct + '% concentradas em ' + dominantCat + '</strong>. Nao esqueca de ' + outraCat + '!';
+  } else if (eveningPct > 50 && withTime.length >= 3) {
+    insight = 'Muitas tarefas a noite. <strong>Tente mover as mais pesadas para a manha</strong> quando a energia e maior.';
+  } else if (completionRate < 50 && weekTotal >= 4) {
+    insight = 'Taxa de conclusao baixa (<strong>' + completionRate + '%</strong>). Tente decompor tarefas grandes em menores.';
+  } else if (overdue.length > 0) {
+    insight = 'Voce tem <strong>' + overdue.length + ' tarefa' + (overdue.length > 1 ? 's' : '') + ' atrasada' + (overdue.length > 1 ? 's' : '') + '</strong>. Foca nelas primeiro!';
+  }
+
+  if (insight) {
+    localStorage.setItem(cacheKey, insight);
+  }
+  return insight;
+}
+
+function renderCoachingCard() {
+  const insight = generateCoachingInsight();
+  if (!insight) return '';
+
+  return '<div class="coaching-card" id="coachingCard">'
+    + '<div class="coaching-header">'
+    + '<span class="coaching-icon">\uD83E\uDDE0</span>'
+    + '<span class="coaching-label">Coaching IA</span>'
+    + '<button class="coaching-dismiss" onclick="dismissCoaching()" title="Dispensar">\u2715</button>'
+    + '</div>'
+    + '<div class="coaching-text">' + insight + '</div>'
+    + '</div>';
+}
+
+function dismissCoaching() {
+  const hoje = new Date().toISOString().split('T')[0];
+  localStorage.setItem('coaching_dismiss_' + hoje, '1');
+  const card = document.getElementById('coachingCard');
+  if (card) card.remove();
+}
+
+// ========== FEATURE: SUBTAREFAS (SUBTASKS) ==========
+
+let subtaskCache = {}; // { taskId: { total: N, done: M } }
+
+async function loadSubtaskCounts() {
+  try {
+    const { data, error } = await sb
+      .from('subtarefas')
+      .select('tarefa_id,concluida');
+
+    if (error) {
+      console.warn('Erro ao carregar subtarefas:', error);
+      return;
+    }
+
+    subtaskCache = {};
+    (data || []).forEach(s => {
+      if (!subtaskCache[s.tarefa_id]) {
+        subtaskCache[s.tarefa_id] = { total: 0, done: 0 };
+      }
+      subtaskCache[s.tarefa_id].total++;
+      if (s.concluida) subtaskCache[s.tarefa_id].done++;
+    });
+  } catch (e) {
+    console.warn('Erro ao carregar contagem de subtarefas:', e);
+  }
+}
+
+function getSubtaskProgressHTML(taskId) {
+  const info = subtaskCache[taskId];
+  if (!info || info.total === 0) return '';
+  const pct = Math.round((info.done / info.total) * 100);
+  return '<div class="subtask-progress">'
+    + '<div class="subtask-bar"><div class="subtask-bar-fill" style="width:' + pct + '%"></div></div>'
+    + '<span class="subtask-count">' + info.done + '/' + info.total + '</span>'
+    + '</div>';
+}
+
+async function loadSubtasksForTask(taskId) {
+  try {
+    const { data, error } = await sb
+      .from('subtarefas')
+      .select('*')
+      .eq('tarefa_id', taskId)
+      .order('ordem', { ascending: true });
+
+    if (error) {
+      console.warn('Erro ao carregar subtarefas da tarefa:', error);
+      return [];
+    }
+    return data || [];
+  } catch (e) {
+    console.warn('Erro ao carregar subtarefas:', e);
+    return [];
+  }
+}
+
+function renderSubtasksSection(taskId, subtasks) {
+  let html = '<div class="detail-subtasks">'
+    + '<div class="detail-subtasks-header">'
+    + '<span class="detail-subtasks-title">Subtarefas</span>'
+    + '<button class="detail-subtask-add" onclick="showSubtaskInput(\'' + taskId + '\')">+ Adicionar</button>'
+    + '</div>'
+    + '<div id="subtaskList">';
+
+  subtasks.forEach(s => {
+    const doneClass = s.concluida ? ' done' : '';
+    const checkDone = s.concluida ? ' done' : '';
+    html += '<div class="subtask-item' + doneClass + '" data-subtask-id="' + s.id + '">'
+      + '<div class="subtask-check' + checkDone + '" onclick="toggleSubtask(\'' + s.id + '\',' + !s.concluida + ',\'' + taskId + '\')"></div>'
+      + '<span class="subtask-text">' + s.titulo + '</span>'
+      + '<button class="subtask-delete" onclick="deleteSubtask(\'' + s.id + '\',\'' + taskId + '\')">\u2715</button>'
+      + '</div>';
+  });
+
+  html += '</div>'
+    + '<div id="subtaskInputContainer"></div>'
+    + '</div>';
+  return html;
+}
+
+function showSubtaskInput(taskId) {
+  const container = document.getElementById('subtaskInputContainer');
+  if (!container || container.querySelector('.subtask-input')) return;
+
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'subtask-input';
+  input.placeholder = 'Nova subtarefa...';
+  input.addEventListener('keydown', async function(e) {
+    if (e.key === 'Enter' && this.value.trim()) {
+      const titulo = this.value.trim();
+      this.disabled = true;
+      await addSubtask(taskId, titulo);
+      this.remove();
+    } else if (e.key === 'Escape') {
+      this.remove();
+    }
+  });
+  container.appendChild(input);
+  input.focus();
+}
+
+async function addSubtask(taskId, titulo) {
+  const subtasks = await loadSubtasksForTask(taskId);
+  const ordem = subtasks.length;
+
+  try {
+    const { error } = await sb
+      .from('subtarefas')
+      .insert({ tarefa_id: taskId, titulo: titulo, ordem: ordem });
+
+    if (error) {
+      console.error('Erro ao adicionar subtarefa:', error);
+      return;
+    }
+  } catch (e) {
+    console.error('Erro ao adicionar subtarefa:', e);
+    return;
+  }
+
+  // Refresh
+  await loadSubtaskCounts();
+  const updated = await loadSubtasksForTask(taskId);
+  const listEl = document.getElementById('subtaskList');
+  if (listEl) {
+    listEl.parentElement.outerHTML = renderSubtasksSection(taskId, updated);
+  }
+  renderTasks();
+  renderToday();
+}
+
+async function toggleSubtask(subtaskId, newValue, taskId) {
+  try {
+    const { error } = await sb
+      .from('subtarefas')
+      .update({ concluida: newValue })
+      .eq('id', subtaskId);
+
+    if (error) {
+      console.error('Erro ao atualizar subtarefa:', error);
+      return;
+    }
+  } catch (e) {
+    console.error('Erro ao atualizar subtarefa:', e);
+    return;
+  }
+
+  // Refresh
+  await loadSubtaskCounts();
+  const updated = await loadSubtasksForTask(taskId);
+  const listEl = document.getElementById('subtaskList');
+  if (listEl) {
+    listEl.parentElement.outerHTML = renderSubtasksSection(taskId, updated);
+  }
+  renderTasks();
+  renderToday();
+}
+
+async function deleteSubtask(subtaskId, taskId) {
+  try {
+    const { error } = await sb
+      .from('subtarefas')
+      .delete()
+      .eq('id', subtaskId);
+
+    if (error) {
+      console.error('Erro ao excluir subtarefa:', error);
+      return;
+    }
+  } catch (e) {
+    console.error('Erro ao excluir subtarefa:', e);
+    return;
+  }
+
+  // Refresh
+  await loadSubtaskCounts();
+  const updated = await loadSubtasksForTask(taskId);
+  const listEl = document.getElementById('subtaskList');
+  if (listEl) {
+    listEl.parentElement.outerHTML = renderSubtasksSection(taskId, updated);
+  }
+  renderTasks();
+  renderToday();
+}
+
+// ========== PATCH: renderToday to include energy logger + coaching ==========
 const _originalRenderToday = renderToday;
 renderToday = function() {
   _originalRenderToday();
-  // Insert energy logger after the header and before the task list
   const todayTaskList = document.getElementById('todayTaskList');
+  // Insert energy logger after the header and before the task list
   if (todayTaskList && !document.getElementById('energyLogger')) {
     todayTaskList.insertAdjacentHTML('beforebegin', renderEnergyLogger());
     initEnergyLogger();
+  }
+  // Insert coaching card after energy logger and before the task list
+  if (todayTaskList && !document.getElementById('coachingCard')) {
+    const coachingHTML = renderCoachingCard();
+    if (coachingHTML) {
+      todayTaskList.insertAdjacentHTML('beforebegin', coachingHTML);
+    }
   }
 };
 
@@ -4846,10 +5273,50 @@ loadEnergyData();
 loadTasks().then(() => {
   loadGamification();
   renderProgressRing();
+  loadSubtaskCounts().then(() => {
+    renderTasks();
+    renderToday();
+  });
 });
 setupRealtime();
 setupDragAndDrop();
 setupSwipeGestures();
+
+// ========== PWA: Service Worker + Install Prompt ==========
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js')
+    .then(reg => console.log('SW registered:', reg.scope))
+    .catch(err => console.log('SW registration failed:', err));
+}
+
+let deferredPrompt = null;
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  showInstallBanner();
+});
+
+function showInstallBanner() {
+  if (localStorage.getItem('pwa-dismiss')) return;
+  const banner = document.createElement('div');
+  banner.className = 'pwa-install-banner';
+  banner.innerHTML = `
+    <span class="pwa-install-text">Instalar como app</span>
+    <button class="pwa-install-btn" onclick="installPWA()">Instalar</button>
+    <button class="pwa-install-close" onclick="this.parentElement.remove();localStorage.setItem('pwa-dismiss','1')">&times;</button>
+  `;
+  document.body.appendChild(banner);
+}
+
+function installPWA() {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  deferredPrompt.userChoice.then(result => {
+    deferredPrompt = null;
+    document.querySelector('.pwa-install-banner')?.remove();
+  });
+}
 </script>
 </body>
 </html>
