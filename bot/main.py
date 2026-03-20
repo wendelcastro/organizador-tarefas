@@ -53,6 +53,7 @@ import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from datetime import datetime, timedelta, time as dt_time
 from pathlib import Path
+import urllib.parse
 from urllib.request import Request, urlopen
 from urllib.error import URLError
 
@@ -90,6 +91,14 @@ if not all([TELEGRAM_TOKEN, SUPABASE_URL, SUPABASE_KEY]):
 
 if not GROQ_API_KEY:
     print("AVISO: GROQ_API_KEY nao configurada. Transcricao de audio desabilitada.")
+
+# Calendar sync
+from calendar_sync import (
+    build_google_auth_url, build_microsoft_auth_url,
+    sync_all_calendars, get_upcoming_events,
+    _load_tokens, _save_tokens, _verify_state,
+    exchange_google_code, exchange_microsoft_code,
+)
 
 # IA: importar cerebro (Gemini gratuito como prioridade, Claude como alternativa)
 ai_brain = None
@@ -2073,6 +2082,164 @@ async def reflexao_noturna(context):
         logger.error(f"Erro na reflexao noturna: {e}")
 
 
+# ========== CALENDARIO (Google + Microsoft) ==========
+
+async def cmd_conectar_google(update, context):
+    """Conectar Google Calendar."""
+    chat_id = update.effective_chat.id
+    url = build_google_auth_url(chat_id)
+    if not url:
+        await update.message.reply_text(
+            "⚠️ Integracao Google nao configurada. Adicione GOOGLE_CLIENT_ID e GOOGLE_CLIENT_SECRET nas variaveis de ambiente."
+        )
+        return
+    await update.message.reply_text(
+        f"🔗 Clique no link abaixo para conectar seu Google Calendar:\n\n{url}\n\nApos autorizar, volte aqui.",
+        disable_web_page_preview=True,
+    )
+
+
+async def cmd_conectar_microsoft(update, context):
+    """Conectar Microsoft Teams/Outlook Calendar."""
+    chat_id = update.effective_chat.id
+    url = build_microsoft_auth_url(chat_id)
+    if not url:
+        await update.message.reply_text(
+            "⚠️ Integracao Microsoft nao configurada. Adicione MICROSOFT_CLIENT_ID e MICROSOFT_CLIENT_SECRET nas variaveis de ambiente."
+        )
+        return
+    await update.message.reply_text(
+        f"🔗 Clique no link abaixo para conectar seu Outlook/Teams Calendar:\n\n{url}\n\nApos autorizar, volte aqui.",
+        disable_web_page_preview=True,
+    )
+
+
+async def cmd_desconectar(update, context):
+    """Desconectar um calendario."""
+    args = context.args
+    if not args or args[0] not in ("google", "microsoft"):
+        await update.message.reply_text("Uso: /desconectar google  ou  /desconectar microsoft")
+        return
+    provider = args[0]
+    supabase_request("DELETE", "configuracoes", params={"chave": f"eq.{provider}_calendar_tokens"})
+    await update.message.reply_text(f"✅ {provider.title()} Calendar desconectado.")
+
+
+async def cmd_agenda(update, context):
+    """Mostrar agenda do dia com eventos de todos os calendarios."""
+    hoje = datetime.now(TZ_RECIFE).strftime("%Y-%m-%d")
+    eventos = supabase_request("GET", "eventos_calendario", params={
+        "dia": f"eq.{hoje}",
+        "order": "data_inicio.asc",
+    }) or []
+
+    if not eventos:
+        await update.message.reply_text(
+            "📅 Nenhum evento no calendario para hoje.\n\n"
+            "Use /conectar_google ou /conectar_microsoft para sincronizar."
+        )
+        return
+
+    lines = [f"📅 *Agenda de Hoje* ({hoje})\n"]
+    for ev in eventos:
+        icon = "🟦" if ev["provider"] == "microsoft" else "🟩"
+        time_str = f"{ev['horario_inicio']}-{ev['horario_fim']}" if ev["horario_inicio"] else "Dia todo"
+        platform = ""
+        if ev.get("meeting_link"):
+            platform = f" · [Entrar]({ev['meeting_link']})"
+        lines.append(f"{icon} *{time_str}* — {ev['titulo']}{platform}")
+
+    await update.message.reply_text(
+        "\n".join(lines), parse_mode="Markdown", disable_web_page_preview=True,
+    )
+
+
+async def cmd_sync(update, context):
+    """Forcar sincronizacao dos calendarios."""
+    await update.message.reply_text("🔄 Sincronizando calendarios...")
+    results = sync_all_calendars()
+
+    parts = []
+    if results["google"] > 0:
+        parts.append(f"Google: {results['google']} eventos")
+    if results["microsoft"] > 0:
+        parts.append(f"Outlook: {results['microsoft']} eventos")
+    if results["errors"]:
+        parts.append(f"Erros: {', '.join(results['errors'])}")
+    if not parts:
+        parts.append("Nenhum calendario conectado")
+
+    await update.message.reply_text(f"✅ Sync completo!\n" + "\n".join(parts))
+
+
+async def sync_calendarios_job(context):
+    """Job que sincroniza calendarios a cada 30 minutos."""
+    try:
+        results = sync_all_calendars()
+        total = results.get("google", 0) + results.get("microsoft", 0)
+        if total > 0:
+            logger.info(f"Calendar sync: {total} eventos sincronizados")
+
+        # Agendar lembretes para eventos proximos
+        await agendar_lembretes_calendario(context)
+    except Exception as e:
+        logger.error(f"Erro no sync de calendarios: {e}")
+
+
+async def agendar_lembretes_calendario(context):
+    """Agenda lembretes Telegram para eventos proximos."""
+    agora = datetime.now(TZ_RECIFE)
+    eventos = get_upcoming_events(minutes_ahead=45)
+
+    for ev in eventos:
+        try:
+            inicio = datetime.fromisoformat(ev["data_inicio"])
+            if inicio.tzinfo is None:
+                inicio = inicio.replace(tzinfo=TZ_RECIFE)
+            delta = (inicio - agora).total_seconds()
+            reminder_delay = delta - 900  # 15 min antes
+
+            if 0 < reminder_delay < 2700:  # entre 0 e 45 min
+                job_name = f"cal_reminder_{ev['id']}"
+                existing = context.job_queue.get_jobs_by_name(job_name)
+                if not existing:
+                    context.job_queue.run_once(
+                        enviar_lembrete_calendario,
+                        when=reminder_delay,
+                        data=ev,
+                        name=job_name,
+                    )
+        except Exception as e:
+            logger.error(f"Erro agendando lembrete calendario: {e}")
+
+
+async def enviar_lembrete_calendario(context):
+    """Envia lembrete de evento do calendario."""
+    ev = context.job.data
+    icon = "🟦" if ev["provider"] == "microsoft" else "🟩"
+    platform = ev.get("meeting_platform", "").title() or ev["provider"].title()
+
+    msg = f"⏰ *Em 15 minutos:*\n\n"
+    msg += f"{icon} *{ev['titulo']}*\n"
+    msg += f"🕐 {ev['horario_inicio']} - {ev['horario_fim']}\n"
+    if ev.get("local_evento"):
+        msg += f"📍 {ev['local_evento']}\n"
+    msg += f"📌 {platform}\n"
+    if ev.get("meeting_link"):
+        msg += f"\n🔗 [Entrar na reuniao]({ev['meeting_link']})"
+
+    # Obter chat_id da configuracoes
+    chat_id = get_chat_id()
+    if chat_id:
+        try:
+            await context.bot.send_message(
+                chat_id=chat_id, text=msg,
+                parse_mode="Markdown", disable_web_page_preview=True,
+            )
+        except Exception as e:
+            logger.error(f"Erro enviando lembrete calendario: {e}")
+
+
 # ========== SETUP ==========
 
 async def setup_commands(app):
@@ -2091,6 +2258,11 @@ async def setup_commands(app):
         BotCommand("coaching", "Dica personalizada de produtividade"),
         BotCommand("foco", "Modo foco (silenciar)"),
         BotCommand("cancelar", "Cancelar operacao"),
+        BotCommand("agenda", "Ver agenda do dia (todos os calendarios)"),
+        BotCommand("sync", "Sincronizar calendarios agora"),
+        BotCommand("conectar_google", "Conectar Google Calendar"),
+        BotCommand("conectar_microsoft", "Conectar Outlook/Teams"),
+        BotCommand("desconectar", "Desconectar calendario"),
     ]
     await app.bot.set_my_commands(commands)
 
@@ -2148,19 +2320,71 @@ async def post_init(app):
         name="initial_reminders",
     )
 
-    logger.info("Jobs programados: resumo 7:30, check-in 13:00, reflexao 18:00, relatorio sex 17:00, recorrentes 6:00")
+    # Sync de calendarios a cada 30 minutos (primeiro sync apos 60s)
+    jq.run_repeating(sync_calendarios_job, interval=1800, first=60, name="calendar_sync")
+
+    logger.info("Jobs programados: resumo 7:30, check-in 13:00, reflexao 18:00, relatorio sex 17:00, recorrentes 6:00, calendar sync 30min")
 
 
 # ========== HEALTH CHECK (para Koyeb/PaaS) ==========
 
 class HealthHandler(BaseHTTPRequestHandler):
-    """Mini servidor HTTP que responde OK para health checks do Koyeb."""
+    """Mini servidor HTTP: health check + OAuth callbacks do Google/Microsoft."""
 
     def do_GET(self):
-        self.send_response(200)
-        self.send_header("Content-Type", "text/plain")
+        parsed = urllib.parse.urlparse(self.path)
+        path = parsed.path
+        params = urllib.parse.parse_qs(parsed.query)
+
+        if path == "/auth/google/callback":
+            self._handle_oauth_callback("google", params)
+        elif path == "/auth/microsoft/callback":
+            self._handle_oauth_callback("microsoft", params)
+        else:
+            # Health check (comportamento original)
+            self.send_response(200)
+            self.send_header("Content-Type", "text/plain")
+            self.end_headers()
+            self.wfile.write(b"OK - Organizador de Tarefas v2 rodando")
+
+    def _handle_oauth_callback(self, provider, params):
+        """Processa callback OAuth do Google ou Microsoft."""
+        code = params.get("code", [None])[0]
+        state = params.get("state", [None])[0]
+
+        if not code or not state:
+            self._respond(400, "Parametros faltando (code ou state)")
+            return
+
+        chat_id = _verify_state(state)
+        if not chat_id:
+            self._respond(403, "Estado invalido ou expirado")
+            return
+
+        try:
+            if provider == "google":
+                exchange_google_code(code)
+            else:
+                exchange_microsoft_code(code)
+
+            self._respond(200, f"✅ {provider.title()} Calendar conectado com sucesso! Pode fechar esta janela e voltar ao Telegram.")
+
+            # Salvar chat_id para notificacoes futuras
+            _save_tokens(f"{provider}_chat_id", {"chat_id": chat_id})
+
+        except Exception as e:
+            logger.error(f"OAuth {provider} error: {e}")
+            self._respond(500, f"Erro ao conectar: {e}")
+
+    def _respond(self, code, message):
+        """Envia resposta HTML formatada."""
+        self.send_response(code)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
         self.end_headers()
-        self.wfile.write(b"OK - Organizador de Tarefas v2 rodando")
+        html = f"""<!DOCTYPE html><html><body style="font-family:sans-serif;text-align:center;padding:60px;background:#0D1B2A;color:#F5F2ED">
+        <h1 style="color:#C4993D">{message}</h1>
+        <p>Volte para o Telegram.</p></body></html>"""
+        self.wfile.write(html.encode())
 
     def log_message(self, format, *args):
         # Silencia logs do health check para nao poluir
@@ -2223,6 +2447,11 @@ def main():
     app.add_handler(CommandHandler("foco", cmd_foco))
     app.add_handler(CommandHandler("cancelar", cmd_cancelar))
     app.add_handler(CommandHandler("status", cmd_status))
+    app.add_handler(CommandHandler("conectar_google", cmd_conectar_google))
+    app.add_handler(CommandHandler("conectar_microsoft", cmd_conectar_microsoft))
+    app.add_handler(CommandHandler("desconectar", cmd_desconectar))
+    app.add_handler(CommandHandler("agenda", cmd_agenda))
+    app.add_handler(CommandHandler("sync", cmd_sync))
     app.add_handler(CallbackQueryHandler(handle_callback))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
     app.add_handler(MessageHandler(filters.VOICE | filters.AUDIO, handle_voice))

@@ -1970,6 +1970,118 @@ body::after {
   background: none; border: none; color: var(--text-muted);
   cursor: pointer; font-size: 1rem; padding: 0.2rem; line-height: 1;
 }
+
+/* ========== CALENDAR EVENTS ========== */
+.calendar-event {
+  padding: 0.45rem 0.55rem;
+  border-radius: 8px;
+  font-size: 0.72rem;
+  background: var(--bg-glass);
+  border-left: 3px solid var(--event-color);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: var(--transition);
+  line-height: 1.3;
+  position: relative;
+}
+.calendar-event:hover { background: rgba(255,255,255,0.08); }
+.calendar-event.google { --event-color: hsl(142, 52%, 45%); }
+.calendar-event.microsoft { --event-color: hsl(215, 70%, 55%); }
+
+.event-badge {
+  display: inline-flex; align-items: center; gap: 0.2rem;
+  font-size: 0.5rem; padding: 0.08rem 0.35rem;
+  border-radius: 50px; font-weight: 500;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  white-space: nowrap; vertical-align: middle; margin-left: 0.3rem;
+}
+.event-badge.google { background: hsla(142,52%,45%,0.15); color: hsl(142,52%,45%); }
+.event-badge.microsoft { background: hsla(215,70%,55%,0.15); color: hsl(215,70%,55%); }
+
+.event-time-range {
+  font-size: 0.65rem; color: var(--text-muted);
+  display: flex; align-items: center; gap: 0.25rem;
+}
+.event-meeting-link {
+  display: inline-flex; align-items: center; gap: 0.2rem;
+  font-size: 0.6rem; padding: 0.12rem 0.4rem;
+  border-radius: 50px; text-decoration: none;
+  transition: var(--transition); margin-top: 0.2rem;
+}
+.event-meeting-link.teams { background: hsla(215,70%,55%,0.15); color: hsl(215,70%,55%); }
+.event-meeting-link.meet { background: hsla(142,52%,45%,0.15); color: hsl(142,52%,45%); }
+.event-meeting-link.zoom { background: hsla(210,80%,55%,0.15); color: hsl(210,80%,55%); }
+.event-meeting-link.generic { background: rgba(255,255,255,0.08); color: var(--text-secondary); }
+.event-meeting-link:hover { filter: brightness(1.2); }
+
+/* Today view event card */
+.today-event-card {
+  display: flex; align-items: flex-start; gap: 0.6rem;
+  padding: 0.75rem 0.85rem; background: var(--bg-card);
+  border: 1px solid var(--border-subtle); border-radius: var(--radius);
+  position: relative; animation: slideUp 0.35s ease backwards;
+  transition: var(--transition); border-left: 3px solid var(--event-color);
+}
+.today-event-card.google { --event-color: hsl(142, 52%, 45%); }
+.today-event-card.microsoft { --event-color: hsl(215, 70%, 55%); }
+
+.today-event-time {
+  font-family: 'DM Sans', sans-serif; font-size: 0.75rem;
+  color: var(--amber); font-weight: 500; min-width: 85px;
+}
+.today-event-info { flex: 1; min-width: 0; }
+.today-event-title { font-size: 0.88rem; font-weight: 400; margin-bottom: 0.2rem; }
+.today-event-meta { font-size: 0.68rem; color: var(--text-muted); display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
+
+/* Time blocking event */
+.timeblock-event {
+  display: flex; align-items: center; gap: 0.6rem;
+  padding: 0.55rem 0.65rem; background: hsla(215,70%,55%,0.08);
+  border: 1px solid hsla(215,70%,55%,0.15); border-radius: var(--radius-sm);
+  border-left: 3px solid var(--event-color);
+  opacity: 0.9;
+}
+.timeblock-event.google { --event-color: hsl(142, 52%, 45%); background: hsla(142,52%,45%,0.08); border-color: hsla(142,52%,45%,0.15); }
+.timeblock-event.microsoft { --event-color: hsl(215, 70%, 55%); }
+.timeblock-event-time { font-size: 0.7rem; color: var(--text-muted); min-width: 85px; }
+.timeblock-event-title { font-size: 0.8rem; color: var(--text-secondary); flex: 1; }
+.timeblock-event-badge { font-size: 0.5rem; padding: 0.08rem 0.3rem; border-radius: 50px; }
+
+/* Integration status section */
+.integrations-status {
+  display: flex; gap: 0.4rem; margin-bottom: 0.75rem;
+  padding: 0.5rem 0;
+}
+.integration-chip {
+  display: inline-flex; align-items: center; gap: 0.3rem;
+  padding: 0.3rem 0.6rem; border-radius: 50px;
+  font-size: 0.65rem; border: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+}
+.integration-chip.connected { border-color: hsla(142,52%,45%,0.3); color: hsl(142,52%,45%); }
+.integration-chip .integration-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--text-muted);
+}
+.integration-chip.connected .integration-dot { background: hsl(142,52%,45%); }
+
+/* All-day events banner */
+.allday-events-banner {
+  display: flex; flex-wrap: wrap; gap: 0.4rem;
+  padding: 0.5rem 0.65rem; margin-bottom: 0.5rem;
+  background: hsla(43,52%,54%,0.05);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+}
+.allday-event-chip {
+  display: inline-flex; align-items: center; gap: 0.25rem;
+  padding: 0.2rem 0.5rem; border-radius: 50px;
+  font-size: 0.65rem; font-weight: 400;
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+}
+.allday-event-chip.google { border-color: hsla(142,52%,45%,0.3); }
+.allday-event-chip.microsoft { border-color: hsla(215,70%,55%,0.3); }
 </style>
 </head>
 <body>
@@ -2310,7 +2422,87 @@ function getMeetingBadgeHTML(url) {
 
 // ========== DATA ==========
 let tasks = [];
+let calendarEvents = [];
+let calendarConnections = { google: false, microsoft: false };
 let currentFilters = { category: 'all', priority: 'all', status: 'all', _special: null };
+
+// ========== SUPABASE: CARREGAR EVENTOS DO CALENDARIO ==========
+async function loadCalendarEvents() {
+  try {
+    const today = new Date();
+    const start = new Date(today);
+    start.setDate(start.getDate() - start.getDay());
+    const end = new Date(start);
+    end.setDate(end.getDate() + 21);
+
+    const startStr = start.toISOString().split('T')[0];
+    const endStr = end.toISOString().split('T')[0];
+
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/eventos_calendario?dia=gte.${startStr}&dia=lte.${endStr}&order=data_inicio.asc`,
+      { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` } }
+    );
+    if (res.ok) {
+      calendarEvents = await res.json();
+      console.log(`Loaded ${calendarEvents.length} calendar events`);
+    }
+  } catch (e) {
+    console.error('Error loading calendar events:', e);
+    calendarEvents = [];
+  }
+}
+
+async function checkCalendarConnections() {
+  try {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/configuracoes?chave=in.(google_calendar_tokens,microsoft_calendar_tokens)`,
+      { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` } }
+    );
+    if (res.ok) {
+      const data = await res.json();
+      calendarConnections = {
+        google: data.some(d => d.chave === 'google_calendar_tokens'),
+        microsoft: data.some(d => d.chave === 'microsoft_calendar_tokens')
+      };
+    }
+  } catch(e) {
+    calendarConnections = { google: false, microsoft: false };
+  }
+}
+
+function renderEventCard(ev, delay) {
+  const provider = ev.provider || 'google';
+  const timeStr = ev.all_day ? 'Dia todo' : `${ev.horario_inicio || '--:--'} - ${ev.horario_fim || '--:--'}`;
+  const badge = `<span class="event-badge ${provider}">${provider === 'microsoft' ? 'Teams' : 'Google'}</span>`;
+  let meetLink = '';
+  if (ev.meeting_link) {
+    const platform = ev.meeting_platform || 'generic';
+    meetLink = `<a href="${ev.meeting_link}" target="_blank" class="event-meeting-link ${platform}" onclick="event.stopPropagation()">Entrar na reuniao</a>`;
+  }
+  let meta = `<span>${ev.local_evento || provider.charAt(0).toUpperCase() + provider.slice(1)}</span>`;
+
+  return `<div class="today-event-card ${provider}" style="animation-delay:${delay || 0}s">
+    <div class="today-event-time">${timeStr}</div>
+    <div class="today-event-info">
+      <div class="today-event-title">${ev.titulo} ${badge}</div>
+      <div class="today-event-meta">${meta}</div>
+      ${meetLink}
+    </div>
+  </div>`;
+}
+
+function renderCalendarEvent(ev) {
+  const provider = ev.provider || 'google';
+  const timeStr = ev.all_day ? 'Dia todo' : (ev.horario_inicio || '');
+  const badge = `<span class="event-badge ${provider}" style="font-size:0.45rem">${provider === 'microsoft' ? 'Teams' : 'Google'}</span>`;
+
+  return `<div class="calendar-event ${provider}">
+    <div class="calendar-task-content">
+      <span class="calendar-task-title">${ev.titulo} ${badge}</span>
+      ${timeStr ? '<span class="calendar-task-time">' + timeStr + '</span>' : ''}
+    </div>
+  </div>`;
+}
 
 // ========== SUPABASE: CARREGAR TAREFAS ==========
 async function loadTasks() {
@@ -2752,11 +2944,21 @@ function renderCalendar() {
 
   container.innerHTML = weekDays.map(day => {
     const dayTasks = tasks.filter(t => t.prazo === day.date && t.status !== 'concluida');
+    const dayEvents = calendarEvents.filter(ev => ev.dia === day.date);
     dayTasks.sort((a, b) => (a.horario || 'zz').localeCompare(b.horario || 'zz'));
+    dayEvents.sort((a, b) => (a.horario_inicio || 'zz').localeCompare(b.horario_inicio || 'zz'));
     const todayClass = day.isToday ? 'today' : '';
-    const emptyClass = dayTasks.length === 0 ? 'empty-day' : '';
-    const visible = dayTasks.slice(0, MAX_VISIBLE);
-    const remaining = dayTasks.length - MAX_VISIBLE;
+    const totalItems = dayTasks.length + dayEvents.length;
+    const emptyClass = totalItems === 0 ? 'empty-day' : '';
+
+    // Merge events and tasks for display
+    const allItems = [];
+    dayEvents.forEach(ev => allItems.push({ type: 'event', data: ev, sortKey: ev.all_day ? '00:00' : (ev.horario_inicio || 'zz') }));
+    dayTasks.forEach(t => allItems.push({ type: 'task', data: t, sortKey: t.horario || 'zz' }));
+    allItems.sort((a, b) => a.sortKey.localeCompare(b.sortKey));
+
+    const visible = allItems.slice(0, MAX_VISIBLE);
+    const remaining = totalItems - MAX_VISIBLE;
 
     return `
       <div class="calendar-day ${todayClass} ${emptyClass}" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleCalendarDrop(event, '${day.date}')">
@@ -2766,7 +2968,11 @@ function renderCalendar() {
         </div>
         <div class="calendar-day-tasks">
           ${visible.length === 0 ? '<div style="flex:1;display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:0.65rem;opacity:0.5">Sem tarefas</div>' : ''}
-          ${visible.map(t => {
+          ${visible.map(item => {
+            if (item.type === 'event') {
+              return renderCalendarEvent(item.data);
+            }
+            const t = item.data;
             const platform = detectMeetingPlatform(t.meeting_link);
             const meetIcon = platform ? '<svg class="meeting-icon" viewBox="0 0 24 24" fill="none" stroke="' + platform.color + '" stroke-width="2"><path d="M15.5 10l4.72-3.36a1 1 0 011.78.63v9.46a1 1 0 01-1.78.63L15.5 14"/><rect x="2" y="6" width="13.5" height="12" rx="2"/></svg>' : '';
             const timeStr = t.horario || '';
@@ -2887,38 +3093,64 @@ function renderToday() {
   const todayTasks = tasks.filter(t => t.prazo === hoje && t.status !== 'concluida');
   const todayDone = tasks.filter(t => t.prazo === hoje && t.status === 'concluida');
   const overdue = tasks.filter(t => t.prazo && t.prazo < hoje && t.status !== 'concluida');
+  const todayEvents = calendarEvents.filter(ev => ev.dia === hoje);
 
   todayTasks.sort((a, b) => (a.horario || 'zz').localeCompare(b.horario || 'zz'));
 
   const header = document.getElementById('todayHeader');
   const total = todayTasks.length + overdue.length;
-  header.innerHTML = `📅 Hoje — ${todayTasks.length} tarefa${todayTasks.length !== 1 ? 's' : ''}`
-    + (todayDone.length ? ` · ${todayDone.length} concluida${todayDone.length !== 1 ? 's' : ''}` : '')
-    + (overdue.length ? ` · <span style="color:var(--pri-alta)">${overdue.length} atrasada${overdue.length !== 1 ? 's' : ''}</span>` : '')
-    + ` <span class="today-count">${total}</span>`
-    + `<div class="today-view-toggle">
+  let headerHTML = `📅 Hoje — ${todayTasks.length} tarefa${todayTasks.length !== 1 ? 's' : ''}`;
+  if (todayEvents.length) headerHTML += ` · ${todayEvents.length} evento${todayEvents.length !== 1 ? 's' : ''}`;
+  headerHTML += (todayDone.length ? ` · ${todayDone.length} concluida${todayDone.length !== 1 ? 's' : ''}` : '');
+  headerHTML += (overdue.length ? ` · <span style="color:var(--pri-alta)">${overdue.length} atrasada${overdue.length !== 1 ? 's' : ''}</span>` : '');
+  headerHTML += ` <span class="today-count">${total}</span>`;
+  headerHTML += `<div class="today-view-toggle">
         <button class="${todayViewMode === 'list' ? 'active' : ''}" onclick="todayViewMode='list';renderToday()">Lista</button>
         <button class="${todayViewMode === 'timeline' ? 'active' : ''}" onclick="todayViewMode='timeline';renderToday()">Timeline</button>
       </div>`;
 
+  // Integration status chips
+  if (calendarConnections.google || calendarConnections.microsoft) {
+    headerHTML += '<div class="integrations-status">';
+    if (calendarConnections.google) headerHTML += '<span class="integration-chip connected"><span class="integration-dot"></span>Google</span>';
+    if (calendarConnections.microsoft) headerHTML += '<span class="integration-chip connected"><span class="integration-dot"></span>Microsoft</span>';
+    headerHTML += '</div>';
+  }
+
+  header.innerHTML = headerHTML;
+
   const container = document.getElementById('todayTaskList');
   const allTasks = [...overdue, ...todayTasks];
 
-  if (allTasks.length === 0) {
+  if (allTasks.length === 0 && todayEvents.length === 0) {
     container.innerHTML = '<div class="today-empty"><p>Nenhuma tarefa para hoje! Aproveite o dia.</p></div>';
     return;
   }
 
   if (todayViewMode === 'timeline') {
-    container.innerHTML = renderTimeline(allTasks, hoje);
-    // Attach click events to timeline items
+    container.innerHTML = renderTimeline(allTasks, hoje, todayEvents);
     container.querySelectorAll('.timeline-item[data-task-id]').forEach(el => {
       el.addEventListener('click', () => showTaskDetail(el.dataset.taskId));
     });
     return;
   }
 
-  container.innerHTML = allTasks.map((task, i) => {
+  // Merge tasks and events into unified timeline
+  const timeline = [];
+  allTasks.forEach(t => {
+    timeline.push({ type: 'task', data: t, sortKey: t.horario || 'zz' });
+  });
+  todayEvents.forEach(ev => {
+    timeline.push({ type: 'event', data: ev, sortKey: ev.all_day ? '00:00' : (ev.horario_inicio || 'zz') });
+  });
+  timeline.sort((a, b) => a.sortKey.localeCompare(b.sortKey));
+
+  let idx = 0;
+  container.innerHTML = timeline.map(item => {
+    if (item.type === 'event') {
+      return renderEventCard(item.data, idx++ * 0.04);
+    }
+    const task = item.data;
     const catColor = CATEGORY_COLORS[task.categoria] || 'var(--text-muted)';
     const catBg = CATEGORY_BG[task.categoria] || 'rgba(255,255,255,0.05)';
     const priColor = PRIORITY_COLORS[task.prioridade];
@@ -2928,6 +3160,7 @@ function renderToday() {
     const isLate = task.prazo < hoje;
     const inProgressClass = task.status === 'em_andamento' ? 'in-progress' : '';
     const selectedClass = selectedTasks.has(String(task.id)) ? 'selected' : '';
+    const i = idx++;
 
     return `
       <div class="task-card ${inProgressClass} ${selectedClass}" data-task-id="${task.id}" style="--cat-color:${catColor}; animation-delay:${i * 0.04}s">
@@ -3082,9 +3315,22 @@ async function saveTask(event) {
 }
 
 // ========== TIMELINE ==========
-function renderTimeline(allTasks, hoje) {
-  const withTime = allTasks.filter(t => t.horario).sort((a, b) => a.horario.localeCompare(b.horario));
+function renderTimeline(allTasks, hoje, todayEvents) {
+  // Merge tasks and events into timeline items
+  const timelineItems = [];
+
+  allTasks.filter(t => t.horario).forEach(t => {
+    timelineItems.push({ type: 'task', data: t, time: t.horario });
+  });
+
+  (todayEvents || []).filter(ev => !ev.all_day && ev.horario_inicio).forEach(ev => {
+    timelineItems.push({ type: 'event', data: ev, time: ev.horario_inicio });
+  });
+
+  timelineItems.sort((a, b) => a.time.localeCompare(b.time));
+
   const withoutTime = allTasks.filter(t => !t.horario);
+  const allDayEvents = (todayEvents || []).filter(ev => ev.all_day);
 
   const now = new Date();
   const nowStr = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
@@ -3092,26 +3338,60 @@ function renderTimeline(allTasks, hoje) {
 
   let html = '<div class="timeline">';
 
-  withTime.forEach(task => {
-    const catColor = CATEGORY_COLORS[task.categoria] || 'var(--text-muted)';
-    // Insert "now" indicator before the first task that's after current time
-    if (!nowInserted && task.horario > nowStr) {
+  // All-day events at the top
+  if (allDayEvents.length > 0) {
+    html += '<div class="allday-events-banner" style="margin-bottom:0.75rem">';
+    allDayEvents.forEach(ev => {
+      const provider = ev.provider || 'google';
+      html += '<span class="allday-event-chip ' + provider + '">';
+      html += '<span class="event-badge ' + provider + '" style="margin-left:0">' + (provider === 'microsoft' ? 'Teams' : 'Google') + '</span> ';
+      html += ev.titulo;
+      html += '</span>';
+    });
+    html += '</div>';
+  }
+
+  timelineItems.forEach(item => {
+    // Insert "now" indicator before the first item after current time
+    if (!nowInserted && item.time > nowStr) {
       html += `<div class="timeline-now">Agora — ${nowStr}</div>`;
       nowInserted = true;
     }
-    html += `<div class="timeline-item" data-task-id="${task.id}" style="--cat-color:${catColor}">
-      <span class="timeline-time">${task.horario}</span>
-      <div class="timeline-title">${task.titulo}</div>
-      <div class="timeline-meta">
-        <span style="color:${catColor}">${task.categoria}</span>
-        ${task.tempo_estimado_min ? '<span>⏱ ' + task.tempo_estimado_min + 'min</span>' : ''}
-        ${task.prazo < hoje ? '<span style="color:var(--pri-alta)">Atrasada</span>' : ''}
-      </div>
-    </div>`;
+
+    if (item.type === 'event') {
+      const ev = item.data;
+      const provider = ev.provider || 'google';
+      const badge = `<span class="event-badge ${provider}">${provider === 'microsoft' ? 'Teams' : 'Google'}</span>`;
+      let meetLink = '';
+      if (ev.meeting_link) {
+        const platform = ev.meeting_platform || 'generic';
+        meetLink = ` <a href="${ev.meeting_link}" target="_blank" class="event-meeting-link ${platform}" onclick="event.stopPropagation()" style="font-size:0.55rem">Entrar</a>`;
+      }
+      html += `<div class="timeline-item" style="--cat-color:${provider === 'microsoft' ? 'hsl(215,70%,55%)' : 'hsl(142,52%,45%)'}">
+        <span class="timeline-time">${ev.horario_inicio} - ${ev.horario_fim || ''}</span>
+        <div class="timeline-title">${ev.titulo} ${badge}</div>
+        <div class="timeline-meta">
+          <span>${ev.local_evento || provider.charAt(0).toUpperCase() + provider.slice(1)}</span>
+          ${meetLink}
+        </div>
+      </div>`;
+    } else {
+      const task = item.data;
+      const catColor = CATEGORY_COLORS[task.categoria] || 'var(--text-muted)';
+      html += `<div class="timeline-item" data-task-id="${task.id}" style="--cat-color:${catColor}">
+        <span class="timeline-time">${task.horario}</span>
+        <div class="timeline-title">${task.titulo}</div>
+        <div class="timeline-meta">
+          <span style="color:${catColor}">${task.categoria}</span>
+          ${task.tempo_estimado_min ? '<span>⏱ ' + task.tempo_estimado_min + 'min</span>' : ''}
+          ${task.prazo < hoje ? '<span style="color:var(--pri-alta)">Atrasada</span>' : ''}
+        </div>
+      </div>`;
+    }
   });
 
-  // If "now" hasn't been inserted yet (all tasks are before current time)
-  if (!nowInserted && withTime.length > 0) {
+  // If "now" hasn't been inserted yet (all items are before current time)
+  if (!nowInserted && timelineItems.length > 0) {
     html += `<div class="timeline-now">Agora — ${nowStr}</div>`;
   }
 
@@ -3130,8 +3410,8 @@ function renderTimeline(allTasks, hoje) {
     });
   }
 
-  // If no tasks with time, and now indicator needed
-  if (withTime.length === 0) {
+  // If no items with time, and now indicator needed
+  if (timelineItems.length === 0) {
     html += `<div class="timeline-now">Agora — ${nowStr}</div>`;
   }
 
@@ -4574,8 +4854,23 @@ function renderTimeBlocks(dateStr) {
   html += '<input type="date" class="timeblock-day-btn" value="' + dateStr + '" onchange="timeblockSelectedDate=this.value;renderTimeBlocks(this.value)" style="color-scheme:dark;background:var(--bg-glass);min-width:auto">';
   html += '</div>';
 
+  // All-day events banner
+  const allDayEvents = calendarEvents.filter(ev => ev.dia === dateStr && ev.all_day);
+  if (allDayEvents.length > 0) {
+    html += '<div class="allday-events-banner">';
+    allDayEvents.forEach(ev => {
+      const provider = ev.provider || 'google';
+      html += '<span class="allday-event-chip ' + provider + '">';
+      html += '<span class="event-badge ' + provider + '" style="margin-left:0">' + (provider === 'microsoft' ? 'Teams' : 'Google') + '</span> ';
+      html += ev.titulo;
+      html += '</span>';
+    });
+    html += '</div>';
+  }
+
   // Filter tasks for this date
   const dayTasks = tasks.filter(t => t.prazo === dateStr);
+  const dayEvents = calendarEvents.filter(ev => ev.dia === dateStr && !ev.all_day);
 
   // Group by period
   const periods = [
@@ -4586,6 +4881,7 @@ function renderTimeBlocks(dateStr) {
   ];
 
   const grouped = { manha: [], tarde: [], noite: [], sem_horario: [] };
+  const groupedEvents = { manha: [], tarde: [], noite: [] };
 
   dayTasks.forEach(t => {
     if (!t.horario) {
@@ -4599,17 +4895,29 @@ function renderTimeBlocks(dateStr) {
     else grouped.sem_horario.push(t);
   });
 
-  // Sort within each period by horario
+  dayEvents.forEach(ev => {
+    const hour = ev.horario_inicio ? parseInt(ev.horario_inicio.split(':')[0], 10) : -1;
+    if (hour >= 6 && hour < 12) groupedEvents.manha.push(ev);
+    else if (hour >= 12 && hour < 18) groupedEvents.tarde.push(ev);
+    else if (hour >= 18 || (hour >= 0 && hour < 6)) groupedEvents.noite.push(ev);
+    else groupedEvents.manha.push(ev); // fallback
+  });
+
+  // Sort within each period
   ['manha', 'tarde', 'noite'].forEach(k => {
     grouped[k].sort((a, b) => (a.horario || '').localeCompare(b.horario || ''));
+    groupedEvents[k].sort((a, b) => (a.horario_inicio || '').localeCompare(b.horario_inicio || ''));
   });
 
   html += '<div class="timeblock-container">';
 
   periods.forEach(period => {
     const pTasks = grouped[period.key];
+    const pEvents = period.key !== 'sem_horario' ? (groupedEvents[period.key] || []) : [];
     // Skip empty "Sem horario" if no tasks
     if (period.key === 'sem_horario' && pTasks.length === 0) return;
+
+    const hasContent = pTasks.length > 0 || pEvents.length > 0;
 
     html += '<div class="timeblock-section">';
     html += '<div class="timeblock-section-header">';
@@ -4618,11 +4926,26 @@ function renderTimeBlocks(dateStr) {
     if (period.hours) html += '<span class="timeblock-period-hours">' + period.hours + '</span>';
     html += '</div>';
 
-    if (pTasks.length === 0) {
+    if (!hasContent) {
       html += '<div class="timeblock-empty">Nenhuma tarefa neste periodo</div>';
       html += '<div class="timeblock-free-slot">Horario livre</div>';
     } else {
       html += '<div class="timeblock-tasks">';
+      // Events first (blocked time)
+      pEvents.forEach(ev => {
+        const provider = ev.provider || 'google';
+        const badge = '<span class="timeblock-event-badge event-badge ' + provider + '">' + (provider === 'microsoft' ? 'Teams' : 'Google') + '</span>';
+        html += '<div class="timeblock-event ' + provider + '">';
+        html += '<span class="timeblock-event-time">' + (ev.horario_inicio || '--:--') + ' - ' + (ev.horario_fim || '--:--') + '</span>';
+        html += '<span class="timeblock-event-title">' + ev.titulo + '</span>';
+        html += badge;
+        if (ev.meeting_link) {
+          const platform = ev.meeting_platform || 'generic';
+          html += ' <a href="' + ev.meeting_link + '" target="_blank" class="event-meeting-link ' + platform + '" onclick="event.stopPropagation()" style="font-size:0.55rem;padding:0.08rem 0.3rem">Entrar</a>';
+        }
+        html += '</div>';
+      });
+      // Then tasks
       pTasks.forEach(t => {
         const catColor = CATEGORY_COLORS[t.categoria] || 'var(--text-muted)';
         const completedClass = t.status === 'concluida' ? ' completed' : '';
@@ -5278,6 +5601,27 @@ loadTasks().then(() => {
     renderToday();
   });
 });
+// Load calendar events and integration status
+checkCalendarConnections();
+loadCalendarEvents().then(() => {
+  const currentView = document.querySelector('.view-toggle button.active');
+  if (currentView) {
+    const view = currentView.dataset.view;
+    if (view === 'today') renderToday();
+    else if (view === 'calendar') renderCalendar();
+  }
+});
+// Auto-refresh calendar events every 5 minutes
+setInterval(() => {
+  loadCalendarEvents().then(() => {
+    const currentView = document.querySelector('.view-toggle button.active');
+    if (currentView) {
+      const view = currentView.dataset.view;
+      if (view === 'today') renderToday();
+      else if (view === 'calendar') renderCalendar();
+    }
+  });
+}, 300000);
 setupRealtime();
 setupDragAndDrop();
 setupSwipeGestures();

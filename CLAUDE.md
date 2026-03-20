@@ -36,14 +36,17 @@ armazena no Supabase e visualiza num dashboard web.
 - `Procfile` — Declaracao de worker para PaaS
 - `supabase/004_gamificacao_historico_habitos.sql` — Migration v3 (gamificacao, historico semanal, habitos)
 - `supabase/008_subtarefas.sql` — Migration v4 (subtarefas/checklist vinculadas a tarefas)
+- `bot/calendar_sync.py` — Integracao Google Calendar + Microsoft Outlook/Teams (OAuth, sync, lembretes)
+- `supabase/009_eventos_calendario.sql` — Migration v5 (tabela eventos_calendario para sync de calendarios)
 
 ## Comandos do Bot
 /start, /tarefas, /planejar, /feedback, /resumo, /concluir, /editar, /relatorio, /foco, /decompor, /coaching, /energia, /status, /cancelar
+/agenda, /sync, /conectar_google, /conectar_microsoft, /desconectar
 
 ## Supabase
 - URL: (configurar em .env)
 - Anon Key: (configurar em .env)
-- Tabelas: tarefas, categorias, historico, configuracoes, contexto_ia, gamificacao, historico_semanal, xp_log, subtarefas
+- Tabelas: tarefas, categorias, historico, configuracoes, contexto_ia, gamificacao, historico_semanal, xp_log, subtarefas, eventos_calendario
 - Views: resumo_semanal, carga_por_dia
 
 ## Chaves API (.env)
@@ -52,6 +55,10 @@ armazena no Supabase e visualiza num dashboard web.
 - GEMINI_API_KEY — aistudio.google.com (IA principal, gratuita)
 - ANTHROPIC_API_KEY — console.anthropic.com (fallback, opcional)
 - GROQ_API_KEY — console.groq.com (opcional, para audio)
+- GOOGLE_CLIENT_ID + GOOGLE_CLIENT_SECRET — console.cloud.google.com (Google Calendar OAuth)
+- MICROSOFT_CLIENT_ID + MICROSOFT_CLIENT_SECRET — portal.azure.com (Outlook/Teams OAuth)
+- BOT_PUBLIC_URL — URL publica do bot no Koyeb (para callbacks OAuth)
+- OAUTH_SECRET_KEY — chave secreta para assinar state OAuth
 
 ## Regras
 1. Nunca commitar .env ou chaves de API
