@@ -1,8 +1,9 @@
-# Organizador de Tarefas Inteligente v2
+# Organizador de Tarefas Inteligente v3
 
 > Sistema pessoal de gestao de tarefas com IA que PENSA.
 > Captura por voz/texto no Telegram, classifica com Gemini 2.5 Flash (gratuito),
-> armazena no Supabase e visualiza num dashboard web.
+> sincroniza Google Calendar + Outlook/Teams, armazena no Supabase
+> e visualiza num dashboard web completo com gamificacao, Eisenhower, Pomodoro e PWA.
 
 **Dashboard ao vivo**: [wendelcastro.github.io/organizador-tarefas/web](https://wendelcastro.github.io/organizador-tarefas/web/)
 
@@ -18,11 +19,12 @@ A IA:
 1. **Transcreve** o audio (Whisper via Groq)
 2. **Detecta 2 tarefas** na mesma mensagem
 3. **Classifica** cada uma (Grupo Ser + Trabalho)
-4. **Resolve "amanha"** para a data correta (ex: 2026-03-17)
+4. **Resolve "amanha"** para a data correta (ex: 2026-03-23)
 5. **Analisa se o dia esta sobrecarregado** e sugere realocar
 6. **Pergunta antes de salvar** — voce confirma ou ajusta
 7. **Salva no banco** e o dashboard atualiza em tempo real
 8. **Envia lembrete** 15min antes da reuniao
+9. **Sincroniza** com seus calendarios Google e Microsoft
 
 ---
 
@@ -46,16 +48,17 @@ A IA:
 - [x] Alerta preditivo de sobrecarga para dias futuros
 - [x] Sugestao de reagendamento automatico de atrasadas
 - [x] Planejamento por energia (cognitivas manha, admin tarde)
+- [x] Coaching personalizado baseado em padroes (`/coaching`)
 - [x] Retry com backoff exponencial (tolerancia a falhas da API)
 - [x] Parsing de lista semanal completa (Segunda/Terca/etc com multiplas tarefas por dia)
-- [x] Deteccao de status na mensagem ("feito ja" → concluida, "em andamento", "nao fiz" → pendente)
+- [x] Deteccao de status na mensagem ("feito ja" -> concluida, "em andamento", "nao fiz" -> pendente)
 - [x] Fallback inteligente: mesmo sem IA, detecta multiplas tarefas por cabecalhos de dia
 - [x] Splitting automatico de mensagens longas (20+ tarefas, limite 4096 chars do Telegram)
 
-### Bot Telegram (12 comandos)
+### Bot Telegram (21 comandos)
 - [x] `/start` — Boas-vindas + salva chat ID
 - [x] `/tarefas` — Lista pendentes com prioridade
-- [x] `/planejar` — Planejamento inteligente do dia
+- [x] `/planejar` — Planejamento inteligente do dia (usa dados de energia)
 - [x] `/feedback` — Feedback construtivo (tom de coach)
 - [x] `/resumo` — Resumo rapido com numeros
 - [x] `/concluir` — Inline keyboard interativo (escolhe qual tarefa)
@@ -63,7 +66,16 @@ A IA:
 - [x] `/relatorio` — Relatorio semanal on-demand
 - [x] `/foco` — Modo foco (silencia lembretes de baixa prioridade)
 - [x] `/decompor` — Quebra tarefa grande em subtarefas com tempo estimado
-- [x] `/status` — Diagnostico: testa conexao com APIs e mostra status das variaveis de ambiente
+- [x] `/coaching` — Dica personalizada da IA baseada nos seus padroes
+- [x] `/energia` — Registrar nivel de energia do periodo (1-5)
+- [x] `/buscar` — Busca em tarefas, eventos, anotacoes e anexos
+- [x] `/anexar` — Salvar texto/transcricao como anexo pesquisavel
+- [x] `/conectar_google` — Conectar Google Calendar via OAuth2
+- [x] `/conectar_microsoft` — Conectar Outlook/Teams via OAuth2
+- [x] `/desconectar` — Desconectar um calendario (google ou microsoft)
+- [x] `/sync` — Forcar sincronizacao de calendarios
+- [x] `/agenda` — Ver eventos do dia de todos os calendarios conectados
+- [x] `/status` — Diagnostico: testa conexao com APIs e mostra status
 - [x] `/cancelar` — Cancela operacao atual
 
 ### Automacoes (rodam sozinhas)
@@ -71,15 +83,18 @@ A IA:
 - [x] Check-in do meio-dia as 13:00 (progresso do dia)
 - [x] Relatorio semanal toda sexta as 17:00
 - [x] Lembretes 15min antes de tarefas com horario
+- [x] Lembretes 15min antes de eventos do calendario sincronizado
 - [x] Criacao automatica de tarefas recorrentes as 6:00
 - [x] Alerta preditivo de sobrecarga ao adicionar tarefas
 - [x] Deteccao automatica de conflitos de horario
+- [x] Sync de calendarios a cada 15 minutos
 - [x] Keep-alive interno: ping a cada 4 minutos para evitar sleep no free tier do Koyeb
 
 ### Dashboard Web
-- [x] Tres views: Todas | Hoje | Semana + Revisao Semanal
+- [x] 5 views: Todas | Hoje | Semana | Revisao Semanal | KPIs
 - [x] Filtros por categoria, prioridade e status
 - [x] Stat cards clicaveis (Total, Pendentes, Concluidas, Atrasadas, Reunioes)
+- [x] Barra de busca global (tarefas, eventos, anotacoes, anexos)
 - [x] Calendario semanal responsivo (empilha no mobile)
 - [x] Cards com tempo estimado, delegacao, recorrencia
 - [x] Banner de alerta para tarefas atrasadas
@@ -88,23 +103,65 @@ A IA:
 - [x] Edicao e exclusao direto no dashboard
 - [x] Realtime via Supabase (atualiza sem refresh)
 - [x] Design escuro, mobile-first
-- [x] Timeline vertical do dia com indicador "Agora" (view Hoje)
-- [x] Toggle rapido de status (pendente → em andamento → concluida)
-- [x] Acoes em lote: Shift+Click para multi-selecao + concluir/excluir em massa
-- [x] Revisao semanal: metricas, heatmap, distribuicao por categoria, tempo pessoal
 - [x] Modo claro/escuro com toggle e persistencia (localStorage)
 
-### Gamificacao (Sprint 1)
+### Timeline e Blocos de Tempo
+- [x] Timeline vertical do dia com indicador "Agora" (view Hoje)
+- [x] Toggle rapido de status (pendente -> em andamento -> concluida)
+- [x] Acoes em lote: Shift+Click para multi-selecao + concluir/excluir em massa
+
+### Gamificacao
 - [x] Sistema de XP: pontos por tarefa concluida (bonus por prazo e prioridade)
 - [x] 10 niveis com titulos: "Iniciante Organizado" ate "Professor Nivel S"
 - [x] Streaks: dias consecutivos com 70%+ de conclusao
 - [x] Progress Ring: circulo SVG animado mostrando progresso do dia
 - [x] Barra de XP com progresso para proximo nivel
 
+### Matriz de Eisenhower
+- [x] 4 quadrantes: Fazer Agora (Q1), Agendar (Q2), Delegar (Q3), Eliminar (Q4)
+- [x] Auto-classificacao baseada em prazo + prioridade (com badge "auto")
+- [x] Override manual: arrastar cards entre quadrantes
+- [x] Persistencia no banco (coluna `quadrante_eisenhower` na tabela tarefas)
+
+### Pomodoro Timer
+- [x] Timer de 25 minutos integrado ao dashboard
+- [x] Vinculado a tarefa especifica (tracking de tempo por tarefa)
+- [x] Play/Pause/Stop com feedback visual
+- [x] Tempo acumulado salvo por tarefa (localStorage + banco)
+- [x] Coluna `tempo_gasto_min` na tabela tarefas
+
 ### Drag & Drop
 - [x] Arrastar cards entre status (Pendente/Em andamento/Concluida)
 - [x] Arrastar cards entre dias no calendario semanal
+- [x] Arrastar cards entre quadrantes da Matriz de Eisenhower
 - [x] Feedback visual durante arrasto (opacidade + borda)
+
+### Mapeamento de Energia
+- [x] Registro de energia por periodo (manha/tarde/noite, 1-5)
+- [x] Via bot (`/energia 4 manha`) e dashboard (dots clicaveis)
+- [x] Dados usados pelo `/planejar` para alocar tarefas cognitivas em periodos de alta energia
+- [x] Tabela `energia_diaria` no Supabase
+
+### Busca e Anexos
+- [x] Busca full-text em tarefas, eventos, anotacoes semanais e anexos
+- [x] Barra de busca no dashboard com resultados em tempo real
+- [x] Anexos do tipo texto, transcricao, link ou arquivo
+- [x] Indices GIN com `to_tsvector('portuguese')` para busca em portugues
+
+### Integracao de Calendarios
+- [x] Google Calendar: OAuth2, sync automatico, lembretes
+- [x] Microsoft Outlook/Teams: OAuth2, sync automatico, lembretes
+- [x] Google Tasks: leitura das listas de tarefas do Google
+- [x] Sync a cada 15 minutos (job automatico)
+- [x] Lembretes no Telegram 15min antes de eventos
+- [x] Eventos aparecem no dashboard (timeline e calendario semanal)
+- [x] Criacao de eventos no Google Calendar a partir de tarefas
+- [x] Deteccao automatica de links de reuniao (Meet, Teams, Zoom)
+
+### Subtarefas
+- [x] Decomposicao de tarefas em subtarefas via `/decompor`
+- [x] Checklist com progresso visual no dashboard
+- [x] Tabela `subtarefas` com FK para tarefas
 
 ### Historico Semanal
 - [x] Snapshot de cada semana salvo automaticamente ou por botao
@@ -118,6 +175,15 @@ A IA:
 - [x] Tracker de habitos na Revisao Semanal (grid por subcategoria)
 - [x] Rotinas fixas com horarios para consistencia
 
+### Reflexoes Diarias
+- [x] Pergunta reflexiva noturna enviada pelo bot
+- [x] Respostas salvas no banco (tabela `reflexoes`)
+
+### PWA (Progressive Web App)
+- [x] Manifest.json para instalacao no celular/desktop
+- [x] Funciona como app nativo quando instalado
+- [x] Icone na home screen do celular
+
 ---
 
 ## Tecnologias
@@ -126,13 +192,15 @@ A IA:
 |------------|-----------|--------|
 | Bot | Python 3.10+ | Logica do bot Telegram |
 | Bot Framework | python-telegram-bot 22+ | Interacao com Telegram API |
-| IA (primaria) | Gemini 2.5 Flash (Google) | Classificacao, planejamento, feedback (gratuito) |
+| IA (primaria) | Gemini 2.5 Flash (Google) | Classificacao, planejamento, feedback, coaching (gratuito) |
 | IA (fallback) | Claude API (Sonnet) | Fallback caso Gemini falhe |
 | Transcricao | Groq API (Whisper) | Audio para texto |
 | Banco de dados | Supabase (PostgreSQL) | Armazenamento + API REST + Realtime |
-| Frontend | HTML/CSS/JS (vanilla) | Dashboard single-file |
+| Calendar Sync | Google Calendar API + Microsoft Graph | Sincronizacao de eventos via OAuth2 |
+| HTTP Client | httpx | Chamadas HTTP para APIs externas |
+| Frontend | HTML/CSS/JS (vanilla) | Dashboard single-file PWA |
 | Hospedagem web | GitHub Pages | Dashboard publico gratuito |
-| Agendamento | APScheduler (via PTB JobQueue) | Lembretes, resumo matinal, relatorio |
+| Agendamento | APScheduler (via PTB JobQueue) | Lembretes, resumo matinal, relatorio, sync calendarios |
 | Health Check | http.server (stdlib Python) | Responde OK para PaaS (Koyeb) |
 | Deploy | Koyeb (Docker) ou Oracle Cloud (systemd) | Bot rodando 24/7 gratuito |
 
@@ -148,6 +216,8 @@ A IA:
 - Conta no Google AI Studio (Gemini API — gratis)
 - (Opcional) Conta na Anthropic (Claude API — fallback, pago)
 - (Opcional) Conta no Groq (para audio — gratis)
+- (Opcional) Google Cloud Console (para Google Calendar — gratis)
+- (Opcional) Azure Portal (para Microsoft Calendar — gratis)
 - (Opcional) ffmpeg instalado (para converter audio)
 
 ### Passo 1: Clonar o projeto
@@ -178,7 +248,7 @@ pip install -r bot/requirements.txt
 Isso instala:
 - `python-telegram-bot[job-queue]` — framework do bot + agendamento
 - `python-dotenv` — carrega variaveis do .env
-- `httpx` — cliente HTTP para APIs
+- `httpx` — cliente HTTP para APIs (Supabase, Google, Microsoft)
 
 ### Passo 4: Criar o bot no Telegram
 
@@ -202,70 +272,71 @@ Isso instala:
 
 No Supabase, va em **SQL Editor** > **New query** e rode na ordem:
 
-1. Cole o conteudo de `supabase/001_criar_tabelas.sql` e clique **Run**
-2. Cole o conteudo de `supabase/002_fix_delete_trigger.sql` e clique **Run**
-3. Cole o conteudo de `supabase/003_melhorias_inteligentes.sql` e clique **Run**
-4. Cole o conteudo de `supabase/004_gamificacao_historico_habitos.sql` e clique **Run**
+1. `supabase/001_criar_tabelas.sql` — Tabelas base
+2. `supabase/002_fix_delete_trigger.sql` — Fix FK
+3. `supabase/003_melhorias_inteligentes.sql` — Campos v2
+4. `supabase/004_gamificacao_historico_habitos.sql` — Gamificacao e habitos
+5. `supabase/005_pomodoro_reflexoes.sql` — Pomodoro e reflexoes
+6. `supabase/006_energy_mapping.sql` — Mapeamento de energia
+7. `supabase/007_eisenhower_quadrant.sql` — Matriz de Eisenhower
+8. `supabase/008_subtarefas.sql` — Subtarefas/checklist
+9. `supabase/009_eventos_calendario.sql` — Eventos de calendario
+10. `supabase/010_anexos_busca.sql` — Anexos e busca full-text
 
-Cada script cria tabelas, triggers e views necessarias.
+Cada script cria tabelas, triggers, views e indices necessarios.
 
 ### Passo 7: Obter chaves de API
 
-Voce precisa de 4 chaves obrigatorias + 1 opcional. Aqui esta onde gerar cada uma, passo a passo:
+Voce precisa de 3 chaves obrigatorias + varias opcionais. Veja o `.env.example` para a lista completa.
 
-**A) Token do Bot Telegram (TELEGRAM_BOT_TOKEN):**
+**A) Token do Bot Telegram (TELEGRAM_BOT_TOKEN) — obrigatorio:**
 1. Abra o Telegram e busque `@BotFather`
 2. Envie `/newbot`
-3. Escolha um nome (ex: "Organizador Wendel")
-4. Escolha um username unico (ex: `organizador_wendel_bot`) — precisa terminar com `bot`
-5. O BotFather retorna um token no formato `1234567890:ABCdefGHI...`
-6. Copie esse token — e o `TELEGRAM_BOT_TOKEN`
+3. Escolha um nome e username
+4. Copie o token (formato: `1234567890:ABCdefGHI...`)
 
-**B) URL e Chave do Supabase (SUPABASE_URL + SUPABASE_ANON_KEY):**
-1. Acesse [supabase.com](https://supabase.com) e faca login
-2. Selecione seu projeto (ou crie um novo — Passo 5)
-3. No menu lateral, va em **Settings** (icone de engrenagem)
-4. Clique em **API** (dentro de Settings)
-5. Na secao "Project URL", copie a URL — e o `SUPABASE_URL` (formato: `https://xxxxx.supabase.co`)
-6. Na secao "Project API keys", copie a chave **anon public** — e o `SUPABASE_ANON_KEY` (formato: `eyJhbGci...`)
-7. **NAO** copie a chave "service_role" — ela da acesso total ao banco
+**B) URL e Chave do Supabase (SUPABASE_URL + SUPABASE_ANON_KEY) — obrigatorio:**
+1. Acesse [supabase.com](https://supabase.com) > seu projeto
+2. Va em **Settings > API**
+3. Copie a **Project URL** e a **anon public key**
+4. **NAO** copie a chave "service_role"
 
-**C) Chave do Gemini (GEMINI_API_KEY) — IA principal (gratuita):**
+**C) Chave do Gemini (GEMINI_API_KEY) — recomendado, gratis:**
 1. Acesse [aistudio.google.com](https://aistudio.google.com)
-2. Crie uma conta Google (se nao tem)
-3. Clique em **Get API Key** > **Create API Key**
-4. Selecione ou crie um projeto no Google Cloud
-5. Copie a chave (formato: `AIza...`) — e o `GEMINI_API_KEY`
-6. **Custo**: Gratis (Gemini 2.5 Flash tem tier gratuito generoso)
+2. Clique em **Get API Key** > **Create API Key**
+3. Copie a chave (formato: `AIza...`)
 
 **D) Chave da Claude API (ANTHROPIC_API_KEY) — opcional, fallback:**
 1. Acesse [console.anthropic.com](https://console.anthropic.com)
-2. Crie uma conta (se nao tem)
-3. Adicione creditos: **Settings > Billing > Add credits** ($5 minimo — dura meses com uso pessoal)
-4. Va em **Settings > API Keys** > clique **Create Key**
-5. De um nome (ex: "organizador-tarefas")
-6. Copie a chave (formato: `sk-ant-api03-...`) — e o `ANTHROPIC_API_KEY`
-7. **IMPORTANTE**: A chave so aparece uma vez. Se perder, crie outra.
-8. **NOTA**: Opcional — o bot funciona perfeitamente so com Gemini. Claude e usado como fallback.
+2. Va em **Settings > API Keys** > **Create Key**
+3. Copie a chave (formato: `sk-ant-api03-...`)
 
-**E) Chave do Groq (GROQ_API_KEY) — opcional, para transcricao de audio:**
+**E) Chave do Groq (GROQ_API_KEY) — opcional, para audio:**
 1. Acesse [console.groq.com](https://console.groq.com)
-2. Crie uma conta (gratis, nao precisa de cartao)
-3. No menu lateral, va em **API Keys**
-4. Clique **Create API Key**
-5. De um nome (ex: "organizador")
-6. Copie a chave (formato: `gsk_...`) — e o `GROQ_API_KEY`
-7. Se nao configurar, o bot funciona normalmente mas nao transcreve audios
+2. Va em **API Keys** > **Create API Key**
+3. Copie a chave (formato: `gsk_...`)
+
+**F) Google Calendar (GOOGLE_CLIENT_ID + GOOGLE_CLIENT_SECRET) — opcional:**
+Veja o guia completo em `docs/06-guia-integracao-calendarios.md`
+
+**G) Microsoft Calendar (MICROSOFT_CLIENT_ID + MICROSOFT_CLIENT_SECRET) — opcional:**
+Veja o guia completo em `docs/06-guia-integracao-calendarios.md`
 
 **Resumo das chaves:**
-| Variavel | Onde gerar | Custo | Formato |
-|----------|-----------|-------|---------|
-| `TELEGRAM_BOT_TOKEN` | Telegram > @BotFather > /newbot | Gratis | `1234567890:ABC...` |
-| `SUPABASE_URL` | supabase.com > Settings > API | Gratis | `https://xxx.supabase.co` |
-| `SUPABASE_ANON_KEY` | supabase.com > Settings > API | Gratis | `eyJhbGci...` |
-| `GEMINI_API_KEY` | aistudio.google.com > Get API Key | Gratis | `AIza...` |
-| `ANTHROPIC_API_KEY` | console.anthropic.com > API Keys | ~R$5-15/mes (opcional) | `sk-ant-api03-...` |
-| `GROQ_API_KEY` | console.groq.com > API Keys | Gratis | `gsk_...` |
+| Variavel | Onde gerar | Custo | Obrigatorio? |
+|----------|-----------|-------|-------------|
+| `TELEGRAM_BOT_TOKEN` | @BotFather | Gratis | Sim |
+| `SUPABASE_URL` | supabase.com | Gratis | Sim |
+| `SUPABASE_ANON_KEY` | supabase.com | Gratis | Sim |
+| `GEMINI_API_KEY` | aistudio.google.com | Gratis | Recomendado |
+| `ANTHROPIC_API_KEY` | console.anthropic.com | ~R$5-15/mes | Nao (fallback) |
+| `GROQ_API_KEY` | console.groq.com | Gratis | Nao (audio) |
+| `GOOGLE_CLIENT_ID` | console.cloud.google.com | Gratis | Nao (calendario) |
+| `GOOGLE_CLIENT_SECRET` | console.cloud.google.com | Gratis | Nao (calendario) |
+| `MICROSOFT_CLIENT_ID` | portal.azure.com | Gratis | Nao (calendario) |
+| `MICROSOFT_CLIENT_SECRET` | portal.azure.com | Gratis | Nao (calendario) |
+| `BOT_PUBLIC_URL` | URL do seu deploy | — | Se usar calendario |
+| `OAUTH_SECRET_KEY` | Voce define | — | Se usar calendario |
 
 ### Passo 8: Configurar variaveis de ambiente
 
@@ -273,15 +344,7 @@ Voce precisa de 4 chaves obrigatorias + 1 opcional. Aqui esta onde gerar cada um
 cp .env.example .env
 ```
 
-Edite o `.env` com seus valores:
-```
-TELEGRAM_BOT_TOKEN=1234567890:ABCdefGHIjklMNOpqr
-SUPABASE_URL=https://seu-projeto.supabase.co
-SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIs...
-GEMINI_API_KEY=AIza...
-ANTHROPIC_API_KEY=sk-ant-api03-...
-GROQ_API_KEY=gsk_...
-```
+Edite o `.env` com seus valores (veja `.env.example` para descricao de cada variavel).
 
 ### Passo 9: Rodar o bot
 
@@ -317,179 +380,76 @@ Jobs programados: resumo 7:30, relatorio sex 17:00, recorrentes 6:00
 3. Branch: `main`, Folder: `/ (root)`
 4. Save — em 2 minutos estara em `https://seu-usuario.github.io/organizador-tarefas/web/`
 
+### Passo 12: Calendarios (opcional)
+
+Para sincronizar Google Calendar e/ou Microsoft Outlook/Teams:
+1. Siga o guia completo em `docs/06-guia-integracao-calendarios.md`
+2. Configure as variaveis `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `BOT_PUBLIC_URL`, `OAUTH_SECRET_KEY` no `.env`
+3. No Telegram, use `/conectar_google` ou `/conectar_microsoft`
+4. Use `/sync` para forcar a primeira sincronizacao
+5. Use `/agenda` para ver os eventos do dia
+
 ---
 
 ## Deploy 24/7 Gratuito
 
-O bot para quando voce fecha o terminal. Para rodar permanentemente, use uma das opcoes abaixo.
+O bot para quando voce fecha o terminal. Para rodar permanentemente, veja `docs/05-deploy-24h.md`.
 
-### Opcao A: Koyeb (mais simples — sem Linux)
-
-Koyeb e uma plataforma de deploy que oferece **1 instancia gratuita** (512MB RAM, 0.1 vCPU).
-
-**IMPORTANTE**: O plano gratuito do Koyeb so oferece Web Service (nao Worker). Por isso, o bot inclui um **mini servidor HTTP de health check** integrado que responde "OK" na porta 8000. O Koyeb faz health checks periodicos nessa porta e o bot continua rodando normalmente em paralelo.
-
-#### Passo a passo detalhado:
-
-**1. Crie conta no Koyeb**
-- Acesse [koyeb.com](https://www.koyeb.com) e crie conta com GitHub (mais facil)
-- Nao precisa de cartao de credito
-
-**2. ANTES de deployar: pare o bot local**
-- Se voce tem o bot rodando no seu PC (`python bot/main.py`), pare com `Ctrl+C`
-- Dois bots NAO podem usar o mesmo token ao mesmo tempo — o Telegram rejeita um deles
-
-**3. Confirme que as migrations SQL foram executadas**
-- No Supabase Dashboard > SQL Editor, rode (se ainda nao fez):
-  1. `supabase/001_criar_tabelas.sql`
-  2. `supabase/002_fix_delete_trigger.sql`
-  3. `supabase/003_melhorias_inteligentes.sql`
-
-**4. Crie o servico no Koyeb**
-1. No painel, clique **Create Service**
-2. Selecione **GitHub** como source
-3. Autorize o Koyeb a acessar seu GitHub
-4. Selecione o repositorio `organizador-tarefas`
-5. Branch: `main`
-6. Builder: **Dockerfile** (ele detecta o Dockerfile na raiz automaticamente)
-7. Instance type: **Free**
-8. Region: **Washington DC** ou **Frankfurt**
-
-**5. Configure as variaveis de ambiente**
-
-Na secao "Environment variables", adicione uma por uma:
-
-| Variavel | Onde pegar | Exemplo |
-|----------|-----------|---------|
-| `TELEGRAM_BOT_TOKEN` | @BotFather no Telegram | `1234567890:ABCdef...` |
-| `SUPABASE_URL` | Supabase > Settings > API > Project URL | `https://abc123.supabase.co` |
-| `SUPABASE_ANON_KEY` | Supabase > Settings > API > anon public | `eyJhbGci...` |
-| `GEMINI_API_KEY` | aistudio.google.com > Get API Key | `AIza...` |
-| `ANTHROPIC_API_KEY` | console.anthropic.com > API Keys (opcional) | `sk-ant-api03-...` |
-| `GROQ_API_KEY` | console.groq.com > API Keys (opcional) | `gsk_...` |
-| `PORT` | (deixe 8000 ou o padrao do Koyeb) | `8000` |
-
-**6. Configure a porta do health check**
-- Na secao de configuracao do servico, garanta que a porta HTTP esta como **8000**
-- O Koyeb fara health checks nessa porta e o bot responde "OK"
-
-**7. Deploy**
-- Clique **Deploy**
-- Aguarde 2-3 minutos para build e startup
-- Nos **Logs**, procure as mensagens:
-  ```
-  Health check server rodando na porta 8000
-  Bot v2 rodando! Mande /start no Telegram.
-  Jobs programados: resumo 7:30, relatorio sex 17:00, recorrentes 6:00
-  ```
-
-**8. Pronto!**
-O bot agora:
-- Roda 24/7 na nuvem
-- Reinicia automaticamente se cair
-- Atualiza sozinho quando voce faz `git push` no GitHub
-- Envia resumo matinal as 7:30
-- Envia relatorio semanal toda sexta as 17h
-- Envia lembretes 15min antes de reunioes
-- Cria tarefas recorrentes as 6:00
-
-**9. Troubleshooting Koyeb**
-
-| Problema | Solucao |
-|----------|---------|
-| Build falhou | Verifique se `Dockerfile` e `bot/requirements.txt` estao no repo |
-| Bot nao responde no Telegram | Confira as variaveis de ambiente no painel do Koyeb |
-| Health check falhando | Verifique se a porta no Koyeb esta como 8000 |
-| Erro de conexao Supabase | Verifique SUPABASE_URL (deve comecar com `https://`) |
-| Audio nao funciona | GROQ_API_KEY pode estar vazia |
-| Bot duplicado / conflito | Mate o bot local antes de deployar na nuvem |
-
-O projeto ja inclui `Dockerfile` + health check integrado, prontos para o Koyeb.
-
-### Opcao B: Oracle Cloud Always Free (mais robusto)
-
-Oracle oferece **VMs gratuitas para sempre** (ate 4 CPUs ARM, 24GB RAM).
-
-1. Crie conta em [cloud.oracle.com](https://cloud.oracle.com/free)
-2. Va em **Compute > Instances > Create Instance**
-3. Selecione **Ampere A1** (ARM) — Shape: VM.Standard.A1.Flex
-4. Escolha Ubuntu 22.04, 1 OCPU, 6GB RAM
-5. Baixe a chave SSH e crie a instancia
-6. Conecte via SSH:
-```bash
-ssh -i sua_chave.key ubuntu@IP_DA_INSTANCIA
-```
-7. Instale Python e dependencias:
-```bash
-sudo apt update && sudo apt install -y python3 python3-pip python3-venv ffmpeg git
-```
-8. Clone o projeto:
-```bash
-git clone https://github.com/wendelcastro/organizador-tarefas.git
-cd organizador-tarefas
-python3 -m venv venv
-source venv/bin/activate
-pip install -r bot/requirements.txt
-```
-9. Crie o .env:
-```bash
-cp .env.example .env
-nano .env  # preencha com suas chaves
-```
-10. Crie um servico systemd (roda 24/7 e reinicia sozinho):
-```bash
-sudo tee /etc/systemd/system/organizador-bot.service << 'EOF'
-[Unit]
-Description=Organizador de Tarefas Bot
-After=network.target
-
-[Service]
-Type=simple
-User=ubuntu
-WorkingDirectory=/home/ubuntu/organizador-tarefas
-ExecStart=/home/ubuntu/organizador-tarefas/venv/bin/python bot/main.py
-Restart=always
-RestartSec=10
-EnvironmentFile=/home/ubuntu/organizador-tarefas/.env
-
-[Install]
-WantedBy=multi-user.target
-EOF
-```
-11. Ative e inicie:
-```bash
-sudo systemctl daemon-reload
-sudo systemctl enable organizador-bot
-sudo systemctl start organizador-bot
-```
-12. Verifique:
-```bash
-sudo systemctl status organizador-bot
-# Deve mostrar "active (running)"
-```
-
-O bot agora roda permanentemente, reinicia se cair, e sobrevive a reboots.
+**Opcoes:**
+- **Koyeb** (mais simples, sem Linux) — 5 minutos de setup, auto-deploy via git push
+- **Oracle Cloud** (mais robusto) — VM gratuita para sempre, 30 minutos de setup
 
 ---
 
 ## Comandos do Bot
 
+### Comandos de tarefas
+
 | Comando | O que faz | Exemplo |
 |---------|-----------|---------|
 | `/start` | Boas-vindas e configuracao | `/start` |
 | `/tarefas` | Lista todas as pendentes | `/tarefas` |
+| `/concluir` | Botoes inline para escolher qual concluir | `/concluir` |
+| `/editar` | Botoes inline + texto para editar campo | `/editar` |
+| `/decompor` | Quebra tarefa grande em subtarefas | `/decompor` |
+| `/cancelar` | Cancela qualquer operacao em andamento | `/cancelar` |
+
+### Comandos de planejamento e IA
+
+| Comando | O que faz | Exemplo |
+|---------|-----------|---------|
 | `/planejar` | IA monta seu dia com blocos de tempo | `/planejar` |
 | `/feedback` | IA avalia seu dia (tom de coach) | `/feedback` |
 | `/resumo` | Numeros rapidos (pendentes, atrasadas) | `/resumo` |
-| `/concluir` | Botoes inline para escolher qual concluir | `/concluir` |
-| `/editar` | Botoes inline + texto para editar campo | `/editar` |
 | `/relatorio` | Relatorio semanal completo | `/relatorio` |
+| `/coaching` | Dica personalizada baseada nos seus padroes | `/coaching` |
+| `/energia` | Registra nivel de energia de um periodo | `/energia 4 manha` |
 | `/foco 2h` | Silencia lembretes por 2 horas | `/foco 1h30` |
-| `/decompor` | Quebra tarefa grande em subtarefas | `/decompor` |
-| `/status` | Diagnostico: testa APIs e mostra env vars | `/status` |
-| `/cancelar` | Cancela qualquer operacao em andamento | `/cancelar` |
 
-**Mensagens naturais (sem comando):**
+### Comandos de busca e anexos
+
+| Comando | O que faz | Exemplo |
+|---------|-----------|---------|
+| `/buscar` | Busca em tarefas, eventos, anotacoes e anexos | `/buscar reuniao com Carlos` |
+| `/anexar` | Salva texto como anexo pesquisavel | `/anexar Notas da aula` |
+
+### Comandos de calendario
+
+| Comando | O que faz | Exemplo |
+|---------|-----------|---------|
+| `/conectar_google` | Conecta Google Calendar via OAuth | `/conectar_google` |
+| `/conectar_microsoft` | Conecta Outlook/Teams via OAuth | `/conectar_microsoft` |
+| `/desconectar` | Desconecta um calendario | `/desconectar google` |
+| `/sync` | Forca sincronizacao imediata | `/sync` |
+| `/agenda` | Mostra eventos do dia | `/agenda` |
+
+### Diagnostico
+
+| Comando | O que faz |
+|---------|-----------|
+| `/status` | Testa APIs e mostra status das variaveis |
+
+### Mensagens naturais (sem comando)
 
 | Voce manda | O que acontece |
 |-----------|---------------|
@@ -506,33 +466,43 @@ O bot agora roda permanentemente, reinicia se cair, e sobrevive a reboots.
 ```
 organizador-tarefas/
 ├── .env                  # Chaves de API (NUNCA vai pro Git)
-├── .env.example          # Template vazio (vai pro Git)
+├── .env.example          # Template com descricao de cada variavel
 ├── .gitignore            # Ignora .env, __pycache__, etc.
 ├── CLAUDE.md             # Instrucoes para o Claude Code
 ├── README.md             # Este arquivo
 ├── Dockerfile            # Para deploy no Koyeb
 ├── Procfile              # Para deploy em PaaS
 │
-├── bot/                  # Bot Telegram + IA
-│   ├── main.py           # Ponto de entrada, handlers, jobs programados
-│   ├── ai_brain.py       # Cerebro IA (Claude API, resolucao temporal, sobrecarga)
-│   └── requirements.txt  # Dependencias Python
+├── bot/                  # Bot Telegram + IA + Calendar
+│   ├── main.py           # Ponto de entrada, 21 handlers, jobs, health check, OAuth
+│   ├── ai_brain.py       # Cerebro IA (Gemini/Claude, classificacao, coaching, decomposicao)
+│   ├── calendar_sync.py  # Sync Google Calendar + Microsoft Outlook/Teams (OAuth2)
+│   └── requirements.txt  # Dependencias Python (3 pacotes)
 │
 ├── web/                  # Dashboard (GitHub Pages)
-│   └── index.html        # Single-file: HTML + CSS + JS
+│   ├── index.html        # Single-file: HTML + CSS + JS (PWA)
+│   └── manifest.json     # PWA manifest para instalacao
 │
-├── supabase/             # Scripts do banco de dados
-│   ├── 001_criar_tabelas.sql        # Tabelas, triggers, views
-│   ├── 002_fix_delete_trigger.sql   # Fix da FK do historico
-│   ├── 003_melhorias_inteligentes.sql # Novos campos v2
-│   └── 004_gamificacao_historico_habitos.sql # Gamificacao, historico semanal, habitos
+├── supabase/             # Scripts do banco de dados (rodar na ordem)
+│   ├── 001_criar_tabelas.sql           # Tabelas base
+│   ├── 002_fix_delete_trigger.sql      # Fix FK do historico
+│   ├── 003_melhorias_inteligentes.sql  # Campos v2 (tempo, recorrencia, delegacao)
+│   ├── 004_gamificacao_historico_habitos.sql  # Gamificacao, historico, habitos
+│   ├── 005_pomodoro_reflexoes.sql      # Pomodoro tracking, reflexoes
+│   ├── 006_energy_mapping.sql          # Mapeamento de energia
+│   ├── 007_eisenhower_quadrant.sql     # Matriz de Eisenhower
+│   ├── 008_subtarefas.sql             # Subtarefas/checklist
+│   ├── 009_eventos_calendario.sql      # Eventos de calendario
+│   └── 010_anexos_busca.sql           # Anexos + busca full-text
 │
 └── docs/                 # Documentacao didatica
-    ├── 01-git-github-guia.md
-    ├── 02-arquitetura-do-projeto.md
-    ├── 03-supabase-guia.md
-    ├── 04-seguranca-boas-praticas.md
-    └── 05-deploy-24h.md
+    ├── 01-git-github-guia.md              # Guia de Git/GitHub
+    ├── 02-arquitetura-do-projeto.md       # Arquitetura completa
+    ├── 03-supabase-guia.md                # Guia do Supabase
+    ├── 04-seguranca-boas-praticas.md      # Seguranca e boas praticas
+    ├── 05-deploy-24h.md                   # Deploy gratuito 24/7
+    ├── 06-guia-integracao-calendarios.md  # Google Calendar + Microsoft
+    └── 07-guia-funcionalidades.md         # Manual do usuario completo
 ```
 
 ---
@@ -545,9 +515,11 @@ organizador-tarefas/
 | Supabase | Gratis | 500MB banco, 50K requests/mes |
 | GitHub Pages | Gratis | Hospedagem do dashboard |
 | Groq (Whisper) | Gratis | Transcricao de audio |
-| Gemini 2.5 Flash | Gratis | IA principal — classificacao, planejamento, feedback |
-| Claude API (Sonnet) | ~R$5-15/mes | Fallback opcional (so se configurar ANTHROPIC_API_KEY) |
-| Koyeb (deploy 24/7) | Gratis | 1 instancia, 512MB RAM, health check integrado |
+| Gemini 2.5 Flash | Gratis | IA principal |
+| Google Calendar API | Gratis | Sincronizacao de eventos |
+| Microsoft Graph API | Gratis | Sincronizacao de eventos |
+| Claude API (Sonnet) | ~R$5-15/mes | Fallback opcional |
+| Koyeb (deploy 24/7) | Gratis | 1 instancia, 512MB RAM |
 | **Total estimado** | **R$0/mes** | 100% gratuito com Gemini como IA principal |
 
 ---
@@ -557,48 +529,38 @@ organizador-tarefas/
 Este projeto foi construido do zero com a ajuda do Claude Code. Cada etapa ensinou conceitos reais:
 
 ### Conceitos de Programacao
-- **API REST**: Como funciona request/response, headers, status codes — usado no Supabase e Claude API
-- **Estado de conversa (State Machine)**: Bot tem estados (idle, confirming, editing, chatting) que controlam o fluxo
-- **Event Delegation**: Dashboard usa um unico listener no container pai em vez de onclick em cada botao
-- **Realtime/WebSockets**: Supabase envia atualizacoes para o dashboard sem precisar recarregar
+- **API REST**: Request/response, headers, status codes — Supabase, Gemini, Google Calendar
+- **OAuth2**: Fluxo de autorizacao com Google e Microsoft, tokens, refresh, state CSRF
+- **Estado de conversa (State Machine)**: Bot tem 9 estados que controlam o fluxo
+- **Event Delegation**: Dashboard usa listener unico no container pai
+- **Realtime/WebSockets**: Supabase envia atualizacoes sem refresh
+- **PWA**: Manifest, service worker, instalacao no celular
 
 ### Conceitos de IA
-- **System Prompt Engineering**: Escrito com categorias detalhadas, exemplos, regras de classificacao
-- **Pos-processamento**: Python valida e corrige o que a IA retorna (datas, categorias)
-- **Contexto acumulativo**: IA aprende associacoes (pessoa + categoria) para melhorar com o tempo
-- **Dual provider (Gemini + Claude)**: Arquitetura com provider primario e fallback, router `_call_llm()` transparente
-- **Fallback gracioso**: Se a IA falha, classificacao por keywords assume (com deteccao de cabecalhos de dia)
-- **Retry com backoff exponencial**: Chamadas a API retentam automaticamente em caso de erro 429/503
-- **Deteccao de conflitos**: Python analisa sobreposicao de horarios antes de salvar
-- **Decomposicao de tarefas**: IA quebra tarefas grandes em subtarefas concretas
-- **Planejamento por energia**: Tarefas cognitivas de manha, administrativas de tarde
-- **Alerta preditivo**: Analisa carga futura e avisa antes de sobrecarregar
+- **System Prompt Engineering**: Categorias detalhadas, exemplos, regras
+- **Pos-processamento**: Python valida e corrige respostas da IA
+- **Contexto acumulativo**: IA aprende associacoes com o tempo
+- **Dual provider**: Gemini primario + Claude fallback, router transparente
+- **Retry com backoff exponencial**: Tolerancia a falhas 429/503
+- **Coaching personalizado**: IA analisa padroes e gera dicas
 
 ### Conceitos de Infraestrutura
-- **Git/GitHub**: Versionamento, branches, push, pull, .gitignore
+- **Git/GitHub**: Versionamento, branches, push, .gitignore
 - **GitHub Pages**: Deploy automatico de sites estaticos
-- **Variaveis de ambiente (.env)**: Seguranca de chaves de API
-- **Migrations SQL**: Evolucao incremental do banco de dados (001, 002, 003, 004)
-- **Triggers e Views**: Automatizacao no banco (historico, resumo)
-- **Docker**: Container com Dockerfile para deploy consistente
-- **Health Check HTTP**: Mini servidor integrado para satisfazer PaaS (Koyeb) que exige resposta HTTP
-- **Deploy 24/7**: Koyeb (PaaS gratuito) ou Oracle Cloud (VM + systemd service)
-- **Thread daemon**: Health check roda em thread separada sem interferir no bot
+- **Variaveis de ambiente (.env)**: Seguranca de chaves
+- **Migrations SQL**: Evolucao incremental do banco (001 a 010)
+- **Docker**: Container para deploy consistente
+- **Health Check HTTP**: Mini servidor para PaaS
+- **Thread daemon**: Processos paralelos sem interferencia
 
 ### Conceitos de Produto
-- **Mobile-first**: Dashboard projetado para celular primeiro
-- **Confirmacao antes de salvar**: IA nunca salva sem aprovacao do usuario
-- **Sobrecarga mental**: Sistema protege tempo pessoal (ingles, leitura)
-- **Feedback sem julgamento**: Tom de coach, nao de chefe
-- **Bulk actions**: Multi-selecao com Shift+Click para operacoes em massa
-- **Timeline vertical**: Visualizacao cronologica do dia com indicador "agora"
-- **Revisao semanal**: Dashboard de metricas com heatmap e distribuicao por categoria
-- **Theming**: Modo claro/escuro com persistencia via localStorage
-- **Gamificacao**: XP, niveis, streaks — motivacao intrinseca via design de jogos
-- **Drag & Drop**: HTML5 Drag API para mover cards entre status e dias
-- **Historico semanal**: Snapshots semanais com anotacoes para retrospectiva
-- **Habitos integrados**: Subcategorias de vida (treino, leitura, estudo) com tracking de consistencia
-- **Organizador de vida**: Nao so tarefas — rotinas, habitos e metas pessoais integradas
+- **Mobile-first**: Dashboard projetado para celular
+- **Gamificacao**: XP, niveis, streaks para motivacao
+- **Matriz de Eisenhower**: Priorizacao visual com drag&drop
+- **Pomodoro**: Gestao de tempo integrada
+- **Mapeamento de energia**: Dados de energia influenciam planejamento
+- **Busca contextual**: Full-text search em portugues
+- **Integracao de calendarios**: Visao unificada de todos os compromissos
 
 ---
 
@@ -606,20 +568,27 @@ Este projeto foi construido do zero com a ajuda do Claude Code. Cada etapa ensin
 
 | Feature | Status |
 |---------|--------|
-| Bot Telegram com IA | Funcionando |
-| Dashboard web (Premium) | Funcionando |
+| Bot Telegram com IA (21 comandos) | Funcionando |
+| Dashboard web (Premium + PWA) | Funcionando |
 | Gamificacao (XP, niveis, streaks) | Funcionando |
-| Drag & Drop (status + calendario) | Funcionando |
+| Matriz de Eisenhower (drag&drop) | Funcionando |
+| Pomodoro Timer | Funcionando |
+| Mapeamento de energia | Funcionando |
+| Busca global + Anexos | Funcionando |
+| Drag & Drop (status + calendario + Eisenhower) | Funcionando |
 | Historico semanal com anotacoes | Funcionando |
 | Habitos e rotinas de vida | Funcionando |
+| Subtarefas/checklist | Funcionando |
 | Resolucao temporal | Funcionando |
 | Multiplas tarefas | Funcionando |
 | Lembretes automaticos | Funcionando |
 | Resumo matinal 7:30 | Funcionando |
 | Relatorio semanal sex 17h | Funcionando |
 | Tarefas recorrentes | Funcionando |
-| Google Calendar sync | Planejado (Sprint 4) |
-| Telegram Mini App | Planejado (Sprint 4) |
+| Google Calendar sync | Funcionando |
+| Microsoft Outlook/Teams sync | Funcionando |
+| Reflexoes diarias | Funcionando |
+| Coaching IA | Funcionando |
 
 ---
 

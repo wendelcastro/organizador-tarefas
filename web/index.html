@@ -2221,6 +2221,424 @@ body::after {
 }
 .allday-event-chip.google { border-color: hsla(142,52%,45%,0.3); }
 .allday-event-chip.microsoft { border-color: hsla(215,70%,55%,0.3); }
+
+/* ========== HELP SYSTEM ========== */
+
+/* Help tooltip "?" buttons */
+.help-tooltip-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--amber), var(--amber-dark));
+  border: none;
+  color: white;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: var(--transition);
+  flex-shrink: 0;
+  position: relative;
+  z-index: 5;
+  line-height: 1;
+}
+.help-tooltip-btn:hover { transform: scale(1.15); box-shadow: 0 0 12px rgba(196,153,61,0.4); }
+.help-tooltip-btn:active { transform: scale(0.95); }
+
+/* Tooltip floating card */
+.help-tooltip-card {
+  position: absolute;
+  z-index: 100;
+  width: 280px;
+  padding: 1rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-hover);
+  border-radius: var(--radius);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+  color: var(--text-primary);
+  font-size: 0.8rem;
+  line-height: 1.5;
+  opacity: 0;
+  transform: translateY(8px);
+  pointer-events: none;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+.help-tooltip-card.visible {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+.help-tooltip-card::before {
+  content: '';
+  position: absolute;
+  top: -6px; left: 20px;
+  width: 12px; height: 12px;
+  background: var(--bg-surface);
+  border-left: 1px solid var(--border-hover);
+  border-top: 1px solid var(--border-hover);
+  transform: rotate(45deg);
+}
+.help-tooltip-card h4 {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1rem;
+  color: var(--amber);
+  margin-bottom: 0.4rem;
+}
+.help-tooltip-card p { color: var(--text-secondary); margin: 0; }
+
+/* Header help button */
+.btn-help-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px; height: 34px;
+  border-radius: 50%;
+  background: var(--bg-glass);
+  border: 1px solid var(--border-subtle);
+  color: var(--amber);
+  cursor: pointer;
+  transition: var(--transition);
+  font-size: 1.1rem;
+  font-family: 'Cormorant Garamond', serif;
+  font-weight: 700;
+}
+.btn-help-center:hover { border-color: var(--amber); background: hsla(43,52%,54%,0.1); }
+.btn-help-center:active { transform: scale(0.92); }
+
+/* ========== HELP CENTER MODAL ========== */
+.help-center-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(0,0,0,0.6);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+.help-center-overlay.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+.help-center-modal {
+  width: 92%;
+  max-width: 600px;
+  max-height: 85vh;
+  background: var(--bg-deep);
+  border: 1px solid var(--border-hover);
+  border-radius: var(--radius);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transform: translateY(30px);
+  transition: transform 0.3s ease;
+}
+.help-center-overlay.active .help-center-modal {
+  transform: translateY(0);
+}
+.help-center-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.2rem 1.5rem;
+  border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+.help-center-header h2 {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.5rem;
+  background: linear-gradient(135deg, var(--offwhite) 0%, var(--amber) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.help-center-close {
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  background: var(--bg-glass);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  font-size: 1.2rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition);
+}
+.help-center-close:hover { color: var(--text-primary); border-color: var(--border-hover); }
+.help-center-body {
+  overflow-y: auto;
+  padding: 1rem 1.5rem 1.5rem;
+  flex: 1;
+}
+.help-center-body::-webkit-scrollbar { width: 4px; }
+.help-center-body::-webkit-scrollbar-thumb { background: var(--border-hover); border-radius: 4px; }
+
+/* Accordion */
+.help-accordion { margin-bottom: 0.5rem; }
+.help-accordion-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.85rem 1rem;
+  background: var(--bg-glass);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: var(--transition);
+  -webkit-user-select: none;
+  user-select: none;
+}
+.help-accordion-header:hover { border-color: var(--border-hover); }
+.help-accordion.open .help-accordion-header { border-color: hsla(43,52%,54%,0.3); background: hsla(43,52%,54%,0.06); border-radius: var(--radius-sm) var(--radius-sm) 0 0; }
+.help-accordion-title {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.05rem;
+  color: var(--text-primary);
+  display: flex; align-items: center; gap: 0.5rem;
+}
+.help-accordion-title .help-acc-icon { font-size: 1.1rem; }
+.help-accordion-arrow {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  transition: transform 0.3s ease;
+}
+.help-accordion.open .help-accordion-arrow { transform: rotate(180deg); }
+.help-accordion-content {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.35s ease;
+  background: hsla(210,40%,15%,0.5);
+  border: 1px solid var(--border-subtle);
+  border-top: none;
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+}
+.help-accordion.open .help-accordion-content {
+  max-height: 2000px;
+}
+.help-accordion-inner {
+  padding: 1rem;
+  font-size: 0.82rem;
+  line-height: 1.65;
+  color: var(--text-secondary);
+}
+.help-accordion-inner h4 {
+  color: var(--amber);
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 0.95rem;
+  margin: 0.8rem 0 0.3rem;
+}
+.help-accordion-inner h4:first-child { margin-top: 0; }
+.help-accordion-inner code {
+  background: var(--bg-glass);
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  font-size: 0.78rem;
+  color: var(--amber-light);
+  font-family: 'DM Sans', monospace;
+}
+.help-accordion-inner ul {
+  list-style: none;
+  padding: 0;
+}
+.help-accordion-inner ul li {
+  padding: 0.35rem 0;
+  padding-left: 1.2rem;
+  position: relative;
+}
+.help-accordion-inner ul li::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0.65rem;
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: var(--amber);
+  opacity: 0.5;
+}
+.help-accordion-inner .cmd-row {
+  display: flex;
+  gap: 0.75rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.help-accordion-inner .cmd-row:last-child { border-bottom: none; }
+.help-accordion-inner .cmd-name {
+  flex-shrink: 0;
+  min-width: 90px;
+  color: var(--amber-light);
+  font-weight: 500;
+}
+.help-accordion-inner .cmd-desc { color: var(--text-secondary); }
+.help-center-footer {
+  padding: 0.75rem 1.5rem;
+  border-top: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+.btn-restart-tour {
+  padding: 0.5rem 1rem;
+  background: linear-gradient(135deg, var(--amber), var(--amber-dark));
+  border: none;
+  border-radius: 50px;
+  color: white;
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: var(--transition);
+}
+.btn-restart-tour:hover { transform: scale(1.03); }
+.btn-restart-tour:active { transform: scale(0.97); }
+.help-footer-hint {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* ========== ONBOARDING TOUR ========== */
+.onboarding-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  background: rgba(0,0,0,0.65);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+.onboarding-backdrop.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+.onboarding-highlight {
+  position: fixed;
+  z-index: 301;
+  border: 2px solid var(--amber);
+  border-radius: var(--radius);
+  box-shadow: 0 0 0 9999px rgba(0,0,0,0.6), 0 0 30px rgba(196,153,61,0.3);
+  pointer-events: none;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.onboarding-popup {
+  position: fixed;
+  z-index: 302;
+  width: 310px;
+  max-width: 90vw;
+  background: var(--bg-deep);
+  border: 1px solid var(--border-hover);
+  border-radius: var(--radius);
+  padding: 1.2rem;
+  box-shadow: 0 16px 50px rgba(0,0,0,0.5);
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 0.3s ease 0.15s, transform 0.3s ease 0.15s;
+}
+.onboarding-backdrop.active .onboarding-popup {
+  opacity: 1;
+  transform: translateY(0);
+}
+.onboarding-step-indicator {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 0.7rem;
+}
+.onboarding-step-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--border-hover);
+  transition: var(--transition);
+}
+.onboarding-step-dot.active { background: var(--amber); width: 20px; border-radius: 4px; }
+.onboarding-popup h3 {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.15rem;
+  color: var(--amber);
+  margin-bottom: 0.4rem;
+}
+.onboarding-popup p {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  line-height: 1.55;
+  margin-bottom: 1rem;
+}
+.onboarding-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.onboarding-btn-skip {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: 0.78rem;
+  cursor: pointer;
+  padding: 0.4rem 0.6rem;
+  transition: var(--transition);
+}
+.onboarding-btn-skip:hover { color: var(--text-secondary); }
+.onboarding-btn-next {
+  padding: 0.5rem 1.2rem;
+  background: linear-gradient(135deg, var(--amber), var(--amber-dark));
+  border: none;
+  border-radius: 50px;
+  color: white;
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: var(--transition);
+}
+.onboarding-btn-next:hover { transform: scale(1.04); }
+.onboarding-btn-next:active { transform: scale(0.96); }
+
+/* ========== CONTEXTUAL VIEW HINTS ========== */
+.view-hint {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.6rem 0.9rem;
+  margin-bottom: 0.75rem;
+  background: hsla(43,52%,54%,0.06);
+  border: 1px solid hsla(43,52%,54%,0.15);
+  border-radius: var(--radius-sm);
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  line-height: 1.45;
+  animation: slideDown 0.35s ease;
+}
+.view-hint-icon {
+  font-size: 1rem;
+  flex-shrink: 0;
+  color: var(--amber);
+}
+.view-hint-text { flex: 1; }
+.view-hint-close {
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  background: none;
+  border: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: var(--transition);
+}
+.view-hint-close:hover { border-color: var(--border-hover); color: var(--text-secondary); }
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
 </style>
 </head>
 <body>
@@ -2250,6 +2668,7 @@ body::after {
         <button data-view="timeblock" onclick="switchView('timeblock')">Blocos</button>
         <button data-view="kpis" onclick="switchView('kpis')">KPIs</button>
       </div>
+      <button class="btn-help-center" onclick="openHelpCenter()" title="Central de Ajuda">?</button>
       <button class="theme-toggle" onclick="toggleTheme()" title="Alternar tema">
         <span id="themeIcon">☀️</span>
       </button>
@@ -2518,6 +2937,160 @@ body::after {
   <div class="detail-sheet" onclick="event.stopPropagation()">
     <div class="detail-handle"></div>
     <div id="detailContent"></div>
+  </div>
+</div>
+
+<!-- HELP CENTER MODAL -->
+<div class="help-center-overlay" id="helpCenterOverlay" onclick="closeHelpCenter(event)">
+  <div class="help-center-modal" onclick="event.stopPropagation()">
+    <div class="help-center-header">
+      <h2>Central de Ajuda</h2>
+      <button class="help-center-close" onclick="closeHelpCenter()">&times;</button>
+    </div>
+    <div class="help-center-body">
+
+      <!-- Comandos do Telegram -->
+      <div class="help-accordion" id="helpAccTelegram">
+        <div class="help-accordion-header" onclick="toggleHelpAccordion('helpAccTelegram')">
+          <span class="help-accordion-title"><span class="help-acc-icon">&#128172;</span> Comandos do Telegram</span>
+          <span class="help-accordion-arrow">&#9660;</span>
+        </div>
+        <div class="help-accordion-content">
+          <div class="help-accordion-inner">
+            <p>Use estes comandos no bot do Telegram para gerenciar suas tarefas por texto ou voz:</p>
+            <h4>Comandos principais</h4>
+            <div class="cmd-row"><span class="cmd-name">/start</span><span class="cmd-desc">Inicia o bot e mostra mensagem de boas-vindas</span></div>
+            <div class="cmd-row"><span class="cmd-name">/tarefas</span><span class="cmd-desc">Lista todas as tarefas pendentes organizadas por prioridade</span></div>
+            <div class="cmd-row"><span class="cmd-name">/planejar</span><span class="cmd-desc">A IA analisa sua carga e sugere um plano otimizado para o dia</span></div>
+            <div class="cmd-row"><span class="cmd-name">/feedback</span><span class="cmd-desc">Receba feedback inteligente sobre sua produtividade e habitos</span></div>
+            <div class="cmd-row"><span class="cmd-name">/resumo</span><span class="cmd-desc">Resumo completo: tarefas do dia, atrasadas, proximas</span></div>
+            <div class="cmd-row"><span class="cmd-name">/concluir</span><span class="cmd-desc">Marca uma tarefa como concluida (selecione da lista)</span></div>
+            <div class="cmd-row"><span class="cmd-name">/editar</span><span class="cmd-desc">Edita titulo, prazo, categoria ou prioridade de uma tarefa</span></div>
+            <div class="cmd-row"><span class="cmd-name">/relatorio</span><span class="cmd-desc">Relatorio semanal completo com metricas e insights</span></div>
+            <div class="cmd-row"><span class="cmd-name">/foco</span><span class="cmd-desc">Ativa modo foco — a IA sugere a tarefa mais importante agora</span></div>
+            <div class="cmd-row"><span class="cmd-name">/decompor</span><span class="cmd-desc">A IA divide uma tarefa complexa em subtarefas menores</span></div>
+            <div class="cmd-row"><span class="cmd-name">/status</span><span class="cmd-desc">Mostra o status geral: total, pendentes, concluidas, streak</span></div>
+            <div class="cmd-row"><span class="cmd-name">/cancelar</span><span class="cmd-desc">Cancela a operacao atual (edicao, conclusao, etc.)</span></div>
+            <h4>Dica: Entrada por voz</h4>
+            <p>Envie um audio no Telegram e a IA transcreve e cria a tarefa automaticamente. Exemplo: "Preparar slides da aula de banco de dados para quinta-feira" — a IA entende a data, categoria e prioridade sozinha.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Funcionalidades do Dashboard -->
+      <div class="help-accordion" id="helpAccDashboard">
+        <div class="help-accordion-header" onclick="toggleHelpAccordion('helpAccDashboard')">
+          <span class="help-accordion-title"><span class="help-acc-icon">&#128202;</span> Funcionalidades do Dashboard</span>
+          <span class="help-accordion-arrow">&#9660;</span>
+        </div>
+        <div class="help-accordion-content">
+          <div class="help-accordion-inner">
+            <h4>Barra de Estatisticas</h4>
+            <p>Os cards no topo mostram Total, Pendentes, Concluidas, Atrasadas e Reunioes. Clique em qualquer card para filtrar as tarefas correspondentes.</p>
+            <h4>Filtros por Categoria</h4>
+            <p>Use os chips (Trabalho, Consultoria, Grupo Ser, Pessoal) para filtrar. Combine com filtros de status e prioridade na sidebar.</p>
+            <h4>Busca Global</h4>
+            <p>A barra de busca pesquisa em titulos, notas e categorias. Resultados aparecem em tempo real enquanto voce digita.</p>
+            <h4>Criar Tarefas</h4>
+            <p>Clique no botao "+" (dourado) para abrir o formulario. Defina titulo, categoria, prioridade, prazo, horario e notas. Tambem pode adicionar links de reuniao (Zoom, Meet, Teams).</p>
+            <h4>Acoes em Massa</h4>
+            <p>Segure pressionado um card de tarefa para ativar o modo de selecao em massa. Depois selecione varias e conclua ou exclua de uma vez.</p>
+            <h4>Pomodoro</h4>
+            <p>Cada tarefa tem um botao de timer. Clique para iniciar um Pomodoro de 25 minutos focado naquela tarefa. O widget aparece fixo na tela.</p>
+            <h4>Gamificacao</h4>
+            <p>Ganhe XP ao concluir tarefas. Suba de nivel, mantenha sua sequencia (streak) e acompanhe o progresso diario no anel de progresso.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Visoes -->
+      <div class="help-accordion" id="helpAccViews">
+        <div class="help-accordion-header" onclick="toggleHelpAccordion('helpAccViews')">
+          <span class="help-accordion-title"><span class="help-acc-icon">&#128065;</span> Visoes do Dashboard</span>
+          <span class="help-accordion-arrow">&#9660;</span>
+        </div>
+        <div class="help-accordion-content">
+          <div class="help-accordion-inner">
+            <h4>Todas</h4>
+            <p>Lista completa de tarefas com filtros por status (Pendentes, Em andamento, Concluidas). Visao padrao do sistema.</p>
+            <h4>Hoje</h4>
+            <p>Foco no dia atual. Mostra apenas tarefas com prazo para hoje, organizadas por horario. Ideal para planejamento matinal.</p>
+            <h4>Semana (Calendario)</h4>
+            <p>Visualizacao semanal com colunas por dia. Integra com Google Calendar e Microsoft 365 para mostrar eventos externos.</p>
+            <h4>Matriz de Eisenhower</h4>
+            <p>Organize tarefas em 4 quadrantes: Urgente+Importante, Importante, Urgente, e Nem urgente/importante. Arraste tarefas entre quadrantes.</p>
+            <h4>Blocos de Tempo</h4>
+            <p>Timeline visual do dia com blocos de horario. Veja quando suas tarefas e reunioes estao programadas ao longo do dia.</p>
+            <h4>KPIs</h4>
+            <p>Metricas de produtividade: taxa de conclusao, distribuicao por categoria, tarefas por dia da semana, e mais.</p>
+            <h4>Revisao Semanal</h4>
+            <p>Analise da semana: heatmap de 365 dias, historico semanal, anotacoes e habitos. Navegue entre semanas com as setas.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Integracao com Calendario -->
+      <div class="help-accordion" id="helpAccCalendar">
+        <div class="help-accordion-header" onclick="toggleHelpAccordion('helpAccCalendar')">
+          <span class="help-accordion-title"><span class="help-acc-icon">&#128197;</span> Integracao com Calendario</span>
+          <span class="help-accordion-arrow">&#9660;</span>
+        </div>
+        <div class="help-accordion-content">
+          <div class="help-accordion-inner">
+            <h4>Google Calendar</h4>
+            <p>Na visao Semana, clique em "Conectar Google" para autorizar acesso ao seu calendario. Eventos aparecem automaticamente nos blocos de horario.</p>
+            <h4>Microsoft 365</h4>
+            <p>Conecte sua conta Microsoft para sincronizar eventos do Outlook/Teams. Reunioes do Teams aparecem com badge especial.</p>
+            <h4>Eventos de dia inteiro</h4>
+            <p>Eventos sem horario especifico aparecem em um banner no topo do dia na visao Semana.</p>
+            <h4>Links de reuniao</h4>
+            <p>Ao criar uma tarefa, adicione o link da reuniao. O sistema detecta automaticamente se e Zoom, Meet ou Teams e mostra o badge correspondente.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Dicas -->
+      <div class="help-accordion" id="helpAccTips">
+        <div class="help-accordion-header" onclick="toggleHelpAccordion('helpAccTips')">
+          <span class="help-accordion-title"><span class="help-acc-icon">&#128161;</span> Dicas e Truques</span>
+          <span class="help-accordion-arrow">&#9660;</span>
+        </div>
+        <div class="help-accordion-content">
+          <div class="help-accordion-inner">
+            <ul>
+              <li>Use <code>/planejar</code> no Telegram toda manha — a IA monta seu dia ideal baseado na carga e prioridades</li>
+              <li>O <code>/feedback</code> aprende com seus padroes: horarios mais produtivos, categorias que atrasam mais, etc.</li>
+              <li>Envie audio no Telegram para criar tarefas rapidamente — funciona ate no transito (com cuidado!)</li>
+              <li>O dashboard atualiza em tempo real via Supabase Realtime — abra em outro dispositivo e veja as mudancas instantaneamente</li>
+              <li>Na Matriz de Eisenhower, arraste tarefas entre quadrantes para repriorizar visualmente</li>
+              <li>Use o Pomodoro integrado para manter o foco — cada sessao concluida rende XP extra</li>
+              <li>O relatorio semanal automatico chega toda sexta as 17h no Telegram</li>
+              <li>Alterne entre tema escuro e claro com o botao de sol/lua no cabecalho</li>
+              <li>Instale como PWA (app) para acesso rapido direto da tela inicial do celular</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+    </div>
+    <div class="help-center-footer">
+      <button class="btn-restart-tour" onclick="closeHelpCenter(); startOnboarding();">Refazer tour guiado</button>
+      <span class="help-footer-hint">v2.0 — Wendel Castro</span>
+    </div>
+  </div>
+</div>
+
+<!-- ONBOARDING TOUR -->
+<div class="onboarding-backdrop" id="onboardingBackdrop">
+  <div class="onboarding-highlight" id="onboardingHighlight"></div>
+  <div class="onboarding-popup" id="onboardingPopup">
+    <div class="onboarding-step-indicator" id="onboardingSteps"></div>
+    <h3 id="onboardingTitle"></h3>
+    <p id="onboardingDesc"></p>
+    <div class="onboarding-actions">
+      <button class="onboarding-btn-skip" onclick="endOnboarding()">Pular</button>
+      <button class="onboarding-btn-next" id="onboardingNextBtn" onclick="nextOnboardingStep()">Proximo</button>
+    </div>
   </div>
 </div>
 
@@ -6062,6 +6635,276 @@ function installPWA() {
     document.querySelector('.pwa-install-banner')?.remove();
   });
 }
+
+// ========== HELP SYSTEM ==========
+
+// --- Help Tooltips ---
+const helpTooltipData = {
+  'statsBar': { title: 'Estatisticas', text: 'Clique em qualquer card para filtrar tarefas por status. Os numeros atualizam em tempo real.' },
+  'filterBar': { title: 'Filtros por Categoria', text: 'Selecione uma categoria para filtrar. Combine com filtros de status e prioridade para refinar.' },
+  'taskList': { title: 'Lista de Tarefas', text: 'Suas tarefas organizadas. Clique no circulo para concluir. Segure para selecao em massa. Clique no card para ver detalhes.' },
+  'gamificationBar': { title: 'Gamificacao', text: 'Acompanhe seu progresso diario, streak de dias consecutivos e nivel de XP. Conclua tarefas para ganhar pontos!' }
+};
+
+function initHelpTooltips() {
+  Object.entries(helpTooltipData).forEach(([targetId, data]) => {
+    const target = document.getElementById(targetId);
+    if (!target) return;
+    const wrapper = target.parentElement;
+    if (!wrapper) return;
+
+    // Check if already added
+    if (target.querySelector('.help-tooltip-btn')) return;
+
+    const btn = document.createElement('button');
+    btn.className = 'help-tooltip-btn';
+    btn.textContent = '?';
+    btn.setAttribute('aria-label', 'Ajuda: ' + data.title);
+    btn.style.position = 'absolute';
+    btn.style.right = '8px';
+    btn.style.top = '8px';
+
+    const card = document.createElement('div');
+    card.className = 'help-tooltip-card';
+    card.innerHTML = '<h4>' + data.title + '</h4><p>' + data.text + '</p>';
+
+    // Position target relatively if not already
+    const pos = getComputedStyle(target).position;
+    if (pos === 'static') target.style.position = 'relative';
+
+    target.appendChild(btn);
+    target.appendChild(card);
+
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      // Close all other tooltips
+      document.querySelectorAll('.help-tooltip-card.visible').forEach(c => {
+        if (c !== card) c.classList.remove('visible');
+      });
+      card.classList.toggle('visible');
+      // Position card below button
+      card.style.top = (btn.offsetTop + btn.offsetHeight + 8) + 'px';
+      card.style.right = '8px';
+      card.style.left = 'auto';
+    });
+  });
+}
+
+// Close tooltips on outside click
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.help-tooltip-btn') && !e.target.closest('.help-tooltip-card')) {
+    document.querySelectorAll('.help-tooltip-card.visible').forEach(c => c.classList.remove('visible'));
+  }
+});
+
+// --- Help Center ---
+function openHelpCenter() {
+  document.getElementById('helpCenterOverlay').classList.add('active');
+}
+
+function closeHelpCenter(event) {
+  if (event && event.target !== event.currentTarget && !event.target.closest('.help-center-close')) return;
+  document.getElementById('helpCenterOverlay').classList.remove('active');
+}
+
+function toggleHelpAccordion(id) {
+  const acc = document.getElementById(id);
+  if (!acc) return;
+  acc.classList.toggle('open');
+}
+
+// --- Onboarding Tour ---
+const onboardingSteps = [
+  {
+    target: '#statsBar',
+    title: 'Estatisticas Rapidas',
+    desc: 'Veja o resumo das suas tarefas de relance. Clique em qualquer card para filtrar — Total, Pendentes, Concluidas, Atrasadas ou Reunioes.',
+    position: 'bottom'
+  },
+  {
+    target: '.task-list',
+    title: 'Seus Cards de Tarefa',
+    desc: 'Cada tarefa mostra titulo, categoria, prioridade e prazo. Clique no circulo para concluir, ou no card para ver detalhes e editar.',
+    position: 'top'
+  },
+  {
+    target: '#filterBar',
+    title: 'Filtros Inteligentes',
+    desc: 'Filtre por categoria (Trabalho, Consultoria, Grupo Ser, Pessoal). Na sidebar do desktop, filtre tambem por prioridade.',
+    position: 'bottom'
+  },
+  {
+    target: '.bottom-nav',
+    title: 'Navegacao por Visoes',
+    desc: 'Alterne entre visoes: Todas, Hoje, Blocos de Tempo, KPIs, Semana, Revisao e Matriz de Eisenhower. Cada uma oferece uma perspectiva diferente.',
+    position: 'top'
+  },
+  {
+    target: '.search-container',
+    fallbackTarget: '.header-right',
+    title: 'Busca Global',
+    desc: 'Pesquise tarefas por titulo, notas ou categoria. Os resultados aparecem instantaneamente enquanto voce digita.',
+    position: 'bottom'
+  },
+  {
+    target: '.btn-help-center',
+    title: 'Central de Ajuda',
+    desc: 'Acesse a qualquer momento para ver comandos do Telegram, guias de funcionalidades e dicas. Voce tambem pode refazer este tour por la!',
+    position: 'bottom'
+  }
+];
+
+let currentOnboardingStep = 0;
+
+function startOnboarding() {
+  currentOnboardingStep = 0;
+  const backdrop = document.getElementById('onboardingBackdrop');
+  backdrop.classList.add('active');
+  showOnboardingStep(0);
+}
+
+function showOnboardingStep(index) {
+  if (index >= onboardingSteps.length) {
+    endOnboarding();
+    return;
+  }
+
+  currentOnboardingStep = index;
+  const step = onboardingSteps[index];
+  let targetEl = document.querySelector(step.target);
+  if (!targetEl && step.fallbackTarget) targetEl = document.querySelector(step.fallbackTarget);
+
+  // Update step indicators
+  const stepsContainer = document.getElementById('onboardingSteps');
+  stepsContainer.innerHTML = onboardingSteps.map((_, i) =>
+    '<div class="onboarding-step-dot' + (i === index ? ' active' : '') + '"></div>'
+  ).join('');
+
+  // Update content
+  document.getElementById('onboardingTitle').textContent = step.title;
+  document.getElementById('onboardingDesc').textContent = step.desc;
+
+  const nextBtn = document.getElementById('onboardingNextBtn');
+  nextBtn.textContent = index === onboardingSteps.length - 1 ? 'Concluir' : 'Proximo';
+
+  // Position highlight
+  const highlight = document.getElementById('onboardingHighlight');
+  const popup = document.getElementById('onboardingPopup');
+
+  if (targetEl) {
+    const rect = targetEl.getBoundingClientRect();
+    const pad = 6;
+    highlight.style.display = 'block';
+    highlight.style.top = (rect.top - pad) + 'px';
+    highlight.style.left = (rect.left - pad) + 'px';
+    highlight.style.width = (rect.width + pad * 2) + 'px';
+    highlight.style.height = (rect.height + pad * 2) + 'px';
+
+    // Position popup
+    const popupWidth = 310;
+    let popupTop, popupLeft;
+
+    if (step.position === 'bottom') {
+      popupTop = rect.bottom + 16;
+      popupLeft = Math.max(10, Math.min(rect.left, window.innerWidth - popupWidth - 10));
+    } else {
+      popupTop = rect.top - 200;
+      if (popupTop < 10) popupTop = rect.bottom + 16;
+      popupLeft = Math.max(10, Math.min(rect.left, window.innerWidth - popupWidth - 10));
+    }
+
+    popup.style.top = popupTop + 'px';
+    popup.style.left = popupLeft + 'px';
+  } else {
+    highlight.style.display = 'none';
+    popup.style.top = '50%';
+    popup.style.left = '50%';
+    popup.style.transform = 'translate(-50%, -50%)';
+  }
+}
+
+function nextOnboardingStep() {
+  if (currentOnboardingStep >= onboardingSteps.length - 1) {
+    endOnboarding();
+  } else {
+    showOnboardingStep(currentOnboardingStep + 1);
+  }
+}
+
+function endOnboarding() {
+  document.getElementById('onboardingBackdrop').classList.remove('active');
+  localStorage.setItem('onboarding_done', '1');
+}
+
+// --- Contextual View Hints ---
+const viewHints = {
+  tasks: { icon: '&#128203;', text: 'Visao geral de todas as suas tarefas. Use as abas de status acima para filtrar entre Pendentes, Em andamento e Concluidas.' },
+  today: { icon: '&#9200;', text: 'Foco no dia de hoje. Mostra apenas tarefas com prazo para hoje, organizadas por horario. Ideal para comecar o dia.' },
+  calendar: { icon: '&#128197;', text: 'Visao semanal com suas tarefas distribuidas por dia. Conecte Google Calendar ou Microsoft 365 para ver eventos externos.' },
+  matrix: { icon: '&#127919;', text: 'Matriz de Eisenhower: organize tarefas por urgencia e importancia. Arraste entre quadrantes para repriorizar.' },
+  timeblock: { icon: '&#128338;', text: 'Blocos de tempo: veja sua agenda visual do dia com tarefas e reunioes alocadas nos horarios.' },
+  kpis: { icon: '&#128200;', text: 'Metricas de produtividade: taxa de conclusao, distribuicao por categoria, performance por dia da semana.' },
+  review: { icon: '&#128214;', text: 'Revisao semanal: heatmap de atividade, habitos, anotacoes e historico. Navegue entre semanas com as setas.' }
+};
+
+function showViewHint(viewName) {
+  const hint = viewHints[viewName];
+  if (!hint) return;
+
+  // Check if dismissed
+  const dismissKey = 'hint_dismissed_' + viewName;
+  if (localStorage.getItem(dismissKey)) return;
+
+  // Remove existing hints
+  document.querySelectorAll('.view-hint').forEach(h => h.remove());
+
+  const mainEl = document.querySelector('.main');
+  if (!mainEl) return;
+
+  const hintEl = document.createElement('div');
+  hintEl.className = 'view-hint';
+  hintEl.innerHTML =
+    '<span class="view-hint-icon">' + hint.icon + '</span>' +
+    '<span class="view-hint-text">' + hint.text + '</span>' +
+    '<button class="view-hint-close" onclick="dismissViewHint(\'' + viewName + '\', this)" aria-label="Fechar dica">&times;</button>';
+
+  mainEl.insertBefore(hintEl, mainEl.firstChild);
+}
+
+function dismissViewHint(viewName, btn) {
+  localStorage.setItem('hint_dismissed_' + viewName, '1');
+  const hint = btn.closest('.view-hint');
+  if (hint) {
+    hint.style.opacity = '0';
+    hint.style.transform = 'translateY(-10px)';
+    hint.style.transition = '0.25s ease';
+    setTimeout(() => hint.remove(), 250);
+  }
+}
+
+// --- Patch switchView to show contextual hints ---
+const _switchViewBeforeHelp = switchView;
+switchView = function(view) {
+  _switchViewBeforeHelp(view);
+  // Remove existing hints when switching
+  document.querySelectorAll('.view-hint').forEach(h => h.remove());
+  // Show hint for new view after a short delay
+  setTimeout(() => showViewHint(view), 200);
+};
+
+// --- Init on load ---
+document.addEventListener('DOMContentLoaded', () => {
+  // Init tooltips
+  setTimeout(initHelpTooltips, 1500);
+
+  // Auto-start onboarding on first visit
+  if (!localStorage.getItem('onboarding_done')) {
+    setTimeout(startOnboarding, 2000);
+  }
+
+  // Show hint for default view
+  setTimeout(() => showViewHint('tasks'), 1800);
+});
 </script>
 </body>
 </html>
