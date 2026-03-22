@@ -57,7 +57,7 @@ Tempo estimado: ~20 minutos (10 Google + 10 Microsoft)
 4. Name: `Organizador Bot`
 5. Em **"Authorized redirect URIs"**, clique **"+ ADD URI"** e cole:
    ```
-   https://organisador-tarefas-wendel-wendelcastro.koyeb.app/auth/google/callback
+   https://delicate-latashia-wendelcastro-30fcdc8a.koyeb.app/auth/google/callback
    ```
 6. Clique **"CREATE"**
 7. VAI APARECER UM POPUP com:
@@ -92,7 +92,7 @@ Voce agora tem:
      (Essa opcao e a terceira, garante que funciona com conta do Grupo Ser E conta pessoal)
    - Redirect URI:
      - Plataforma: **"Web"**
-     - URI: `https://organisador-tarefas-wendel-wendelcastro.koyeb.app/auth/microsoft/callback`
+     - URI: `https://delicate-latashia-wendelcastro-30fcdc8a.koyeb.app/auth/microsoft/callback`
 5. Clique **"Register"**
 
 ### Passo 3 — Copiar o Client ID
@@ -151,7 +151,7 @@ Voce agora tem:
 | `GOOGLE_CLIENT_SECRET` | O Client Secret do Google (passo 1.5) |
 | `MICROSOFT_CLIENT_ID` | O Application ID do Azure (passo 2.3) |
 | `MICROSOFT_CLIENT_SECRET` | O Secret Value do Azure (passo 2.4) |
-| `BOT_PUBLIC_URL` | `https://organisador-tarefas-wendel-wendelcastro.koyeb.app` |
+| `BOT_PUBLIC_URL` | `https://delicate-latashia-wendelcastro-30fcdc8a.koyeb.app` |
 | `OAUTH_SECRET_KEY` | Qualquer texto aleatorio, ex: `minha-chave-secreta-2026` |
 
 6. Clique **"Save"** / **"Redeploy"**
@@ -214,7 +214,7 @@ Provavelmente a conta do Grupo Ser tem restricoes. Tente:
 
 ### Redirect URI mismatch
 O erro mais comum! Verifique que as URIs sao EXATAMENTE:
-- Google: `https://organisador-tarefas-wendel-wendelcastro.koyeb.app/auth/google/callback`
-- Microsoft: `https://organisador-tarefas-wendel-wendelcastro.koyeb.app/auth/microsoft/callback`
+- Google: `https://delicate-latashia-wendelcastro-30fcdc8a.koyeb.app/auth/google/callback`
+- Microsoft: `https://delicate-latashia-wendelcastro-30fcdc8a.koyeb.app/auth/microsoft/callback`
 
 Sem barra no final, sem http (tem que ser https), sem espaco.

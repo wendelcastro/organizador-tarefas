@@ -2457,7 +2457,12 @@ def main():
     app.add_handler(MessageHandler(filters.VOICE | filters.AUDIO, handle_voice))
 
     logger.info("Bot v2 rodando! Mande /start no Telegram.")
-    app.run_polling(drop_pending_updates=True)
+    app.run_polling(
+        drop_pending_updates=True,
+        allowed_updates=["message", "callback_query"],
+        poll_interval=2.0,
+        timeout=15,
+    )
 
 
 if __name__ == "__main__":
