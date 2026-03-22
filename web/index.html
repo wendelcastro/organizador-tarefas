@@ -1931,6 +1931,118 @@ body::after {
   font-size: 0.72rem; font-weight: 600; cursor: pointer;
 }
 .attachment-save-btn:hover { opacity: 0.9; }
+.attachment-type-selector {
+  display: flex;
+  gap: 0.3rem;
+  margin-bottom: 0.5rem;
+  flex-wrap: wrap;
+}
+.att-type-btn {
+  padding: 0.3rem 0.6rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-glass);
+  color: var(--text-secondary);
+  font-size: 0.7rem;
+  cursor: pointer;
+  transition: var(--transition);
+}
+.att-type-btn.active {
+  border-color: var(--amber);
+  background: hsla(43,52%,54%,0.15);
+  color: var(--amber);
+}
+.att-type-btn:hover { border-color: var(--border-hover); }
+.attachment-file-drop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  padding: 1rem;
+  margin-bottom: 0.5rem;
+  border: 2px dashed var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-glass);
+  cursor: pointer;
+  transition: var(--transition);
+  text-align: center;
+}
+.attachment-file-drop:hover, .attachment-file-drop.dragover {
+  border-color: var(--amber);
+  background: hsla(43,52%,54%,0.08);
+}
+.attachment-file-drop.file-loaded {
+  border-color: var(--cat-pessoal);
+  border-style: solid;
+}
+.file-drop-icon { font-size: 1.5rem; }
+.file-drop-text { font-size: 0.75rem; color: var(--text-secondary); }
+.file-drop-hint { font-size: 0.65rem; color: var(--text-muted); }
+.attachment-input-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+  margin-top: 0.3rem;
+}
+.attachment-cancel-btn {
+  padding: 0.4rem 0.8rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: var(--transition);
+}
+.attachment-cancel-btn:hover { border-color: var(--border-hover); color: var(--text-primary); }
+.week-annotation-preview {
+  background: var(--bg-glass);
+  border: 1px solid var(--border-subtle);
+  border-left: 3px solid var(--amber);
+  border-radius: var(--radius-sm);
+  padding: 0.6rem 0.8rem;
+  margin-bottom: 0.8rem;
+  cursor: pointer;
+  transition: var(--transition);
+}
+.week-annotation-preview:hover { border-color: var(--border-hover); }
+.week-annotation-preview-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.3rem;
+}
+.week-annotation-preview-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--amber);
+  font-weight: 600;
+}
+.week-annotation-preview-action {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  text-decoration: underline;
+}
+.week-annotation-preview-text {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.nav-annotation-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--amber);
+  margin-left: 3px;
+  vertical-align: super;
+}
 .attachment-expanded {
   position: fixed; inset: 0; z-index: 60;
   background: rgba(0,0,0,0.7); display: flex;
@@ -2856,7 +2968,7 @@ body::after {
   </button>
   <button class="nav-item" data-view="review" onclick="switchView('review')">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-    Revisão
+    Revisão<span id="navAnnotationDot" class="nav-annotation-dot" style="display:none"></span>
   </button>
   <button class="nav-item" data-view="matrix" onclick="switchView('matrix')">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="8" rx="1"/><rect x="3" y="13" width="8" height="8" rx="1"/><rect x="13" y="13" width="8" height="8" rx="1"/></svg>
@@ -4815,15 +4927,41 @@ async function loadWeekHistoryList() {
   container.innerHTML = '<h3 style="font-size:0.75rem;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.5rem">Historico de semanas</h3>' +
     histories.map(h => {
       const rateColor = h.completion_rate >= 70 ? 'var(--cat-pessoal)' : h.completion_rate >= 40 ? 'var(--pri-media)' : 'var(--pri-alta)';
-      return `<div class="history-card">
+      return `<div class="history-card" onclick="navigateToWeek('${h.week_start}')">
         <div class="history-card-header">
           <span class="history-card-period">${formatDate(h.week_start)} — ${formatDate(h.week_end)}</span>
           <span class="history-card-rate" style="color:${rateColor}">${h.completion_rate}%</span>
         </div>
-        <div style="font-size:0.72rem;color:var(--text-secondary)">${h.completed_tasks || 0}/${h.total_tasks || 0} concluidas</div>
+        <div style="font-size:0.72rem;color:var(--text-secondary)">${h.completed_tasks || 0}/${h.total_tasks || 0} concluídas</div>
         ${h.annotation ? '<div class="history-card-note">' + h.annotation + '</div>' : ''}
       </div>`;
     }).join('');
+}
+
+function navigateToWeek(weekStartDate) {
+  // Calculate offset from current week
+  const today = new Date();
+  const dow = today.getDay();
+  const currentMonday = new Date(today);
+  currentMonday.setDate(today.getDate() - (dow === 0 ? 6 : dow - 1));
+  currentMonday.setHours(0,0,0,0);
+  const targetDate = new Date(weekStartDate + 'T00:00:00');
+  const diffMs = targetDate.getTime() - currentMonday.getTime();
+  const diffWeeks = Math.round(diffMs / (7 * 24 * 60 * 60 * 1000));
+  reviewWeekOffset = diffWeeks;
+  if (reviewWeekOffset > 0) reviewWeekOffset = 0;
+  switchView('review');
+  // Close search results if open
+  var results = document.getElementById('searchResults');
+  if (results) results.classList.remove('active');
+  var searchInput = document.getElementById('globalSearch');
+  if (searchInput) searchInput.value = '';
+}
+
+function highlightSearchTerm(text, query) {
+  if (!text || !query) return text || '';
+  var regex = new RegExp('(' + query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'gi');
+  return text.replace(regex, '<mark style="background:hsla(43,52%,54%,0.3);color:var(--amber);padding:0 2px;border-radius:2px">$1</mark>');
 }
 
 // ========== HABITS & SUBCATEGORIES ==========
@@ -6283,11 +6421,30 @@ async function deleteSubtask(subtaskId, taskId) {
   renderToday();
 }
 
-// ========== PATCH: renderToday to include energy logger + coaching ==========
+// ========== PATCH: renderToday to include energy logger + coaching + annotation preview ==========
 const _originalRenderToday = renderToday;
 renderToday = function() {
   _originalRenderToday();
   const todayTaskList = document.getElementById('todayTaskList');
+  // Insert annotation preview before everything else
+  if (todayTaskList && !document.getElementById('weekAnnotationPreview')) {
+    loadWeekAnnotation(getWeekDaysForOffset(0)[0].date).then(function(annotation) {
+      // Update nav badge
+      var navDot = document.getElementById('navAnnotationDot');
+      if (navDot) navDot.style.display = annotation ? 'inline-block' : 'none';
+      // Show preview card if annotation exists
+      if (annotation && !document.getElementById('weekAnnotationPreview')) {
+        var previewHTML = '<div class="week-annotation-preview" id="weekAnnotationPreview" onclick="switchView(\'review\')">'
+          + '<div class="week-annotation-preview-header">'
+          + '<span class="week-annotation-preview-label">Anotação da semana</span>'
+          + '<span class="week-annotation-preview-action">Ver/Editar</span>'
+          + '</div>'
+          + '<div class="week-annotation-preview-text">' + annotation + '</div>'
+          + '</div>';
+        todayTaskList.insertAdjacentHTML('beforebegin', previewHTML);
+      }
+    });
+  }
   // Insert energy logger after the header and before the task list
   if (todayTaskList && !document.getElementById('energyLogger')) {
     todayTaskList.insertAdjacentHTML('beforebegin', renderEnergyLogger());
@@ -6404,7 +6561,7 @@ async function performSearch(query) {
         title: 'Semana de ' + w.week_start,
         meta: (w.completed_tasks || 0) + '/' + (w.total_tasks || 0) + ' tarefas \u00b7 ' + (w.completion_rate || 0) + '%',
         preview: (w.annotation || '').substring(0, 80),
-        onclick: ''
+        onclick: "navigateToWeek('" + w.week_start + "')"
       }));
     }
   } catch(e) { console.warn('Search annotations error:', e); }
@@ -6418,13 +6575,22 @@ async function performSearch(query) {
       .order('created_at', { ascending: false })
       .limit(5);
     if (anexos) {
-      var icons = { texto: '\ud83d\udcc4', transcricao: '\ud83c\udf99\ufe0f', link: '\ud83d\udd17', arquivo: '\ud83d\udcce' };
-      anexos.forEach(a => items.push({
-        type: a.tipo || 'Anexo', icon: icons[a.tipo] || '\ud83d\udcc4',
-        title: a.titulo || 'Sem título',
-        preview: (a.conteudo || '').substring(0, 80),
-        onclick: a.tarefa_id ? "showTaskDetail('" + a.tarefa_id + "')" : ''
-      }));
+      var icons = { texto: '\ud83d\udcc4', transcricao: '\ud83c\udf99\ufe0f', link: '\ud83d\udd17', arquivo: '\ud83d\udcce', documento: '\ud83d\udccb' };
+      var typeLabels = { texto: 'Texto', transcricao: 'Transcrição', link: 'Link', arquivo: 'Arquivo', documento: 'Documento' };
+      anexos.forEach(a => {
+        var taskName = '';
+        if (a.tarefa_id) {
+          var parentTask = tasks.find(function(t) { return t.id === a.tarefa_id; });
+          if (parentTask) taskName = parentTask.titulo;
+        }
+        items.push({
+          type: (typeLabels[a.tipo] || 'Anexo'), icon: icons[a.tipo] || '\ud83d\udcc4',
+          title: a.titulo || 'Sem título',
+          meta: taskName ? 'Tarefa: ' + taskName : '',
+          preview: (a.conteudo || '').substring(0, 80),
+          onclick: a.tarefa_id ? "showTaskDetail('" + a.tarefa_id + "')" : ''
+        });
+      });
     }
   } catch(e) { console.warn('Search attachments error:', e); }
 
@@ -6433,11 +6599,11 @@ async function performSearch(query) {
     results.innerHTML = '<div class="search-result-item"><div class="search-result-title" style="color:var(--text-muted)">Nenhum resultado</div></div>';
   } else {
     results.innerHTML = items.map(function(item) {
-      return '<div class="search-result-item" ' + (item.onclick ? 'onclick="' + item.onclick + '"' : '') + '>'
+      return '<div class="search-result-item" ' + (item.onclick ? 'onclick="' + item.onclick + '"' : '') + ' style="' + (item.onclick ? 'cursor:pointer' : '') + '">'
         + '<div class="search-result-type">' + item.icon + ' ' + item.type + '</div>'
-        + '<div class="search-result-title">' + item.title + '</div>'
-        + (item.meta ? '<div class="search-result-meta">' + item.meta + '</div>' : '')
-        + (item.preview ? '<div class="search-result-preview">' + item.preview + '...</div>' : '')
+        + '<div class="search-result-title">' + highlightSearchTerm(item.title, query) + '</div>'
+        + (item.meta ? '<div class="search-result-meta">' + highlightSearchTerm(item.meta, query) + '</div>' : '')
+        + (item.preview ? '<div class="search-result-preview">' + highlightSearchTerm(item.preview, query) + '...</div>' : '')
         + '</div>';
     }).join('');
   }
@@ -6459,7 +6625,7 @@ async function loadAttachments(taskId) {
 }
 
 function renderAttachmentsSection(taskId, attachments) {
-  var icons = { texto: '\ud83d\udcc4', transcricao: '\ud83c\udf99\ufe0f', link: '\ud83d\udd17', arquivo: '\ud83d\udcce' };
+  var icons = { texto: '\ud83d\udcc4', transcricao: '\ud83c\udf99\ufe0f', link: '\ud83d\udd17', arquivo: '\ud83d\udcce', documento: '\ud83d\udccb' };
   var html = '<div class="detail-attachments">'
     + '<div class="detail-attachments-header">'
     + '<span class="detail-attachments-title">Anexos (' + attachments.length + ')</span>'
@@ -6494,11 +6660,71 @@ function showAttachmentInput(taskId) {
 
   var area = document.createElement('div');
   area.className = 'attachment-input-area visible';
-  area.innerHTML = '<input type="text" class="attachment-title-input" placeholder="Titulo do anexo...">'
-    + '<textarea class="attachment-content-input" placeholder="Conteudo (texto, notas, links...)"></textarea>'
-    + '<button class="attachment-save-btn" onclick="saveNewAttachment(\'' + taskId + '\')">Salvar anexo</button>';
+  area.innerHTML = '<div class="attachment-type-selector">'
+    + '<button class="att-type-btn active" data-type="texto" onclick="selectAttType(this)">Texto</button>'
+    + '<button class="att-type-btn" data-type="transcricao" onclick="selectAttType(this)">Transcrição</button>'
+    + '<button class="att-type-btn" data-type="documento" onclick="selectAttType(this)">Documento</button>'
+    + '<button class="att-type-btn" data-type="link" onclick="selectAttType(this)">Link</button>'
+    + '</div>'
+    + '<div class="attachment-file-drop" onclick="this.querySelector(\'input\').click()" ondragover="event.preventDefault();this.classList.add(\'dragover\')" ondragleave="this.classList.remove(\'dragover\')" ondrop="handleFileDrop(event,\'' + taskId + '\')">'
+    + '<input type="file" accept=".txt,.md,.pdf,.docx,.doc,.csv" style="display:none" onchange="handleFileSelect(event,\'' + taskId + '\')">'
+    + '<span class="file-drop-icon">+</span>'
+    + '<span class="file-drop-text">Arraste um arquivo ou clique para selecionar</span>'
+    + '<span class="file-drop-hint">.txt, .md, .csv, .docx</span>'
+    + '</div>'
+    + '<input type="text" class="attachment-title-input" placeholder="Título do anexo...">'
+    + '<textarea class="attachment-content-input" placeholder="Conteúdo (texto, notas, transcrições, links...)"></textarea>'
+    + '<div class="attachment-input-actions">'
+    + '<button class="attachment-cancel-btn" onclick="this.closest(\'.attachment-input-area\').remove()">Cancelar</button>'
+    + '<button class="attachment-save-btn" onclick="saveNewAttachment(\'' + taskId + '\')">Salvar anexo</button>'
+    + '</div>';
   container.appendChild(area);
   area.querySelector('.attachment-title-input').focus();
+}
+
+function selectAttType(btn) {
+  btn.parentElement.querySelectorAll('.att-type-btn').forEach(function(b) { b.classList.remove('active'); });
+  btn.classList.add('active');
+}
+
+function handleFileSelect(event, taskId) {
+  var file = event.target.files[0];
+  if (!file) return;
+  processAttachmentFile(file, taskId);
+}
+
+function handleFileDrop(event, taskId) {
+  event.preventDefault();
+  event.currentTarget.classList.remove('dragover');
+  var file = event.dataTransfer.files[0];
+  if (!file) return;
+  processAttachmentFile(file, taskId);
+}
+
+function processAttachmentFile(file, taskId) {
+  var container = document.getElementById('attachmentInputContainer');
+  var titleInput = container.querySelector('.attachment-title-input');
+  var contentInput = container.querySelector('.attachment-content-input');
+  var dropZone = container.querySelector('.attachment-file-drop');
+
+  // Set title to filename
+  titleInput.value = file.name;
+
+  // Auto-select document type
+  var docBtn = container.querySelector('[data-type="documento"]');
+  if (docBtn) selectAttType(docBtn);
+
+  // Read file content
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    contentInput.value = e.target.result;
+    dropZone.querySelector('.file-drop-text').textContent = file.name + ' carregado';
+    dropZone.classList.add('file-loaded');
+  };
+  reader.onerror = function() {
+    contentInput.value = '[Erro ao ler arquivo: ' + file.name + ']';
+  };
+  reader.readAsText(file);
 }
 
 async function saveNewAttachment(taskId) {
@@ -6508,13 +6734,17 @@ async function saveNewAttachment(taskId) {
   var titulo = titleInput.value.trim();
   var conteudo = contentInput.value.trim();
 
+  // Get selected type
+  var activeType = container.querySelector('.att-type-btn.active');
+  var tipo = activeType ? activeType.dataset.type : 'texto';
+
   if (!titulo && !conteudo) return;
   if (!titulo) titulo = 'Sem título';
 
   try {
     const { error } = await sb
       .from('anexos')
-      .insert({ tarefa_id: taskId, tipo: 'texto', titulo: titulo, conteudo: conteudo });
+      .insert({ tarefa_id: taskId, tipo: tipo, titulo: titulo, conteudo: conteudo });
     if (error) {
       console.error('Erro ao salvar anexo:', error);
       return;
