@@ -5,25 +5,29 @@
 
 ---
 
-## Indice
+## Índice
 
-1. [Criacao de Tarefas](#1-criacao-de-tarefas)
+1. [Criação de Tarefas](#1-criação-de-tarefas)
 2. [Gerenciamento de Tarefas](#2-gerenciamento-de-tarefas)
 3. [Planejamento e IA](#3-planejamento-e-ia)
-4. [Calendario e Agenda](#4-calendario-e-agenda)
+4. [Calendário e Agenda](#4-calendário-e-agenda)
 5. [Busca e Anexos](#5-busca-e-anexos)
 6. [Mapeamento de Energia](#6-mapeamento-de-energia)
-7. [Gamificacao](#7-gamificacao)
+7. [Gamificação](#7-gamificação)
 8. [Matriz de Eisenhower](#8-matriz-de-eisenhower)
 9. [Pomodoro Timer](#9-pomodoro-timer)
-10. [Subtarefas e Decomposicao](#10-subtarefas-e-decomposicao)
-11. [Dashboard — Views e Navegacao](#11-dashboard-views-e-navegacao)
-12. [Automacoes](#12-automacoes)
-13. [Habitos e Rotinas](#13-habitos-e-rotinas)
-14. [Historico Semanal](#14-historico-semanal)
-15. [Reflexoes Diarias](#15-reflexoes-diarias)
-16. [Modo Foco](#16-modo-foco)
-17. [Diagnostico](#17-diagnostico)
+10. [Subtarefas e Decomposição](#10-subtarefas-e-decomposição)
+11. [Dashboard — Views e Navegação](#11-dashboard-views-e-navegação)
+12. [Automações](#12-automações)
+13. [Hábitos e Rotinas](#13-hábitos-e-rotinas)
+14. [Histórico Semanal e Anotações](#14-histórico-semanal-e-anotações)
+15. [Anexos e Upload de Arquivos](#15-anexos-e-upload-de-arquivos)
+16. [Busca com Navegação e Highlight](#16-busca-com-navegação-e-highlight)
+17. [Reflexões Diárias](#17-reflexões-diárias)
+18. [Modo Foco](#18-modo-foco)
+19. [Sistema de Ajuda In-App](#19-sistema-de-ajuda-in-app)
+20. [PWA — Instalar como App](#20-pwa-instalar-como-app)
+21. [Diagnóstico](#21-diagnóstico)
 
 ---
 
@@ -627,73 +631,135 @@ As subtarefas aparecem como checklist dentro do card da tarefa (ou no modal de d
 
 ---
 
-## 11. Dashboard — Views e Navegacao
+## 11. Dashboard — Views e Navegação
+
+O dashboard possui **7 views** acessíveis tanto pelo menu superior (desktop) quanto pela barra de navegação inferior (mobile).
 
 ### View "Todas"
 
-Lista todas as tarefas com filtros por:
-- **Categoria**: Trabalho, Consultoria, Grupo Ser, Pessoal
-- **Prioridade**: Alta, Media, Baixa
-- **Status**: Pendente, Em andamento, Concluida
+**O que faz:** Lista todas as tarefas com filtros avançados.
 
-**Stat cards clicaveis** no topo:
-- Total, Pendentes, Concluidas, Atrasadas, Reunioes
+**Onde:** Dashboard web — botão "Todas" no menu.
+
+**Filtros disponíveis:**
+- **Categoria**: Trabalho, Consultoria, Grupo Ser, Pessoal
+- **Prioridade**: Alta, Média, Baixa
+- **Status**: Pendente, Em andamento, Concluída
+
+**Stat cards clicáveis** no topo:
+- Total, Pendentes, Concluídas, Atrasadas, Reuniões
 - Clicar num card filtra as tarefas correspondentes
 
 ### View "Hoje"
 
-Mostra apenas as tarefas do dia com **timeline vertical**:
-- Indicador "Agora" na posicao atual do dia
-- Tarefas com horario posicionadas no horario correto
-- Tarefas sem horario listadas abaixo
-- Eventos do calendario integrados na timeline
-- Dots de energia clicaveis por periodo
+**O que faz:** Mostra apenas as tarefas e eventos do dia com timeline visual.
 
-### View "Semana"
+**Onde:** Dashboard web — botão "Hoje" (com badge de contagem).
 
-Calendario semanal com 7 dias:
+**Elementos:**
+- Indicador "Agora" na posição atual do dia
+- Tarefas com horário posicionadas no horário correto
+- Tarefas sem horário listadas abaixo
+- Eventos do calendário integrados na timeline (Google verde, Microsoft azul)
+- Dots de energia clicáveis por período (Manhã/Tarde/Noite)
+- Preview da anotação semanal (se houver anotação na semana atual)
+
+### View "Semana" (Calendário)
+
+**O que faz:** Calendário semanal com 7 dias lado a lado.
+
+**Onde:** Dashboard web — botão "Semana".
+
+**Elementos:**
 - Cards de tarefas dentro de cada dia
-- Drag&drop entre dias para reagendar
+- Drag & drop entre dias para reagendar
 - Responsive: em mobile empilha os dias
 - Badge com contagem de tarefas por dia
 
-### View "Revisao Semanal"
+### View "Revisão Semanal"
 
-Dashboard de metricas da semana:
-- Taxa de conclusao (%)
-- Heatmap de produtividade por dia
-- Distribuicao por categoria (pizza/barra)
+**O que faz:** Dashboard de métricas e retrospectiva da semana.
+
+**Onde:** Dashboard web — botão "Revisão" (com badge de anotação quando há texto salvo).
+
+**Elementos:**
+- Taxa de conclusão (%)
+- Heatmap de produtividade por dia (grid 365 dias)
+- Distribuição por categoria (pizza/barra)
 - Tempo pessoal vs trabalho
-- Tracker de habitos (grid por subcategoria)
-- Navegacao entre semanas (< >) para retrospectiva
-- Campo de anotacao semanal
+- Tracker de hábitos (grid por subcategoria)
+- Navegação entre semanas (< >) para retrospectiva
+- Campo de anotação semanal (textarea persistido no banco)
+- Botão "Salvar Semana" para criar snapshot das métricas
+
+### View "Matriz" (Eisenhower)
+
+**O que faz:** Divide tarefas em 4 quadrantes de urgência vs importância.
+
+**Onde:** Dashboard web — botão "Matriz".
+
+**Elementos:**
+- 4 quadrantes: Fazer Agora (Q1), Agendar (Q2), Delegar (Q3), Eliminar (Q4)
+- Auto-classificação pela IA (badge "auto")
+- Drag & drop entre quadrantes para reclassificação manual
+- Contagem de tarefas por quadrante no header colorido
+- Suporta drag & drop mobile (touch events)
+
+### View "Blocos" (Blocos de Tempo)
+
+**O que faz:** Visualização das tarefas por período do dia.
+
+**Onde:** Dashboard web — botão "Blocos".
+
+**Elementos:**
+- 3 blocos visuais: Manhã (6h-11h), Tarde (12h-17h), Noite (18h+)
+- Tarefas posicionadas no bloco correspondente ao horário
+- Integrado com dados de energia (se registrado)
+- Visual limpo para planejamento do dia
 
 ### View "KPIs"
 
-Indicadores chave de performance para acompanhamento de longo prazo.
+**O que faz:** Indicadores de performance para acompanhamento de longo prazo.
 
-### Acoes em lote (Bulk)
+**Onde:** Dashboard web — botão "KPIs".
 
-1. Segure **Shift** e clique em multiplos cards para seleciona-los
-2. Uma barra de acoes aparece no topo
-3. Opcoes: **Concluir todos** ou **Excluir todos**
+**Elementos:**
+- Productivity Score (pontuação de produtividade)
+- Gráfico de barras: últimas 8 semanas de taxa de conclusão
+- Gráfico donut: distribuição por categoria
+- Sparkline: tendência de conclusão
+- Distribuição por categoria com cores e percentuais
+
+### Ações em lote (Bulk)
+
+**O que faz:** Selecionar e agir sobre múltiplas tarefas de uma vez.
+
+**Onde:** Dashboard web — qualquer view com cards.
+
+**Como usar:**
+1. Segure **Shift** e clique em múltiplos cards para selecioná-los
+2. Uma barra de ações aparece no topo
+3. Opções: **Concluir todos** ou **Excluir todos**
 
 ### Drag & Drop
 
-- **Entre status**: Arraste cards para mudar de Pendente -> Em andamento -> Concluida
-- **Entre dias**: No calendario semanal, arraste entre dias para reagendar
+**O que faz:** Reorganizar tarefas arrastando cards.
+
+**Onde:** Dashboard web — views Todas, Semana, Matriz.
+
+**Tipos:**
+- **Entre status**: Arraste cards para mudar de Pendente -> Em andamento -> Concluída
+- **Entre dias**: No calendário semanal, arraste entre dias para reagendar
 - **Entre quadrantes**: Na Matriz de Eisenhower, arraste entre Q1/Q2/Q3/Q4
+- **Upload de arquivo**: Arraste arquivo para a drop zone no modal de detalhe
 
 ### Modo claro/escuro
 
-Toggle no canto superior direito. A preferencia e salva no `localStorage` e persiste entre sessoes.
+**O que faz:** Alterna entre tema escuro (padrão) e claro.
 
-### PWA (instalar como app)
+**Onde:** Dashboard web — toggle no canto superior direito.
 
-O dashboard pode ser instalado como app nativo:
-1. Abra no Chrome (celular ou desktop)
-2. Clique em "Instalar" (banner ou menu do navegador)
-3. O dashboard aparece como app com icone na home screen
+A preferência é salva no `localStorage` e persiste entre sessões.
 
 ---
 
@@ -764,51 +830,181 @@ Na view Revisao Semanal, um grid mostra quais habitos foram feitos em cada dia d
 
 ---
 
-## 14. Historico Semanal
+## 14. Histórico Semanal e Anotações
 
 ### Salvar snapshot
 
-Na view Revisao Semanal do dashboard, clique em "Salvar Semana" para criar um snapshot das metricas.
+**O que faz:** Cria um registro permanente das métricas da semana.
 
-### Anotacoes
+**Onde:** Dashboard web — view Revisão Semanal — botão "Salvar Semana".
 
-Cada semana pode ter uma anotacao pessoal:
-- "Semana puxada, muitas reunioes"
-- "Consegui manter a academia 4x"
-- "Preciso melhorar tempo pessoal"
+**Passo a passo:**
+1. Abra a view "Revisão" no dashboard
+2. Veja as métricas da semana (taxa de conclusão, distribuição, hábitos)
+3. Escreva uma anotação no campo de texto (opcional mas recomendado)
+4. Clique em "Salvar Semana"
+5. O snapshot fica salvo na tabela `historico_semanal`
 
-### Navegacao
+### Anotações semanais
 
-Use os botoes < > para navegar entre semanas anteriores e comparar evolucao.
+**O que faz:** Permite escrever observações sobre a semana que ficam salvas e pesquisáveis.
+
+**Onde:** Dashboard web — view Revisão Semanal (campo textarea).
+
+**Exemplos:**
+- "Semana puxada, muitas reuniões do Grupo Ser"
+- "Consegui manter a academia 4x — streak de 12 dias"
+- "Preciso melhorar tempo pessoal — muito Trabalho"
+
+### Visibilidade das anotações
+
+As anotações aparecem em **3 lugares** no dashboard:
+
+1. **Badge no menu "Revisão"**: Um ponto dourado aparece no botão de Revisão quando há anotação na semana atual, indicando que há algo escrito.
+
+2. **Preview na view Hoje**: Na view Hoje, um card resumido mostra a anotação da semana atual com opção de clicar para ir à Revisão.
+
+3. **Pesquisável via busca**: As anotações são incluídas nos resultados da busca global (barra de busca e `/buscar`).
+
+### Navegação entre semanas
+
+Use os botões < > para navegar entre semanas anteriores e comparar evolução. O histórico de semanas passadas mostra métricas + anotação de cada período.
 
 ---
 
-## 15. Reflexoes Diarias
+## 15. Anexos e Upload de Arquivos
+
+### Via Telegram (`/anexar`)
+
+**O que faz:** Salva um texto como anexo pesquisável vinculado ao sistema.
+
+**Onde:** Telegram — comando `/anexar`.
+
+**Modo 1 — Responder a mensagem:**
+1. Tenha uma mensagem no chat (ex: transcrição de áudio)
+2. Responda a essa mensagem com `/anexar Título do anexo`
+3. O conteúdo da mensagem original é salvo como anexo
+
+**Modo 2 — Duas etapas:**
+1. Envie `/anexar Título do anexo`
+2. O bot pede o conteúdo
+3. Envie o texto na mensagem seguinte
+
+**Exemplo:**
+```
+/anexar Notas da reunião de alinhamento
+```
+Bot:
+```
+Título: Notas da reunião de alinhamento
+Agora envie o conteúdo:
+```
+Você:
+```
+Carlos pediu para revisar o cronograma do projeto.
+Prazo final: 30/03. Maria vai fazer a parte de dados.
+```
+
+### Via Dashboard (upload de arquivos)
+
+**O que faz:** Permite anexar arquivos arrastando para dentro do modal de detalhe da tarefa.
+
+**Onde:** Dashboard web — modal de detalhe de qualquer tarefa.
+
+**Passo a passo:**
+1. Clique em um card de tarefa para abrir o modal de detalhe
+2. Role até a seção "Anexos"
+3. Para adicionar:
+   - **Drag & Drop**: Arraste um arquivo do computador para a área tracejada "Solte o arquivo aqui"
+   - **Clique**: Clique na área tracejada para abrir o seletor de arquivos
+4. O arquivo é carregado e o nome aparece na área
+5. Os metadados são salvos na tabela `anexos` (coluna `metadata` em JSONB)
+
+**Tipos suportados:**
+- `texto` — notas, anotações manuais
+- `transcricao` — áudios transcritos vinculados a tarefas
+- `link` — URLs com descrição
+- `arquivo` — PDFs, imagens, documentos (metadata: nome, tamanho, tipo MIME)
+
+### Pesquisa em anexos
+
+Todos os anexos são pesquisáveis:
+- Via bot: `/buscar cronograma` encontra anexos cujo título ou conteúdo contenha "cronograma"
+- Via dashboard: a barra de busca inclui anexos nos resultados
+
+---
+
+## 16. Busca com Navegação e Highlight
+
+### Via Telegram (`/buscar`)
+
+**O que faz:** Busca unificada em tarefas, eventos, anotações e anexos.
+
+**Onde:** Telegram — comando `/buscar`.
+
+```
+/buscar reunião com Carlos
+```
+
+O bot busca em 4 fontes e retorna resultados unificados com ícone por tipo.
+
+### Via Dashboard (barra de busca)
+
+**O que faz:** Busca em tempo real com highlight e navegação.
+
+**Onde:** Dashboard web — barra de busca no topo da página.
+
+**Passo a passo:**
+1. Clique na barra de busca (ou pressione `/` para focar)
+2. Digite o termo (ex: "Carlos")
+3. Os resultados aparecem em dropdown conforme você digita (debounce 300ms)
+4. O termo buscado é **destacado (highlight)** em amarelo nos resultados
+5. Cada resultado mostra:
+   - Ícone por tipo (tarefa, evento, anotação, anexo)
+   - Título com highlight
+   - Metadados (categoria, data, status)
+   - Preview do conteúdo (para anexos e anotações)
+6. **Clique no resultado** para navegar até o item:
+   - Tarefa: abre o modal de detalhe
+   - Evento: navega para a view Hoje
+   - Anotação: navega para a view Revisão da semana correspondente
+
+---
+
+## 17. Reflexões Diárias
+
+**O que faz:** O bot envia uma pergunta reflexiva no final do dia para autoavaliação.
+
+**Onde:** Telegram (mensagem automática do bot).
 
 O bot pode enviar uma pergunta reflexiva no final do dia (ex: 22h):
 
 ```
-Reflexao do dia:
+Reflexão do dia:
 
-Qual foi a tarefa mais significativa que voce completou hoje e por que?
+Qual foi a tarefa mais significativa que você completou hoje e por quê?
 ```
 
-Sua resposta e salva no banco (tabela `reflexoes`) para consulta futura.
+Sua resposta é salva no banco (tabela `reflexoes`) para consulta futura.
 
 ---
 
-## 16. Modo Foco
+## 18. Modo Foco
+
+**O que faz:** Silencia lembretes de baixa prioridade por um período definido.
+
+**Onde:** Telegram — comando `/foco`.
 
 ### Ativar
 
 ```
 /foco 2h         — 2 horas de foco
 /foco 45min      — 45 minutos
-/foco             — 1 hora (padrao)
+/foco             — 1 hora (padrão)
 ```
 
 Durante o modo foco:
-- Lembretes de **baixa prioridade** sao silenciados
+- Lembretes de **baixa prioridade** são silenciados
 - Lembretes de **alta prioridade** continuam chegando
 - O bot avisa quando o tempo acabar
 
@@ -822,11 +1018,82 @@ Durante o modo foco:
 
 ---
 
-## 17. Diagnostico
+## 19. Sistema de Ajuda In-App
+
+**O que faz:** Guia o usuário dentro do dashboard com 3 camadas de ajuda.
+
+**Onde:** Dashboard web — disponível em todas as views.
+
+### Camada 1: Tour de Onboarding
+
+Quando o usuário acessa o dashboard pela primeira vez (ou clica em "Iniciar Tour"):
+
+1. Um overlay escuro destaca um elemento da interface
+2. Um popup explicativo aparece ao lado com seta apontando
+3. Botões "Próximo" e "Pular" para avançar ou encerrar
+4. O tour passa pelos principais elementos: menu, filtros, stat cards, cards de tarefa
+
+**Como ativar manualmente:** Clique no botão "?" no header > "Iniciar Tour" na Central de Ajuda.
+
+### Camada 2: Tooltips Contextuais (botões "?")
+
+Cada seção do dashboard tem um pequeno botão "?" que, ao ser clicado:
+
+1. Exibe um card flutuante com explicação da seção
+2. O card tem seta apontando para o elemento pai
+3. Fecha ao clicar fora do card
+
+**Exemplo:** Na seção de Gamificação, o "?" explica o sistema de XP, níveis e streaks.
+
+### Camada 3: Central de Ajuda
+
+O botão no header abre um modal completo com:
+
+1. Guias organizados por funcionalidade
+2. Explicação de cada view
+3. Dicas de atalhos e gestos
+4. Dicas contextuais baseadas na view ativa
+
+**Como acessar:** Clique no botão "Central de Ajuda" no header do dashboard.
+
+---
+
+## 20. PWA — Instalar como App
+
+**O que faz:** O dashboard pode ser instalado como app nativo no celular ou desktop.
+
+**Onde:** Navegador (Chrome, Edge, Safari).
+
+### Como instalar
+
+1. Abra o dashboard no Chrome (celular ou desktop)
+2. Clique em "Instalar" (banner automático ou menu do navegador > "Instalar app")
+3. O dashboard aparece como app com ícone na home screen
+
+### Funcionalidade offline
+
+O dashboard usa um **Service Worker** (`sw.js`) com estratégia **network-first**:
+- Tenta buscar dados da rede primeiro
+- Se a rede falhar, usa cache local
+- Arquivos estáticos (HTML, CSS, JS, fontes) são cacheados na primeira visita
+- Dados do Supabase são atualizados quando há conexão
+
+### Arquivos PWA
+
+| Arquivo | Função |
+|---------|--------|
+| `web/manifest.json` | Define nome, ícones, cores e comportamento do app |
+| `web/sw.js` | Service Worker com cache network-first |
+
+---
+
+## 21. Diagnóstico
 
 ### Status (`/status`)
 
-Verifica a conexao com todas as APIs e mostra o status das variaveis de ambiente.
+**O que faz:** Verifica a conexão com todas as APIs e mostra o status das variáveis de ambiente.
+
+**Onde:** Telegram — comando `/status`.
 
 ```
 /status
@@ -834,16 +1101,16 @@ Verifica a conexao com todas as APIs e mostra o status das variaveis de ambiente
 
 Resposta:
 ```
-Diagnostico do Sistema
+Diagnóstico do Sistema
 
   Supabase: Conectado (12ms)
   Gemini API: Conectada
-  Claude API: Nao configurada
+  Claude API: Não configurada
   Groq API: Conectada
   Google Calendar: Conectado (15 eventos)
-  Microsoft Calendar: Nao configurado
+  Microsoft Calendar: Não configurado
 
-Variaveis:
+Variáveis:
   TELEGRAM_BOT_TOKEN: ok
   SUPABASE_URL: ok
   GEMINI_API_KEY: ok
@@ -858,15 +1125,17 @@ Variaveis:
 ## Dicas de Produtividade
 
 1. **Comece o dia com `/planejar`** — a IA monta blocos de tempo baseados na sua energia
-2. **Use `/energia` de manha** — melhora a qualidade do planejamento
-3. **Audio e mais rapido** — grave um audio listando tudo de uma vez
-4. **Envie a semana inteira** — "Segunda: X, Terca: Y, Quarta: Z"
-5. **Use `/coaching` quando travar** — a IA da dicas baseadas nos seus padroes
+2. **Use `/energia` de manhã** — melhora a qualidade do planejamento
+3. **Áudio é mais rápido** — grave um áudio listando tudo de uma vez
+4. **Envie a semana inteira** — "Segunda: X, Terça: Y, Quarta: Z"
+5. **Use `/coaching` quando travar** — a IA dá dicas baseadas nos seus padrões
 6. **Confie no Eisenhower** — arraste tarefas para os quadrantes certos
-7. **Pomodoro para tarefas grandes** — 25min de foco vence a procrastinacao
-8. **Salve anotacoes com `/anexar`** — tudo fica pesquisavel depois
-9. **Revise toda sexta** — use a view Revisao Semanal para retrospectiva
-10. **Proteja tempo pessoal** — a IA ja te lembra disso no feedback
+7. **Pomodoro para tarefas grandes** — 25min de foco vence a procrastinação
+8. **Salve anotações com `/anexar`** — tudo fica pesquisável depois
+9. **Revise toda sexta** — use a view Revisão Semanal para retrospectiva
+10. **Proteja tempo pessoal** — a IA já te lembra disso no feedback
+11. **Use a busca** — `/buscar` no Telegram ou barra de busca no dashboard encontra qualquer coisa
+12. **Explore a ajuda** — clique nos botões "?" do dashboard para aprender cada seção
 
 ---
 

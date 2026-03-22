@@ -60,9 +60,16 @@ Esse servidor:
    Dois bots NAO podem usar o mesmo token ao mesmo tempo.
 
 2. **Rode as migrations SQL** — no Supabase > SQL Editor, execute na ordem:
-   - `supabase/001_criar_tabelas.sql`
-   - `supabase/002_fix_delete_trigger.sql`
-   - `supabase/003_melhorias_inteligentes.sql`
+   - `supabase/001_criar_tabelas.sql` — Tabelas base
+   - `supabase/002_fix_delete_trigger.sql` — Fix FK
+   - `supabase/003_melhorias_inteligentes.sql` — Campos v2
+   - `supabase/004_gamificacao_historico_habitos.sql` — Gamificação
+   - `supabase/005_pomodoro_reflexoes.sql` — Pomodoro e reflexões
+   - `supabase/006_energy_mapping.sql` — Energia
+   - `supabase/007_eisenhower_quadrant.sql` — Matriz Eisenhower
+   - `supabase/008_subtarefas.sql` — Subtarefas
+   - `supabase/009_eventos_calendario.sql` — Eventos calendário
+   - `supabase/010_anexos_busca.sql` — Anexos e busca full-text
 
 3. **Commit e push** — o Koyeb puxa o codigo do GitHub, entao tudo precisa estar no repo:
    ```bash
@@ -105,13 +112,20 @@ O `EXPOSE 8000` declara a porta do health check para o Koyeb.
 #### 4. Configurar variaveis de ambiente
 Na secao "Environment variables", adicione cada uma:
 
-| Variavel | Onde pegar | Exemplo |
+| Variável | Onde pegar | Exemplo |
 |----------|-----------|---------|
 | `TELEGRAM_BOT_TOKEN` | @BotFather no Telegram | `1234567890:ABCdef...` |
 | `SUPABASE_URL` | Supabase > Settings > API > Project URL | `https://abc123.supabase.co` |
 | `SUPABASE_ANON_KEY` | Supabase > Settings > API > anon public | `eyJhbGci...` |
-| `ANTHROPIC_API_KEY` | console.anthropic.com > API Keys | `sk-ant-api03-...` |
+| `GEMINI_API_KEY` | aistudio.google.com > Get API Key | `AIza...` |
+| `ANTHROPIC_API_KEY` | console.anthropic.com > API Keys (opcional) | `sk-ant-api03-...` |
 | `GROQ_API_KEY` | console.groq.com > API Keys (opcional) | `gsk_...` |
+| `GOOGLE_CLIENT_ID` | console.cloud.google.com (opcional) | `123...apps.googleusercontent.com` |
+| `GOOGLE_CLIENT_SECRET` | console.cloud.google.com (opcional) | `GOCSPX-...` |
+| `MICROSOFT_CLIENT_ID` | portal.azure.com (opcional) | `a1b2c3d4-...` |
+| `MICROSOFT_CLIENT_SECRET` | portal.azure.com (opcional) | `secret...` |
+| `BOT_PUBLIC_URL` | URL do deploy no Koyeb (se usar calendário) | `https://seu-app.koyeb.app` |
+| `OAUTH_SECRET_KEY` | Você define (se usar calendário) | `chave-secreta-aleatoria` |
 
 **IMPORTANTE**: As variaveis ficam criptografadas no Koyeb. Ninguem ve.
 
@@ -127,8 +141,9 @@ A variavel `PORT` e definida automaticamente pelo Koyeb (geralmente 8000).
 - Nos **Logs**, procure essas mensagens (nesta ordem):
   ```
   Health check server rodando na porta 8000
+  Gemini API conectada — modo inteligente v2 ativado!
   Iniciando Organizador de Tarefas v2...
-  Modo: INTELIGENTE v2 (Claude)
+  Modo: INTELIGENTE v2 (Gemini 2.5 Flash)
   Bot v2 rodando! Mande /start no Telegram.
   Jobs programados: resumo 7:30, relatorio sex 17:00, recorrentes 6:00
   ```
@@ -139,14 +154,17 @@ A variavel `PORT` e definida automaticamente pelo Koyeb (geralmente 8000).
 
 #### 8. Pronto!
 O bot agora:
-- Roda 24/7 na nuvem (voce pode desligar o PC)
+- Roda 24/7 na nuvem (você pode desligar o PC)
 - Reinicia automaticamente se cair
-- Atualiza sozinho quando voce faz `git push` no GitHub
+- Atualiza sozinho quando você faz `git push` no GitHub
 - Health check responde "OK" para o Koyeb na porta 8000
-- Envia resumo matinal as 7:30
-- Envia relatorio toda sexta as 17h
-- Envia lembretes 15min antes de reunioes
-- Cria tarefas recorrentes as 6:00
+- Envia resumo matinal às 7:30
+- Check-in do meio-dia às 13:00
+- Envia relatório toda sexta às 17h
+- Envia lembretes 15min antes de reuniões e eventos do calendário
+- Cria tarefas recorrentes às 6:00
+- Sincroniza calendários a cada 15 minutos
+- Keep-alive a cada 4 minutos (evita sleep no free tier)
 
 ### Atualizacao automatica
 

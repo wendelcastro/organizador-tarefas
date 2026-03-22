@@ -110,9 +110,25 @@ e abrir o dashboard via GitHub Pages - e mais simples e direto.
 Se quiser usar o IDX para preview ao vivo enquanto desenvolve, ele aceita
 importar projetos do GitHub diretamente.
 
-## Proximos passos
+## Estrutura atual do projeto no GitHub
 
-- [ ] Criar conta no GitHub (se ainda nao tem)
-- [ ] Criar o repositorio `organizador-tarefas`
+```
+organizador-tarefas/
+├── .env.example          <- Template de variáveis (12 variáveis)
+├── .gitignore            <- Ignora .env, __pycache__, etc.
+├── CLAUDE.md             <- Instruções para o Claude Code
+├── README.md             <- Documentação completa do projeto
+├── Dockerfile            <- Build para Koyeb
+├── Procfile              <- Declaração de worker para PaaS
+├── bot/                  <- Bot Telegram + IA + Calendar (3 arquivos Python)
+├── web/                  <- Dashboard PWA (index.html + manifest + sw.js)
+├── supabase/             <- 10 migrations SQL (001 a 010)
+└── docs/                 <- 7 guias didáticos
+```
+
+## Próximos passos
+
+- [ ] Criar conta no GitHub (se ainda não tem)
+- [ ] Criar o repositório `organizador-tarefas`
 - [ ] Fazer o primeiro commit e push
 - [ ] Ativar GitHub Pages

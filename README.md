@@ -90,25 +90,34 @@ A IA:
 - [x] Sync de calendarios a cada 15 minutos
 - [x] Keep-alive interno: ping a cada 4 minutos para evitar sleep no free tier do Koyeb
 
-### Dashboard Web
-- [x] 5 views: Todas | Hoje | Semana | Revisao Semanal | KPIs
+### Dashboard Web (7 views)
+- [x] 7 views: Todas | Hoje | Semana | Revisão Semanal | Matriz Eisenhower | Blocos de Tempo | KPIs
 - [x] Filtros por categoria, prioridade e status
-- [x] Stat cards clicaveis (Total, Pendentes, Concluidas, Atrasadas, Reunioes)
-- [x] Barra de busca global (tarefas, eventos, anotacoes, anexos)
-- [x] Calendario semanal responsivo (empilha no mobile)
-- [x] Cards com tempo estimado, delegacao, recorrencia
+- [x] Stat cards clicáveis (Total, Pendentes, Concluídas, Atrasadas, Reuniões)
+- [x] Barra de busca global com highlight e navegação (tarefas, eventos, anotações, anexos)
+- [x] Calendário semanal responsivo (empilha no mobile)
+- [x] Cards com tempo estimado, delegação, recorrência
 - [x] Banner de alerta para tarefas atrasadas
-- [x] Badge com contagem no botao "Hoje"
-- [x] Modal de detalhe completo da tarefa
-- [x] Edicao e exclusao direto no dashboard
+- [x] Badge com contagem no botão "Hoje"
+- [x] Modal de detalhe completo da tarefa (edição de todos os campos, subtarefas, anexos, Pomodoro)
+- [x] Edição e exclusão direto no dashboard
 - [x] Realtime via Supabase (atualiza sem refresh)
 - [x] Design escuro, mobile-first
-- [x] Modo claro/escuro com toggle e persistencia (localStorage)
+- [x] Modo claro/escuro com toggle e persistência (localStorage)
+- [x] Anotações semanais com preview na view Hoje, badge no menu, histórico clicável e pesquisável
+- [x] Upload de anexos com drag & drop de arquivos direto no modal de detalhe
 
 ### Timeline e Blocos de Tempo
 - [x] Timeline vertical do dia com indicador "Agora" (view Hoje)
-- [x] Toggle rapido de status (pendente -> em andamento -> concluida)
-- [x] Acoes em lote: Shift+Click para multi-selecao + concluir/excluir em massa
+- [x] Blocos de tempo visual (Manhã/Tarde/Noite) na view dedicada
+- [x] Toggle rápido de status (pendente -> em andamento -> concluída)
+- [x] Ações em lote: Shift+Click para multi-seleção + concluir/excluir em massa
+
+### Sistema de Ajuda In-App
+- [x] Tour de onboarding para novos usuários (highlight de elementos com popup explicativo)
+- [x] Botões de tooltip "?" em cada seção com explicações contextuais
+- [x] Central de Ajuda completa (modal com guias organizados por funcionalidade)
+- [x] Dicas contextuais por view (cada tela mostra dicas relevantes)
 
 ### Gamificacao
 - [x] Sistema de XP: pontos por tarefa concluida (bonus por prazo e prioridade)
@@ -143,10 +152,12 @@ A IA:
 - [x] Tabela `energia_diaria` no Supabase
 
 ### Busca e Anexos
-- [x] Busca full-text em tarefas, eventos, anotacoes semanais e anexos
-- [x] Barra de busca no dashboard com resultados em tempo real
-- [x] Anexos do tipo texto, transcricao, link ou arquivo
-- [x] Indices GIN com `to_tsvector('portuguese')` para busca em portugues
+- [x] Busca full-text em tarefas, eventos, anotações semanais e anexos
+- [x] Barra de busca no dashboard com resultados em tempo real e highlight do termo buscado
+- [x] Navegação entre resultados (clique no resultado abre/navega até o item)
+- [x] Anexos do tipo texto, transcrição, link ou arquivo
+- [x] Upload de arquivos via drag & drop no modal de detalhe da tarefa
+- [x] Índices GIN com `to_tsvector('portuguese')` para busca em português
 
 ### Integracao de Calendarios
 - [x] Google Calendar: OAuth2, sync automatico, lembretes
@@ -163,11 +174,15 @@ A IA:
 - [x] Checklist com progresso visual no dashboard
 - [x] Tabela `subtarefas` com FK para tarefas
 
-### Historico Semanal
-- [x] Snapshot de cada semana salvo automaticamente ou por botao
-- [x] Campo de anotacao por semana ("semana puxada", "muitas entregas")
-- [x] Navegacao entre semanas anteriores (< >) na view Revisao
-- [x] Lista de semanas passadas com metricas
+### Histórico Semanal e Anotações
+- [x] Snapshot de cada semana salvo automaticamente ou por botão
+- [x] Campo de anotação por semana ("semana puxada", "muitas entregas")
+- [x] Navegação entre semanas anteriores (< >) na view Revisão
+- [x] Lista de semanas passadas com métricas
+- [x] Badge de notificação no menu "Revisão" quando há anotação na semana
+- [x] Preview da anotação da semana na view Hoje
+- [x] Histórico de anotações clicável para navegação rápida
+- [x] Anotações incluídas na busca global (pesquisáveis)
 
 ### Habitos e Vida (Organizador de Vida)
 - [x] Tipos de item: Tarefa, Habito, Rotina (tratamento visual diferente)
@@ -180,9 +195,10 @@ A IA:
 - [x] Respostas salvas no banco (tabela `reflexoes`)
 
 ### PWA (Progressive Web App)
-- [x] Manifest.json para instalacao no celular/desktop
+- [x] Manifest.json para instalação no celular/desktop
+- [x] Service Worker com cache network-first (funciona offline com dados em cache)
 - [x] Funciona como app nativo quando instalado
-- [x] Icone na home screen do celular
+- [x] Ícone na home screen do celular
 
 ---
 
@@ -480,8 +496,9 @@ organizador-tarefas/
 │   └── requirements.txt  # Dependencias Python (3 pacotes)
 │
 ├── web/                  # Dashboard (GitHub Pages)
-│   ├── index.html        # Single-file: HTML + CSS + JS (PWA)
-│   └── manifest.json     # PWA manifest para instalacao
+│   ├── index.html        # Single-file: HTML + CSS + JS (PWA, sistema de ajuda)
+│   ├── manifest.json     # PWA manifest para instalação
+│   └── sw.js             # Service Worker (cache network-first para PWA offline)
 │
 ├── supabase/             # Scripts do banco de dados (rodar na ordem)
 │   ├── 001_criar_tabelas.sql           # Tabelas base
@@ -528,13 +545,16 @@ organizador-tarefas/
 
 Este projeto foi construido do zero com a ajuda do Claude Code. Cada etapa ensinou conceitos reais:
 
-### Conceitos de Programacao
+### Conceitos de Programação
 - **API REST**: Request/response, headers, status codes — Supabase, Gemini, Google Calendar
-- **OAuth2**: Fluxo de autorizacao com Google e Microsoft, tokens, refresh, state CSRF
+- **OAuth2**: Fluxo de autorização com Google e Microsoft, tokens, refresh, state CSRF com HMAC
 - **Estado de conversa (State Machine)**: Bot tem 9 estados que controlam o fluxo
-- **Event Delegation**: Dashboard usa listener unico no container pai
-- **Realtime/WebSockets**: Supabase envia atualizacoes sem refresh
-- **PWA**: Manifest, service worker, instalacao no celular
+- **Event Delegation**: Dashboard usa listener único no container pai
+- **Realtime/WebSockets**: Supabase envia atualizações sem refresh
+- **PWA**: Manifest, Service Worker com cache network-first, instalação no celular
+- **Full-Text Search**: Índices GIN com `to_tsvector('portuguese')` no PostgreSQL
+- **Drag & Drop API**: Nativo do HTML5, incluindo upload de arquivos via drop zone
+- **In-App Help System**: Tour de onboarding, tooltips contextuais, Central de Ajuda
 
 ### Conceitos de IA
 - **System Prompt Engineering**: Categorias detalhadas, exemplos, regras
@@ -569,26 +589,31 @@ Este projeto foi construido do zero com a ajuda do Claude Code. Cada etapa ensin
 | Feature | Status |
 |---------|--------|
 | Bot Telegram com IA (21 comandos) | Funcionando |
-| Dashboard web (Premium + PWA) | Funcionando |
-| Gamificacao (XP, niveis, streaks) | Funcionando |
+| Dashboard web (7 views + PWA) | Funcionando |
+| Gamificação (XP, níveis, streaks) | Funcionando |
 | Matriz de Eisenhower (drag&drop) | Funcionando |
+| Blocos de Tempo (Manhã/Tarde/Noite) | Funcionando |
 | Pomodoro Timer | Funcionando |
 | Mapeamento de energia | Funcionando |
-| Busca global + Anexos | Funcionando |
-| Drag & Drop (status + calendario + Eisenhower) | Funcionando |
-| Historico semanal com anotacoes | Funcionando |
-| Habitos e rotinas de vida | Funcionando |
+| Busca global com highlight + Anexos | Funcionando |
+| Upload de anexos com drag & drop | Funcionando |
+| Drag & Drop (status + calendário + Eisenhower) | Funcionando |
+| Histórico semanal com anotações | Funcionando |
+| Anotações: badge, preview, histórico clicável | Funcionando |
+| Hábitos e rotinas de vida | Funcionando |
 | Subtarefas/checklist | Funcionando |
-| Resolucao temporal | Funcionando |
-| Multiplas tarefas | Funcionando |
-| Lembretes automaticos | Funcionando |
+| Resolução temporal | Funcionando |
+| Múltiplas tarefas | Funcionando |
+| Lembretes automáticos | Funcionando |
 | Resumo matinal 7:30 | Funcionando |
-| Relatorio semanal sex 17h | Funcionando |
+| Relatório semanal sex 17h | Funcionando |
 | Tarefas recorrentes | Funcionando |
 | Google Calendar sync | Funcionando |
 | Microsoft Outlook/Teams sync | Funcionando |
-| Reflexoes diarias | Funcionando |
+| Reflexões diárias | Funcionando |
 | Coaching IA | Funcionando |
+| Sistema de ajuda in-app (tour, tooltips, Central) | Funcionando |
+| Service Worker (cache offline) | Funcionando |
 
 ---
 

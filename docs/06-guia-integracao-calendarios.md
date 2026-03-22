@@ -159,12 +159,13 @@ Voce agora tem:
 ### Passo 2 — Rodar a migration no Supabase
 
 1. Abra: https://supabase.com > seu projeto > **SQL Editor**
-2. Cole o conteudo destes arquivos (um por vez, execute cada um):
-   - `supabase/005_pomodoro_reflexoes.sql`
-   - `supabase/006_energy_mapping.sql`
-   - `supabase/007_eisenhower_quadrant.sql`
-   - `supabase/008_subtarefas.sql`
-   - `supabase/009_eventos_calendario.sql`
+2. Cole o conteúdo destes arquivos (um por vez, execute cada um):
+   - `supabase/005_pomodoro_reflexoes.sql` — Pomodoro e reflexões
+   - `supabase/006_energy_mapping.sql` — Mapeamento de energia
+   - `supabase/007_eisenhower_quadrant.sql` — Matriz de Eisenhower
+   - `supabase/008_subtarefas.sql` — Subtarefas/checklist
+   - `supabase/009_eventos_calendario.sql` — Eventos de calendário
+   - `supabase/010_anexos_busca.sql` — Anexos e busca full-text
 3. Clique **"Run"** para cada um
 
 ---

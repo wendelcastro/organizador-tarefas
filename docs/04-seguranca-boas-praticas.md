@@ -193,39 +193,57 @@ vendo seu código e fazendo mudanças junto com você.
 É uma **senha** que identifica você ao usar um serviço.
 Quando seu bot chama a Claude API, a chave diz "sou o Wendel, pode me atender".
 
-### Suas chaves atuais:
+### Suas chaves atuais (12 variáveis):
 
 | Serviço | Variável | Para quê | Onde gerar |
 |---------|----------|----------|------------|
-| Anthropic (Claude) | `ANTHROPIC_API_KEY` | IA que classifica tarefas | console.anthropic.com |
 | Telegram | `TELEGRAM_BOT_TOKEN` | Conectar ao bot do Telegram | @BotFather no Telegram |
-| Supabase | `SUPABASE_URL` + `SUPABASE_ANON_KEY` | Banco de dados | supabase.com > Settings > API |
+| Supabase | `SUPABASE_URL` | URL do projeto (banco de dados) | supabase.com > Settings > API |
+| Supabase | `SUPABASE_ANON_KEY` | Chave pública do banco | supabase.com > Settings > API |
+| Google AI | `GEMINI_API_KEY` | IA principal (classificação, grátis) | aistudio.google.com |
+| Anthropic | `ANTHROPIC_API_KEY` | IA fallback (paga, opcional) | console.anthropic.com |
 | Groq | `GROQ_API_KEY` | Transcrição de áudio (Whisper) | console.groq.com |
+| Google | `GOOGLE_CLIENT_ID` | OAuth Google Calendar | console.cloud.google.com |
+| Google | `GOOGLE_CLIENT_SECRET` | OAuth Google Calendar | console.cloud.google.com |
+| Microsoft | `MICROSOFT_CLIENT_ID` | OAuth Outlook/Teams | portal.azure.com |
+| Microsoft | `MICROSOFT_CLIENT_SECRET` | OAuth Outlook/Teams | portal.azure.com |
+| Deploy | `BOT_PUBLIC_URL` | URL pública para callbacks OAuth | URL do Koyeb |
+| Segurança | `OAUTH_SECRET_KEY` | Assinatura HMAC do state OAuth | Você define |
 
 ### Custos:
 
 | Serviço | Preço |
 |---------|-------|
-| **Claude API (Sonnet)** | ~$3/1M tokens input, ~$15/1M output. Uma tarefa gasta ~500-1000 tokens ≈ $0.001-0.003. Uso pessoal: ~$1-5/mês |
+| **Gemini 2.5 Flash** | Gratuito (15 req/min, 1500 req/dia) |
+| **Claude API (Sonnet)** | ~$3/1M tokens input, ~$15/1M output. Uso pessoal: ~$1-5/mês |
 | **Telegram Bot** | Gratuito |
 | **Supabase** | Gratuito (plano free: 500MB, 50K requests/mês) |
 | **Groq (Whisper)** | Gratuito |
 | **GitHub Pages** | Gratuito |
+| **Google Calendar API** | Gratuito |
+| **Microsoft Graph API** | Gratuito |
+| **Koyeb (deploy)** | Gratuito (1 instância, 512MB RAM) |
 
 ### Hierarquia de segurança das chaves:
 
 ```
-🔴 MAIS SENSÍVEL (gasta dinheiro se vazar)
-   → ANTHROPIC_API_KEY
-   → Qualquer chave de LLM paga (OpenAI, Google, etc.)
+MAIS SENSIVEL (gasta dinheiro se vazar)
+   -> ANTHROPIC_API_KEY
+   -> Qualquer chave de LLM paga (OpenAI, etc.)
 
-🟡 SENSÍVEL (acesso a dados)
-   → SUPABASE_ANON_KEY (dados do seu banco)
-   → TELEGRAM_BOT_TOKEN (controle do seu bot)
+SENSIVEL (acesso a dados ou contas)
+   -> SUPABASE_ANON_KEY (dados do seu banco)
+   -> TELEGRAM_BOT_TOKEN (controle do seu bot)
+   -> GOOGLE_CLIENT_SECRET (acesso ao seu calendário)
+   -> MICROSOFT_CLIENT_SECRET (acesso ao seu Outlook)
+   -> OAUTH_SECRET_KEY (segurança dos fluxos OAuth)
 
-🟢 MENOS SENSÍVEL
-   → GROQ_API_KEY (serviço gratuito)
-   → Chaves de serviços free-tier
+MENOS SENSIVEL (serviços gratuitos)
+   -> GEMINI_API_KEY (serviço gratuito)
+   -> GROQ_API_KEY (serviço gratuito)
+   -> GOOGLE_CLIENT_ID (público por natureza)
+   -> MICROSOFT_CLIENT_ID (público por natureza)
+   -> BOT_PUBLIC_URL (URL pública)
 ```
 
 ---
@@ -233,30 +251,39 @@ Quando seu bot chama a Claude API, a chave diz "sou o Wendel, pode me atender".
 ## 5. Estrutura Recomendada de Projeto
 
 ```
-📁 meu-projeto/
-├── .env                  ← 🔐 Chaves (NUNCA no Git)
-├── .env.example          ← 📋 Template vazio (vai pro Git)
-├── .gitignore            ← 🛡️ Lista de ignorados
-├── CLAUDE.md             ← 🧠 Instruções para o Claude Code
-├── README.md             ← 📖 Documentação do projeto
+meu-projeto/
+├── .env                  <- Chaves (NUNCA no Git)
+├── .env.example          <- Template vazio (vai pro Git)
+├── .gitignore            <- Lista de ignorados
+├── CLAUDE.md             <- Instruções para o Claude Code
+├── README.md             <- Documentação do projeto
+├── Dockerfile            <- Build para deploy no Koyeb
+├── Procfile              <- Declaração de worker para PaaS
 │
-├── bot/                  ← 🤖 Código do bot
-│   ├── main.py
-│   ├── ai_brain.py
+├── bot/                  <- Código do bot
+│   ├── main.py           <- 21 handlers, jobs, health check, OAuth
+│   ├── ai_brain.py       <- Cérebro IA (Gemini/Claude)
+│   ├── calendar_sync.py  <- Sync Google + Microsoft
 │   └── requirements.txt
 │
-├── web/                  ← 🌐 Dashboard (GitHub Pages)
-│   └── index.html
+├── web/                  <- Dashboard (GitHub Pages)
+│   ├── index.html        <- Single-file PWA com sistema de ajuda
+│   ├── manifest.json     <- PWA manifest
+│   └── sw.js             <- Service Worker
 │
-├── supabase/             ← 🗄️ Scripts do banco
+├── supabase/             <- Scripts do banco (001 a 010)
 │   ├── 001_criar_tabelas.sql
-│   └── 002_fix_delete_trigger.sql
+│   ├── ...
+│   └── 010_anexos_busca.sql
 │
-└── docs/                 ← 📚 Documentação
+└── docs/                 <- Documentação didática
     ├── 01-git-github-guia.md
     ├── 02-arquitetura-do-projeto.md
     ├── 03-supabase-guia.md
-    └── 04-seguranca-boas-praticas.md  ← ESTE ARQUIVO
+    ├── 04-seguranca-boas-praticas.md  <- ESTE ARQUIVO
+    ├── 05-deploy-24h.md
+    ├── 06-guia-integracao-calendarios.md
+    └── 07-guia-funcionalidades.md
 ```
 
 ---

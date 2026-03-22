@@ -1,6 +1,6 @@
 # Arquitetura do Organizador de Tarefas v3
 
-> Documentacao didatica - cada decisao explicada
+> Documentação didática — cada decisão explicada
 
 ## Visao Geral
 
@@ -108,31 +108,39 @@ Este modulo (`bot/calendar_sync.py`) integra calendarios externos ao sistema. Fu
 - Deteccao automatica de links de reuniao (Meet, Teams, Zoom) nos eventos
 - Refresh automatico de tokens expirados
 
-### Sistema de Busca e Anexos
+### Sistema de Busca Full-Text
+
+A busca funciona em duas camadas: bot (Telegram) e dashboard (web).
 
 ```
-/buscar reuniao com Carlos
-        |
-        v
-    Busca em paralelo:
-    ├── tarefas (titulo ILIKE)
-    ├── eventos_calendario (titulo ILIKE)
-    ├── historico_semanal (annotation ILIKE)
-    └── anexos (titulo + conteudo ILIKE)
-        |
-        v
-    Resultados unificados com icones por tipo
+/buscar reunião com Carlos          OU          [Barra de busca no dashboard]
+        |                                                |
+        v                                                v
+    Busca em paralelo (4 fontes):               Busca em tempo real (debounce):
+    ├── tarefas (titulo ILIKE)                  ├── tarefas (titulo ILIKE)
+    ├── eventos_calendario (titulo ILIKE)       ├── eventos_calendario (titulo ILIKE)
+    ├── historico_semanal (annotation ILIKE)     ├── historico_semanal (annotation ILIKE)
+    └── anexos (titulo + conteudo ILIKE)         └── anexos (titulo + conteudo ILIKE)
+        |                                                |
+        v                                                v
+    Resultados unificados com ícones          Resultados com highlight do termo buscado
+    por tipo (tarefa/evento/anotação/anexo)   + navegação (clique abre/navega até o item)
 ```
 
-**Indices de busca:**
-- `idx_anexos_conteudo`: indice GIN com `to_tsvector('portuguese', conteudo)` — busca full-text em portugues
-- `idx_tarefas_titulo_busca`: indice GIN com `to_tsvector('portuguese', titulo)` — busca em titulos de tarefas
+**Arquitetura da busca no dashboard:**
+1. Usuário digita na barra de busca (com debounce de 300ms)
+2. Query ILIKE em 4 tabelas do Supabase em paralelo
+3. Resultados renderizados em dropdown com ícone por tipo
+4. Função `highlightSearchTerm()` aplica `<mark>` no texto correspondente
+5. Clique no resultado navega para a view/item correspondente
 
-**Tipos de anexo:**
-- `texto`: notas, anotacoes manuais
-- `transcricao`: audios transcritos vinculados a tarefas
-- `link`: URLs com descricao
-- `arquivo`: referencia a arquivos (metadata em JSONB)
+**Índices de busca (PostgreSQL):**
+- `idx_anexos_conteudo`: índice GIN com `to_tsvector('portuguese', conteudo)` — busca full-text em português
+- `idx_tarefas_titulo_busca`: índice GIN com `to_tsvector('portuguese', titulo)` — busca em títulos de tarefas
+
+**Por que ILIKE e não full-text search no app?**
+Os índices GIN estão prontos para full-text search, mas no momento a busca usa ILIKE por simplicidade.
+Os índices GIN servem para buscas futuras mais avançadas (ranking por relevância, stemming português).
 
 ### Mapeamento de Energia
 
@@ -164,29 +172,112 @@ O dashboard tambem permite registrar energia via dots clicaveis na interface.
 
 ### Dashboard Web (O Mural)
 - **Stack**: HTML + CSS + JavaScript puro (sem frameworks)
-  - Por que sem React/Vue? Simplicidade. Para um dashboard pessoal, vanilla JS e suficiente
+  - Por que sem React/Vue? Simplicidade. Para um dashboard pessoal, vanilla JS é suficiente
   - Menos coisas para aprender de uma vez
-  - Deploy instantaneo no GitHub Pages
-- **PWA**: Manifest.json permite instalar como app nativo no celular/desktop
+  - Deploy instantâneo no GitHub Pages
+- **PWA**: Manifest.json + Service Worker (`sw.js`) com cache network-first
+  - Permite instalar como app nativo no celular/desktop
+  - Funciona offline com dados em cache
 - **Funcionalidades**:
-  - 5 views: Todas | Hoje | Semana | Revisao Semanal | KPIs
+  - 7 views: Todas | Hoje | Semana | Revisão Semanal | Matriz Eisenhower | Blocos de Tempo | KPIs
   - Filtros por categoria, prioridade e status
-  - Barra de busca global (tarefas, eventos, anotacoes, anexos)
-  - Calendario semanal responsivo (empilha no mobile)
-  - Cards com tempo estimado, delegacao, recorrencia
+  - Barra de busca global com highlight e navegação (tarefas, eventos, anotações, anexos)
+  - Calendário semanal responsivo (empilha no mobile)
+  - Cards com tempo estimado, delegação, recorrência
   - Banner de alerta para tarefas atrasadas
-  - Modal de detalhe completo
-  - Edicao e exclusao com confirmacao
+  - Modal de detalhe completo (edição de todos os campos, subtarefas, anexos, Pomodoro)
+  - Upload de anexos com drag & drop de arquivos no modal de detalhe
+  - Edição e exclusão com confirmação
   - Realtime via Supabase (atualiza sem refresh)
   - Timeline vertical do dia com indicador "Agora" (view Hoje)
-  - Toggle rapido de status (3 estados: pendente -> em_andamento -> concluida)
-  - Acoes em lote: Shift+Click multi-selecao, concluir/excluir em massa
-  - Revisao semanal: metricas, heatmap de conclusao, distribuicao por categoria
-  - Modo claro/escuro com toggle e persistencia (localStorage)
-  - Matriz de Eisenhower com 4 quadrantes e drag&drop
-  - Pomodoro timer vinculado a tarefas (25min, play/pause/stop)
-  - Mapeamento de energia (dots clicaveis por periodo)
-  - Subtarefas com checklist e progresso visual
+  - Blocos de tempo visual (Manhã/Tarde/Noite) na view dedicada
+  - Toggle rápido de status (3 estados: pendente -> em_andamento -> concluída)
+  - Ações em lote: Shift+Click multi-seleção, concluir/excluir em massa
+  - Revisão semanal: métricas, heatmap de conclusão, distribuição por categoria
+  - Anotações semanais com preview na view Hoje, badge no menu, histórico clicável
+  - Modo claro/escuro com toggle e persistência (localStorage)
+  - Matriz de Eisenhower com 4 quadrantes e drag&drop (auto-classificação IA + override manual)
+  - Pomodoro timer vinculado a tarefas (25min, play/pause/stop, tempo acumulado por tarefa)
+  - Mapeamento de energia (dots clicáveis por período)
+  - Subtarefas com checklist e progresso visual (barra de progresso)
+  - KPIs Dashboard (productivity score, gráfico de barras 8 semanas, donut, sparkline, distribuição por categoria)
+  - AI Coaching card (dicas da IA direto no dashboard)
+
+### Sistema de Ajuda In-App (O Guia)
+
+O dashboard inclui um sistema de ajuda integrado com 3 camadas:
+
+```
+1. Tour de Onboarding (primeira visita)
+   - Highlight de elementos com popup explicativo
+   - Guia passo a passo pelas principais funcionalidades
+   - Seta apontando para o elemento destacado
+
+2. Tooltips Contextuais (botões "?")
+   - Cada seção tem um botão "?" que mostra explicação flutuante
+   - Card com seta apontando para o elemento pai
+   - Fecha ao clicar fora
+
+3. Central de Ajuda (modal completo)
+   - Botão no header abre modal com guias organizados
+   - Explicação de cada view e funcionalidade
+   - Dicas contextuais por view ativa
+```
+
+**Decisões de arquitetura:**
+- **Por que não documentação externa?** Ajuda dentro do app reduz atrito — o usuário não precisa sair do contexto
+- **Por que 3 camadas?** Onboarding para novos, tooltips para lembrar, Central para referência completa
+- **CSS puro**: Sem bibliotecas de tour (Shepherd, Intro.js) — menos dependências
+
+### Sistema de Anexos (O Arquivo)
+
+```
+[Modal de detalhe da tarefa]
+        |
+        v
+    Seção "Anexos":
+    ├── Lista de anexos existentes (texto, transcrição, link, arquivo)
+    ├── Drop zone para upload de arquivos (drag & drop)
+    └── Botão "+" para adicionar texto/link manualmente
+
+[Telegram: /anexar]
+        |
+        v
+    Salva no Supabase (tabela 'anexos')
+        |
+        v
+    Pesquisável via /buscar e barra de busca do dashboard
+```
+
+**Tipos de anexo suportados:**
+
+| Tipo | Origem | Exemplo |
+|------|--------|---------|
+| `texto` | Bot (`/anexar`) ou dashboard | Notas de reunião, anotações |
+| `transcricao` | Bot (áudio transcrito) | Transcrição de mensagem de voz |
+| `link` | Bot ou dashboard | URL com descrição |
+| `arquivo` | Dashboard (drag & drop) | PDF, imagem, documento (metadata em JSONB) |
+
+### Fluxo de Anotações Semanais
+
+```
+1. Usuário escreve anotação na view Revisão Semanal
+        |
+        v
+2. Salva no campo 'annotation' da tabela historico_semanal
+        |
+        v
+3. Badge aparece no botão "Revisão" do menu (indicando que tem anotação)
+        |
+        v
+4. Preview da anotação aparece na view Hoje (card resumido)
+        |
+        v
+5. Anotação é pesquisável via busca global (/buscar e barra de busca)
+        |
+        v
+6. Histórico de anotações passadas é clicável para navegação rápida
+```
 
 ### GitHub Pages (O Endereco)
 - **O que e?** Hospedagem gratuita de sites estaticos direto do GitHub
