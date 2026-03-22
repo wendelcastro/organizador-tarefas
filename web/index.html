@@ -3113,7 +3113,7 @@ body::after {
             <div class="cmd-row"><span class="cmd-name">/status</span><span class="cmd-desc">Mostra o status geral: total, pendentes, concluídas, streak</span></div>
             <div class="cmd-row"><span class="cmd-name">/cancelar</span><span class="cmd-desc">Cancela a operação atual (edição, conclusão, etc.)</span></div>
             <h4>Dica: Entrada por voz</h4>
-            <p>Envie um audio no Telegram e a IA transcreve e cria a tarefa automaticamente. Exemplo: "Preparar slides da aula de banco de dados para quinta-feira" — a IA entende a data, categoria e prioridade sozinha.</p>
+            <p>Envie um áudio no Telegram e a IA transcreve e cria a tarefa automaticamente. Exemplo: "Preparar slides da aula de banco de dados para quinta-feira" — a IA entende a data, categoria e prioridade sozinha.</p>
           </div>
         </div>
       </div>
@@ -3431,7 +3431,7 @@ async function removeTask(id) {
   }
   if (!data || data.length === 0) {
     console.error('Delete retornou 0 linhas — possivel bloqueio RLS ou trigger');
-    alert('Erro: tarefa nao foi excluida no banco. Verifique o console.');
+    alert('Erro: tarefa não foi excluída no banco. Verifique o console.');
     return false;
   }
   return true;
@@ -3892,7 +3892,7 @@ function showTaskDetail(id) {
         <div class="detail-field-value">👤 ${task.delegado_para}</div>
       </div>` : ''}
       ${task.recorrencia ? `<div>
-        <div class="detail-field-label">Recorrencia</div>
+        <div class="detail-field-label">Recorrência</div>
         <div class="detail-field-value">🔄 ${task.recorrencia}</div>
       </div>` : ''}
     </div>`;
@@ -4491,7 +4491,7 @@ function renderReview() {
 
     <div class="review-grid">
       <div class="review-card">
-        <h3>Tempo medio estimado</h3>
+        <h3>Tempo médio estimado</h3>
         <div class="review-big-number">${avgTime}<span style="font-size:0.8rem;color:var(--text-secondary)">min</span></div>
       </div>
       <div class="review-card">
@@ -4525,7 +4525,7 @@ const LEVEL_THRESHOLDS = [0, 100, 300, 600, 1000, 1500, 2500, 4000, 6000, 10000]
 const LEVEL_TITLES = [
   'Iniciante Organizado', 'Aprendiz Focado', 'Executor Consistente',
   'Gerente do Caos', 'Estrategista Digital', 'Mestre do Tempo',
-  'Lider Produtivo', 'Arquiteto da Rotina', 'Guru da Organizacao', 'Professor Nivel S'
+  'Líder Produtivo', 'Arquiteto da Rotina', 'Guru da Organização', 'Professor Nível S'
 ];
 
 let gamification = { xp: 0, level: 1, title: LEVEL_TITLES[0], streak: 0, streakRecord: 0 };
@@ -4924,7 +4924,7 @@ async function loadWeekHistoryList() {
     return;
   }
 
-  container.innerHTML = '<h3 style="font-size:0.75rem;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.5rem">Historico de semanas</h3>' +
+  container.innerHTML = '<h3 style="font-size:0.75rem;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.5rem">Histórico de semanas</h3>' +
     histories.map(h => {
       const rateColor = h.completion_rate >= 70 ? 'var(--cat-pessoal)' : h.completion_rate >= 40 ? 'var(--pri-media)' : 'var(--pri-alta)';
       return `<div class="history-card" onclick="navigateToWeek('${h.week_start}')">
@@ -4968,7 +4968,7 @@ function highlightSearchTerm(text, query) {
 const SUBCATEGORY_LABELS = {
   'academia': 'Academia', 'leitura': 'Leitura', 'corrida': 'Corrida',
   'beach_tennis': 'Beach Tennis', 'estudo': 'Estudo',
-  'meditacao': 'Meditacao', 'ingles': 'Ingles'
+  'meditacao': 'Meditação', 'ingles': 'Inglês'
 };
 
 const SUBCATEGORY_ICONS = {
@@ -4997,7 +4997,7 @@ function getSubcategoryBadgeHTML(task) {
 function getTipoBadgeHTML(task) {
   if (!task.tipo || task.tipo === 'tarefa') return '';
   if (task.tipo === 'rotina') return '<span class="routine-badge">&#128260; Rotina</span>';
-  if (task.tipo === 'habito') return '<span class="habit-indicator">&#9889; Habito</span>';
+  if (task.tipo === 'habito') return '<span class="habit-indicator">&#9889; Hábito</span>';
   return '';
 }
 
@@ -5385,7 +5385,7 @@ function stopPomodoro() {
 function pomodoroFinished() {
   // Browser notification
   if ('Notification' in window && Notification.permission === 'granted') {
-    new Notification('Pomodoro concluido!', { body: pomodoroState.taskName, icon: '🍅' });
+    new Notification('Pomodoro concluído!', { body: pomodoroState.taskName, icon: '🍅' });
   } else if ('Notification' in window && Notification.permission !== 'denied') {
     Notification.requestPermission();
   }
@@ -5500,8 +5500,8 @@ function renderMatrix() {
 
   const qMeta = {
     q1: { label: 'Fazer Agora', subtitle: 'Urgente + Importante', icon: '🔴' },
-    q2: { label: 'Agendar', subtitle: 'Importante, nao urgente', icon: '🔵' },
-    q3: { label: 'Delegar', subtitle: 'Urgente, nao importante', icon: '🟡' },
+    q2: { label: 'Agendar', subtitle: 'Importante, não urgente', icon: '🔵' },
+    q3: { label: 'Delegar', subtitle: 'Urgente, não importante', icon: '🟡' },
     q4: { label: 'Eliminar', subtitle: 'Nem urgente nem importante', icon: '⚪' }
   };
 
@@ -5521,7 +5521,7 @@ function renderMatrix() {
   container.innerHTML = '<h2 style="font-family:\'Cormorant Garamond\',serif;font-size:1.3rem;color:var(--text-primary);margin-bottom:0.3rem">Matriz de Eisenhower</h2>'
     + '<div class="matrix-subtitle-info">'
     + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 100 20 10 10 0 000-20zm1 5h-2v6h2zm0 8h-2v2h2z"/></svg>'
-    + 'Arraste tarefas entre quadrantes para reclassificar. <span style="color:var(--amber)">Auto</span> = sugestao da IA.'
+    + 'Arraste tarefas entre quadrantes para reclassificar. <span style="color:var(--amber)">Auto</span> = sugestão da IA.'
     + '</div>'
     + '<div class="matrix-grid">' + gridHTML + '</div>';
 
@@ -5822,8 +5822,8 @@ function renderTimeBlocks(dateStr) {
     html += '</div>';
 
     if (!hasContent) {
-      html += '<div class="timeblock-empty">Nenhuma tarefa neste periodo</div>';
-      html += '<div class="timeblock-free-slot">Horario livre</div>';
+      html += '<div class="timeblock-empty">Nenhuma tarefa neste período</div>';
+      html += '<div class="timeblock-free-slot">Horário livre</div>';
     } else {
       html += '<div class="timeblock-tasks">';
       // Events first (blocked time)
@@ -5970,7 +5970,7 @@ function renderKPIs() {
   html += '<div class="kpi-card full-width" style="animation-delay:0.05s">';
   html += '<div class="kpi-card-label">Produtividade da Semana</div>';
   html += '<div class="kpi-card-value" style="color:' + scoreColor + '">' + productivityScore + '%</div>';
-  html += '<div class="kpi-card-subtitle">' + completedThisWeek + ' de ' + totalThisWeek + ' tarefas concluidas</div>';
+  html += '<div class="kpi-card-subtitle">' + completedThisWeek + ' de ' + totalThisWeek + ' tarefas concluídas</div>';
   html += '</div>';
 
   // 2. Streak
@@ -6190,9 +6190,9 @@ function generateCoachingInsight() {
   let insight = null;
 
   if (completionRate > 80 && weekCompleted.length >= 3) {
-    insight = 'Semana excelente! <strong>' + weekCompleted.length + ' tarefas concluidas</strong>. Continue assim! \uD83D\uDCAA';
+    insight = 'Semana excelente! <strong>' + weekCompleted.length + ' tarefas concluídas</strong>. Continue assim! \uD83D\uDCAA';
   } else if (overdue.length >= 3) {
-    insight = 'Voce tem <strong>' + overdue.length + ' tarefas atrasadas</strong>. Que tal reservar 30min agora para resolver as mais rapidas?';
+    insight = 'Você tem <strong>' + overdue.length + ' tarefas atrasadas</strong>. Que tal reservar 30min agora para resolver as mais rápidas?';
   } else if (pessoalWeek.length === 0) {
     insight = 'Essa semana não tem nenhuma tarefa pessoal. <strong>Cuidar de você também é produtividade.</strong>';
   } else if (streak > 3) {
