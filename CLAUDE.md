@@ -38,15 +38,17 @@ armazena no Supabase e visualiza num dashboard web.
 - `supabase/008_subtarefas.sql` — Migration v4 (subtarefas/checklist vinculadas a tarefas)
 - `bot/calendar_sync.py` — Integracao Google Calendar + Microsoft Outlook/Teams (OAuth, sync, lembretes)
 - `supabase/009_eventos_calendario.sql` — Migration v5 (tabela eventos_calendario para sync de calendarios)
+- `supabase/010_anexos_busca.sql` — Migration v6 (tabela anexos para attachments + indice full-text search)
 
 ## Comandos do Bot
 /start, /tarefas, /planejar, /feedback, /resumo, /concluir, /editar, /relatorio, /foco, /decompor, /coaching, /energia, /status, /cancelar
 /agenda, /sync, /conectar_google, /conectar_microsoft, /desconectar
+/buscar, /anexar
 
 ## Supabase
 - URL: (configurar em .env)
 - Anon Key: (configurar em .env)
-- Tabelas: tarefas, categorias, historico, configuracoes, contexto_ia, gamificacao, historico_semanal, xp_log, subtarefas, eventos_calendario
+- Tabelas: tarefas, categorias, historico, configuracoes, contexto_ia, gamificacao, historico_semanal, xp_log, subtarefas, eventos_calendario, anexos
 - Views: resumo_semanal, carga_por_dia
 
 ## Chaves API (.env)

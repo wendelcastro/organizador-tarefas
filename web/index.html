@@ -142,6 +142,64 @@ body::after {
 
 .header-right { display: flex; align-items: center; gap: 0.5rem; }
 
+/* ========== SEARCH BAR ========== */
+.search-container {
+  position: relative;
+  flex: 1;
+  max-width: 300px;
+  display: none;
+}
+.search-input {
+  width: 100%;
+  padding: 0.4rem 0.7rem 0.4rem 2rem;
+  background: var(--bg-glass);
+  border: 1px solid var(--border-subtle);
+  border-radius: 50px;
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 0.75rem;
+  outline: none;
+  transition: var(--transition);
+}
+.search-input:focus { border-color: var(--amber); }
+.search-input::placeholder { color: var(--text-muted); }
+.search-icon {
+  position: absolute;
+  left: 0.6rem; top: 50%; transform: translateY(-50%);
+  color: var(--text-muted);
+  width: 14px; height: 14px;
+  pointer-events: none;
+}
+.search-results {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0; right: 0;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  max-height: 350px;
+  overflow-y: auto;
+  z-index: 50;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+  display: none;
+}
+.search-results.active { display: block; }
+.search-result-item {
+  padding: 0.6rem 0.75rem;
+  border-bottom: 1px solid var(--border-subtle);
+  cursor: pointer;
+  transition: var(--transition);
+}
+.search-result-item:hover { background: var(--bg-glass); }
+.search-result-item:last-child { border-bottom: none; }
+.search-result-type {
+  font-size: 0.55rem; text-transform: uppercase; letter-spacing: 0.1em;
+  color: var(--amber); margin-bottom: 0.15rem;
+}
+.search-result-title { font-size: 0.8rem; color: var(--text-primary); }
+.search-result-meta { font-size: 0.65rem; color: var(--text-muted); margin-top: 0.1rem; }
+.search-result-preview { font-size: 0.7rem; color: var(--text-secondary); margin-top: 0.15rem; }
+
 .btn-add {
   display: flex;
   align-items: center;
@@ -1243,6 +1301,7 @@ body::after {
   .stat-card { min-width: 110px; }
   .detail-sheet { border-radius: calc(var(--radius) + 4px); max-height: 80vh; }
   .detail-overlay { align-items: center; }
+  .search-container { display: block; max-width: 220px; }
 }
 
 /* ================================================================
@@ -1265,6 +1324,7 @@ body::after {
     padding: 1.25rem 2rem;
   }
   .header-date { display: inline; }
+  .search-container { display: block; }
 
   .btn-add {
     width: auto; height: auto;
@@ -1819,6 +1879,85 @@ body::after {
 }
 .subtask-input:focus { border-color: var(--amber); }
 
+/* ========== ATTACHMENTS (detail overlay) ========== */
+.detail-attachments { margin-bottom: 1rem; }
+.detail-attachments-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+.detail-attachments-title {
+  font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.1em;
+  color: var(--text-muted);
+}
+.attachment-item {
+  display: flex; align-items: flex-start; gap: 0.5rem;
+  padding: 0.5rem; background: var(--bg-glass);
+  border: 1px solid var(--border-subtle); border-radius: 6px;
+  margin-bottom: 0.3rem; cursor: pointer; transition: var(--transition);
+}
+.attachment-item:hover { border-color: var(--border-hover); }
+.attachment-icon { font-size: 1rem; flex-shrink: 0; margin-top: 0.1rem; }
+.attachment-info { flex: 1; min-width: 0; }
+.attachment-title { font-size: 0.75rem; color: var(--text-primary); font-weight: 500; }
+.attachment-preview {
+  font-size: 0.68rem; color: var(--text-muted); margin-top: 0.1rem;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.attachment-date { font-size: 0.6rem; color: var(--text-muted); }
+.attachment-delete {
+  background: none; border: none; color: var(--text-muted); cursor: pointer;
+  font-size: 0.7rem; opacity: 0; transition: var(--transition); padding: 0.2rem;
+}
+.attachment-item:hover .attachment-delete { opacity: 1; }
+.attachment-delete:hover { color: var(--pri-alta); }
+.attachment-add-btn {
+  background: none; border: none; color: var(--amber);
+  font-size: 0.75rem; cursor: pointer; padding: 0.2rem 0.4rem;
+  transition: var(--transition);
+}
+.attachment-add-btn:hover { color: var(--amber-dark); }
+.attachment-input-area { display: none; margin-top: 0.3rem; }
+.attachment-input-area.visible { display: block; }
+.attachment-title-input, .attachment-content-input {
+  width: 100%; padding: 0.4rem 0.5rem; background: var(--bg-glass);
+  border: 1px solid var(--border-subtle); border-radius: 6px;
+  color: var(--text-primary); font-family: inherit; font-size: 0.8rem;
+  outline: none; margin-bottom: 0.3rem;
+}
+.attachment-content-input { min-height: 80px; resize: vertical; }
+.attachment-save-btn {
+  padding: 0.3rem 0.8rem; background: var(--amber); color: var(--bg-deep);
+  border: none; border-radius: 50px; font-family: inherit;
+  font-size: 0.72rem; font-weight: 600; cursor: pointer;
+}
+.attachment-save-btn:hover { opacity: 0.9; }
+.attachment-expanded {
+  position: fixed; inset: 0; z-index: 60;
+  background: rgba(0,0,0,0.7); display: flex;
+  align-items: center; justify-content: center;
+  animation: fadeIn 0.2s ease;
+}
+.attachment-expanded-content {
+  background: var(--bg-surface); border: 1px solid var(--border-subtle);
+  border-radius: var(--radius); max-width: 600px; width: 90%;
+  max-height: 80vh; overflow-y: auto; padding: 1.5rem;
+}
+.attachment-expanded-title {
+  font-size: 1rem; font-weight: 600; color: var(--text-primary);
+  margin-bottom: 0.75rem;
+}
+.attachment-expanded-text {
+  font-size: 0.85rem; color: var(--text-secondary);
+  white-space: pre-wrap; line-height: 1.6;
+}
+.attachment-expanded-close {
+  position: absolute; top: 1rem; right: 1rem;
+  background: var(--bg-glass); border: 1px solid var(--border-subtle);
+  color: var(--text-primary); width: 32px; height: 32px;
+  border-radius: 50%; cursor: pointer; font-size: 1rem;
+  display: flex; align-items: center; justify-content: center;
+}
+
 /* ========== TIME BLOCKING VIEW ========== */
 .timeblock-view { display: none; animation: fadeIn 0.4s ease; }
 .timeblock-view.active { display: block; }
@@ -2095,6 +2234,11 @@ body::after {
     <div class="header-left">
       <h1 class="logo">Organizador</h1>
       <span class="header-date" id="headerDate"></span>
+    </div>
+    <div class="search-container">
+      <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+      <input type="text" id="globalSearch" class="search-input" placeholder="Buscar tarefas, eventos, anotacoes...">
+      <div id="searchResults" class="search-results"></div>
     </div>
     <div class="header-right">
       <div class="view-toggle">
@@ -3055,6 +3199,9 @@ function showTaskDetail(id) {
   // Placeholder for subtasks — will be loaded async
   html += '<div id="detailSubtasksContainer"></div>';
 
+  // Placeholder for attachments — will be loaded async
+  html += '<div id="detailAttachmentsContainer"></div>';
+
   html += `
     <div class="detail-actions">
       <button class="detail-btn detail-btn-edit" onclick="closeDetail();editTask('${task.id}')">
@@ -3076,6 +3223,14 @@ function showTaskDetail(id) {
     const container = document.getElementById('detailSubtasksContainer');
     if (container) {
       container.innerHTML = renderSubtasksSection(task.id, subtasks);
+    }
+  });
+
+  // Load attachments asynchronously
+  loadAttachments(task.id).then(attachments => {
+    const container = document.getElementById('detailAttachmentsContainer');
+    if (container) {
+      container.innerHTML = renderAttachmentsSection(task.id, attachments);
     }
   });
 }
@@ -5584,6 +5739,251 @@ renderTasks = function() {
   });
 };
 
+// ========== SMART SEARCH ==========
+let searchTimeout = null;
+
+function initSearch() {
+  const input = document.getElementById('globalSearch');
+  const results = document.getElementById('searchResults');
+  if (!input) return;
+
+  input.addEventListener('input', (e) => {
+    clearTimeout(searchTimeout);
+    const query = e.target.value.trim();
+    if (query.length < 2) { results.classList.remove('active'); return; }
+    searchTimeout = setTimeout(() => performSearch(query), 300);
+  });
+
+  input.addEventListener('focus', () => {
+    if (input.value.trim().length >= 2) results.classList.add('active');
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.search-container')) results.classList.remove('active');
+  });
+}
+
+async function performSearch(query) {
+  const results = document.getElementById('searchResults');
+  const q = query.toLowerCase();
+  let items = [];
+
+  // Search tasks (in-memory)
+  tasks.filter(t => t.titulo.toLowerCase().includes(q) || (t.notas||'').toLowerCase().includes(q))
+    .slice(0, 5)
+    .forEach(t => items.push({
+      type: 'Tarefa', icon: '\ud83d\udccb',
+      title: t.titulo,
+      meta: (t.categoria || '') + ' \u00b7 ' + (t.prazo || 'sem data') + ' \u00b7 ' + t.status,
+      onclick: "showTaskDetail('" + t.id + "')"
+    }));
+
+  // Search events (in-memory)
+  calendarEvents.filter(ev => ev.titulo.toLowerCase().includes(q) || (ev.descricao||'').toLowerCase().includes(q))
+    .slice(0, 5)
+    .forEach(ev => items.push({
+      type: 'Evento', icon: '\ud83d\udcc5',
+      title: ev.titulo,
+      meta: (ev.dia || '') + ' ' + (ev.horario_inicio || '') + ' \u00b7 ' + (ev.provider || ''),
+      onclick: ''
+    }));
+
+  // Search weekly annotations (from Supabase)
+  try {
+    const { data: weeks } = await sb
+      .from('historico_semanal')
+      .select('*')
+      .ilike('annotation', '%' + query + '%')
+      .order('week_start', { ascending: false })
+      .limit(3);
+    if (weeks) {
+      weeks.forEach(w => items.push({
+        type: 'Anotacao semanal', icon: '\ud83d\udcdd',
+        title: 'Semana de ' + w.week_start,
+        meta: (w.completed_tasks || 0) + '/' + (w.total_tasks || 0) + ' tarefas \u00b7 ' + (w.completion_rate || 0) + '%',
+        preview: (w.annotation || '').substring(0, 80),
+        onclick: ''
+      }));
+    }
+  } catch(e) { console.warn('Search annotations error:', e); }
+
+  // Search attachments
+  try {
+    const { data: anexos } = await sb
+      .from('anexos')
+      .select('*')
+      .or('titulo.ilike.%' + query + '%,conteudo.ilike.%' + query + '%')
+      .order('created_at', { ascending: false })
+      .limit(5);
+    if (anexos) {
+      var icons = { texto: '\ud83d\udcc4', transcricao: '\ud83c\udf99\ufe0f', link: '\ud83d\udd17', arquivo: '\ud83d\udcce' };
+      anexos.forEach(a => items.push({
+        type: a.tipo || 'Anexo', icon: icons[a.tipo] || '\ud83d\udcc4',
+        title: a.titulo || 'Sem titulo',
+        preview: (a.conteudo || '').substring(0, 80),
+        onclick: a.tarefa_id ? "showTaskDetail('" + a.tarefa_id + "')" : ''
+      }));
+    }
+  } catch(e) { console.warn('Search attachments error:', e); }
+
+  // Render results
+  if (items.length === 0) {
+    results.innerHTML = '<div class="search-result-item"><div class="search-result-title" style="color:var(--text-muted)">Nenhum resultado</div></div>';
+  } else {
+    results.innerHTML = items.map(function(item) {
+      return '<div class="search-result-item" ' + (item.onclick ? 'onclick="' + item.onclick + '"' : '') + '>'
+        + '<div class="search-result-type">' + item.icon + ' ' + item.type + '</div>'
+        + '<div class="search-result-title">' + item.title + '</div>'
+        + (item.meta ? '<div class="search-result-meta">' + item.meta + '</div>' : '')
+        + (item.preview ? '<div class="search-result-preview">' + item.preview + '...</div>' : '')
+        + '</div>';
+    }).join('');
+  }
+  results.classList.add('active');
+}
+
+// ========== ATTACHMENTS ==========
+
+async function loadAttachments(taskId) {
+  try {
+    const { data, error } = await sb
+      .from('anexos')
+      .select('*')
+      .eq('tarefa_id', taskId)
+      .order('created_at', { ascending: false });
+    if (error) { console.error('Erro ao carregar anexos:', error); return []; }
+    return data || [];
+  } catch(e) { console.error('Erro ao carregar anexos:', e); return []; }
+}
+
+function renderAttachmentsSection(taskId, attachments) {
+  var icons = { texto: '\ud83d\udcc4', transcricao: '\ud83c\udf99\ufe0f', link: '\ud83d\udd17', arquivo: '\ud83d\udcce' };
+  var html = '<div class="detail-attachments">'
+    + '<div class="detail-attachments-header">'
+    + '<span class="detail-attachments-title">Anexos (' + attachments.length + ')</span>'
+    + '<button class="attachment-add-btn" onclick="showAttachmentInput(\'' + taskId + '\')">+ Adicionar</button>'
+    + '</div>'
+    + '<div id="attachmentList">';
+
+  attachments.forEach(function(a) {
+    var icon = icons[a.tipo] || '\ud83d\udcc4';
+    var preview = (a.conteudo || '').substring(0, 100);
+    var dateStr = a.created_at ? new Date(a.created_at).toLocaleDateString('pt-BR') : '';
+    html += '<div class="attachment-item" onclick="expandAttachment(\'' + a.id + '\')">'
+      + '<span class="attachment-icon">' + icon + '</span>'
+      + '<div class="attachment-info">'
+      + '<div class="attachment-title">' + (a.titulo || 'Sem titulo') + '</div>'
+      + '<div class="attachment-preview">' + preview + '</div>'
+      + '<div class="attachment-date">' + dateStr + '</div>'
+      + '</div>'
+      + '<button class="attachment-delete" onclick="event.stopPropagation();deleteAttachment(\'' + a.id + '\',\'' + taskId + '\')">\u2715</button>'
+      + '</div>';
+  });
+
+  html += '</div>'
+    + '<div id="attachmentInputContainer"></div>'
+    + '</div>';
+  return html;
+}
+
+function showAttachmentInput(taskId) {
+  var container = document.getElementById('attachmentInputContainer');
+  if (!container || container.querySelector('.attachment-title-input')) return;
+
+  var area = document.createElement('div');
+  area.className = 'attachment-input-area visible';
+  area.innerHTML = '<input type="text" class="attachment-title-input" placeholder="Titulo do anexo...">'
+    + '<textarea class="attachment-content-input" placeholder="Conteudo (texto, notas, links...)"></textarea>'
+    + '<button class="attachment-save-btn" onclick="saveNewAttachment(\'' + taskId + '\')">Salvar anexo</button>';
+  container.appendChild(area);
+  area.querySelector('.attachment-title-input').focus();
+}
+
+async function saveNewAttachment(taskId) {
+  var container = document.getElementById('attachmentInputContainer');
+  var titleInput = container.querySelector('.attachment-title-input');
+  var contentInput = container.querySelector('.attachment-content-input');
+  var titulo = titleInput.value.trim();
+  var conteudo = contentInput.value.trim();
+
+  if (!titulo && !conteudo) return;
+  if (!titulo) titulo = 'Sem titulo';
+
+  try {
+    const { error } = await sb
+      .from('anexos')
+      .insert({ tarefa_id: taskId, tipo: 'texto', titulo: titulo, conteudo: conteudo });
+    if (error) {
+      console.error('Erro ao salvar anexo:', error);
+      return;
+    }
+  } catch(e) {
+    console.error('Erro ao salvar anexo:', e);
+    return;
+  }
+
+  // Refresh
+  var updated = await loadAttachments(taskId);
+  var listEl = document.getElementById('attachmentList');
+  if (listEl) {
+    listEl.parentElement.outerHTML = renderAttachmentsSection(taskId, updated);
+  }
+}
+
+async function deleteAttachment(attachmentId, taskId) {
+  if (!confirm('Excluir este anexo?')) return;
+  try {
+    const { error } = await sb
+      .from('anexos')
+      .delete()
+      .eq('id', attachmentId);
+    if (error) {
+      console.error('Erro ao excluir anexo:', error);
+      return;
+    }
+  } catch(e) {
+    console.error('Erro ao excluir anexo:', e);
+    return;
+  }
+
+  // Refresh
+  var updated = await loadAttachments(taskId);
+  var listEl = document.getElementById('attachmentList');
+  if (listEl) {
+    listEl.parentElement.outerHTML = renderAttachmentsSection(taskId, updated);
+  }
+}
+
+// Cache for attachment content (to avoid re-fetching)
+var attachmentContentCache = {};
+
+async function expandAttachment(attachmentId) {
+  var attachment = null;
+  // Try cache first
+  if (attachmentContentCache[attachmentId]) {
+    attachment = attachmentContentCache[attachmentId];
+  } else {
+    try {
+      const { data } = await sb.from('anexos').select('*').eq('id', attachmentId).single();
+      if (data) {
+        attachment = data;
+        attachmentContentCache[attachmentId] = data;
+      }
+    } catch(e) { console.error('Erro ao carregar anexo:', e); return; }
+  }
+  if (!attachment) return;
+
+  var overlay = document.createElement('div');
+  overlay.className = 'attachment-expanded';
+  overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
+  overlay.innerHTML = '<div class="attachment-expanded-content">'
+    + '<div class="attachment-expanded-title">' + (attachment.titulo || 'Sem titulo') + '</div>'
+    + '<div class="attachment-expanded-text">' + (attachment.conteudo || '').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>'
+    + '</div>'
+    + '<button class="attachment-expanded-close" onclick="this.parentElement.remove()">\u2715</button>';
+  document.body.appendChild(overlay);
+}
+
 // ========== INIT ==========
 // Restore theme from localStorage
 if (localStorage.getItem('theme') === 'light') {
@@ -5625,6 +6025,7 @@ setInterval(() => {
 setupRealtime();
 setupDragAndDrop();
 setupSwipeGestures();
+initSearch();
 
 // ========== PWA: Service Worker + Install Prompt ==========
 if ('serviceWorker' in navigator) {

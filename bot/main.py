@@ -98,6 +98,7 @@ from calendar_sync import (
     sync_all_calendars, get_upcoming_events,
     _load_tokens, _save_tokens, _verify_state,
     exchange_google_code, exchange_microsoft_code,
+    create_google_event,
 )
 
 # IA: importar cerebro (Gemini gratuito como prioridade, Claude como alternativa)
@@ -137,6 +138,7 @@ STATE_EDITING = "editing"        # Editando tarefa
 STATE_FOCUS = "focus"            # Modo foco
 STATE_CONFIRMING_DECOMP = "confirming_decomp"  # Confirmando decomposicao
 STATE_REFLEXAO = "reflexao"  # Reflexao noturna
+STATE_AGUARDANDO_ANEXO = "aguardando_anexo"  # Aguardando conteudo do anexo
 
 
 def get_state(context):
@@ -154,7 +156,7 @@ def clear_state(context):
     for key in ["pending_task", "pending_tasks", "confirm_history",
                 "chat_history", "editing_task_id", "focus_until",
                 "pending_decomp", "decomp_task", "state_timestamp",
-                "reflexao_timestamp"]:
+                "reflexao_timestamp", "titulo_anexo"]:
         context.user_data.pop(key, None)
 
 
@@ -644,6 +646,20 @@ async def processar_nova_tarefa(update, context, texto):
         )
         if tarefa:
             resposta = "✅ *Tarefa criada!*\n\n" + formatar_tarefa_card(tarefa)
+            # Criar evento no Google Calendar (modo basico)
+            if classificacao.get("prazo"):
+                try:
+                    google_tokens = _load_tokens("google")
+                    if google_tokens:
+                        event_id = create_google_event(
+                            titulo=classificacao["titulo"],
+                            data=classificacao["prazo"],
+                            horario_inicio=classificacao.get("horario"),
+                        )
+                        if event_id:
+                            resposta += "\n\n📅 Adicionado ao Google Calendar"
+                except Exception as e:
+                    logger.warning(f"Erro ao criar evento no Google Calendar (modo basico): {e}")
             await update.message.reply_text(resposta, parse_mode="Markdown",
                                             disable_web_page_preview=True)
         else:
@@ -651,7 +667,11 @@ async def processar_nova_tarefa(update, context, texto):
 
 
 def _salvar_tarefa_e_contexto(tarefa_data):
-    """Salva tarefa no Supabase e extrai contexto para memoria."""
+    """Salva tarefa no Supabase e extrai contexto para memoria.
+
+    Retorna tupla (tarefa, google_calendar_ok) onde google_calendar_ok indica
+    se o evento foi criado no Google Calendar.
+    """
     tarefa = criar_tarefa(
         titulo=tarefa_data.get("titulo", "Tarefa"),
         categoria=tarefa_data.get("categoria", "Pessoal"),
@@ -679,7 +699,25 @@ def _salvar_tarefa_e_contexto(tarefa_data):
         except Exception as e:
             logger.warning(f"Erro ao salvar contexto: {e}")
 
-    return tarefa
+    # Criar evento no Google Calendar se a tarefa tem data e Google esta conectado
+    google_calendar_ok = False
+    if tarefa and tarefa_data.get("prazo"):
+        try:
+            google_tokens = _load_tokens("google")
+            if google_tokens:
+                event_id = create_google_event(
+                    titulo=tarefa_data.get("titulo", "Tarefa"),
+                    data=tarefa_data["prazo"],
+                    horario_inicio=tarefa_data.get("horario"),
+                    horario_fim=None,
+                    descricao=f"[Organizador] {tarefa_data.get('categoria', 'Pessoal')} — {tarefa_data.get('prioridade', 'media')}",
+                )
+                if event_id:
+                    google_calendar_ok = True
+        except Exception as e:
+            logger.warning(f"Erro ao criar evento no Google Calendar: {e}")
+
+    return tarefa, google_calendar_ok
 
 
 async def processar_confirmacao(update, context, texto):
@@ -717,11 +755,13 @@ async def processar_confirmacao(update, context, texto):
     else:
         tarefa_data = pending
 
-    tarefa = _salvar_tarefa_e_contexto(tarefa_data)
+    tarefa, gcal_ok = _salvar_tarefa_e_contexto(tarefa_data)
     clear_state(context)
 
     if tarefa:
         resposta = "✅ *Tarefa salva!*\n\n" + formatar_tarefa_card(tarefa)
+        if gcal_ok:
+            resposta += "\n\n📅 Adicionado ao Google Calendar"
         resposta += f"\n\n[📊 Dashboard](https://wendelcastro.github.io/organizador-tarefas/web/)"
         await update.message.reply_text(resposta, parse_mode="Markdown",
                                         disable_web_page_preview=True)
@@ -743,14 +783,18 @@ async def processar_confirmacao_multi(update, context, texto):
     # Confirmacao geral
     if any(w in lower for w in ["sim", "ok", "confirma", "todas", "salva", "bora", "pode"]):
         salvas = 0
+        gcal_count = 0
         for t in pending_tasks:
-            tarefa = _salvar_tarefa_e_contexto(t)
+            tarefa, gcal_ok = _salvar_tarefa_e_contexto(t)
             if tarefa:
                 salvas += 1
+                if gcal_ok:
+                    gcal_count += 1
                 await _agendar_lembrete_se_hoje(context, tarefa)
         clear_state(context)
+        gcal_msg = f"\n📅 {gcal_count} adicionada(s) ao Google Calendar" if gcal_count else ""
         await update.message.reply_text(
-            f"✅ *{salvas} tarefas salvas!*\n\n"
+            f"✅ *{salvas} tarefas salvas!*{gcal_msg}\n\n"
             f"[📊 Dashboard](https://wendelcastro.github.io/organizador-tarefas/web/)",
             parse_mode="Markdown", disable_web_page_preview=True
         )
@@ -1527,6 +1571,128 @@ async def cmd_coaching(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await msg.edit_text("❌ Erro ao gerar coaching. Tente novamente.")
 
 
+async def cmd_buscar(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Buscar em tarefas, eventos, anotacoes e anexos."""
+    query = " ".join(context.args) if context.args else ""
+    if not query:
+        await update.message.reply_text(
+            "🔍 *Busca inteligente*\n\n"
+            "Uso: /buscar reuniao com fulano\n\n"
+            "Busca em tarefas, eventos, anotacoes semanais e anexos.",
+            parse_mode="Markdown",
+        )
+        return
+
+    results = []
+
+    # 1. Buscar tarefas por titulo
+    tarefas = supabase_request("GET", "tarefas", params={
+        "titulo": f"ilike.%{query}%",
+        "order": "created_at.desc",
+        "limit": "5",
+    }) or []
+    for t in tarefas:
+        cat_emoji = EMOJI_CATEGORIA.get(t.get("categoria", ""), "📋")
+        results.append(
+            f"📋 *{t['titulo']}*\n"
+            f"   {cat_emoji} {t.get('categoria', '')} · {t.get('prazo', 'sem data')} · {t.get('status', '')}"
+        )
+
+    # 2. Buscar eventos do calendario
+    eventos = supabase_request("GET", "eventos_calendario", params={
+        "titulo": f"ilike.%{query}%",
+        "order": "data_inicio.desc",
+        "limit": "5",
+    }) or []
+    for ev in eventos:
+        results.append(
+            f"📅 *{ev['titulo']}*\n"
+            f"   {ev.get('dia', '')} {ev.get('horario_inicio', '')} · {ev.get('provider', '')}"
+        )
+
+    # 3. Buscar anotacoes semanais
+    semanas = supabase_request("GET", "historico_semanal", params={
+        "annotation": f"ilike.%{query}%",
+        "order": "week_start.desc",
+        "limit": "3",
+    }) or []
+    for s in semanas:
+        annotation_preview = (s.get("annotation", ""))[:100]
+        results.append(
+            f"📝 *Semana {s['week_start']}*\n"
+            f"   {annotation_preview}..."
+        )
+
+    # 4. Buscar anexos
+    anexos = supabase_request("GET", "anexos", params={
+        "or": f"(titulo.ilike.%{query}%,conteudo.ilike.%{query}%)",
+        "order": "created_at.desc",
+        "limit": "5",
+    }) or []
+    for a in anexos:
+        preview = (a.get("conteudo", ""))[:80]
+        tipo_icon = {"texto": "📄", "transcricao": "🎙️", "link": "🔗", "arquivo": "📎"}.get(a["tipo"], "📄")
+        results.append(
+            f"{tipo_icon} *{a.get('titulo', 'Anexo')}*\n"
+            f"   {preview}..."
+        )
+
+    if not results:
+        await update.message.reply_text(f'🔍 Nenhum resultado para "{query}"')
+        return
+
+    header = f'🔍 *Resultados para "{query}"* ({len(results)} encontrados)\n\n'
+    await update.message.reply_text(
+        header + "\n\n".join(results),
+        parse_mode="Markdown",
+        disable_web_page_preview=True,
+    )
+
+
+async def cmd_anexar(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Anexar texto/transcricao a uma tarefa ou avulso."""
+    if not context.args:
+        await update.message.reply_text(
+            "📎 *Anexar conteudo*\n\n"
+            "Uso:\n"
+            "• `/anexar Titulo do anexo` — depois envie o conteudo\n"
+            "• Responda a uma mensagem com `/anexar Titulo`\n\n"
+            "O anexo fica salvo e aparece nas buscas.",
+            parse_mode="Markdown",
+        )
+        return
+
+    titulo = " ".join(context.args)
+
+    # Se esta respondendo a uma mensagem, salva direto
+    if update.message.reply_to_message:
+        conteudo = update.message.reply_to_message.text or ""
+        if not conteudo:
+            await update.message.reply_text("❌ A mensagem respondida nao tem texto.")
+            return
+
+        data = {
+            "tipo": "texto",
+            "titulo": titulo,
+            "conteudo": conteudo,
+        }
+        result = supabase_request("POST", "anexos", data=data)
+        if result:
+            await update.message.reply_text(
+                f"📎 Anexo salvo: *{titulo}*\n({len(conteudo)} caracteres)",
+                parse_mode="Markdown",
+            )
+        else:
+            await update.message.reply_text("❌ Erro ao salvar anexo.")
+    else:
+        # Aguardar conteudo na proxima mensagem
+        set_state(context, STATE_AGUARDANDO_ANEXO, titulo_anexo=titulo)
+        await update.message.reply_text(
+            f"📎 Titulo: *{titulo}*\n\nAgora envie o conteudo (texto, transcricao, etc):",
+            parse_mode="Markdown",
+        )
+
+
 async def cmd_cancelar(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Cancela operacao atual."""
     state = get_state(context)
@@ -1755,6 +1921,23 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     elif state == STATE_EDITING:
         await processar_edicao(update, context, texto)
+
+    elif state == STATE_AGUARDANDO_ANEXO:
+        titulo_anexo = context.user_data.get("titulo_anexo", "Sem titulo")
+        data = {
+            "tipo": "texto",
+            "titulo": titulo_anexo,
+            "conteudo": texto,
+        }
+        result = supabase_request("POST", "anexos", data=data)
+        clear_state(context)
+        if result:
+            await update.message.reply_text(
+                f"📎 Anexo salvo: *{titulo_anexo}*\n({len(texto)} caracteres)",
+                parse_mode="Markdown",
+            )
+        else:
+            await update.message.reply_text("❌ Erro ao salvar anexo.")
 
     elif state == STATE_CHATTING and ai_brain:
         history = context.user_data.get("chat_history", [])
@@ -2161,7 +2344,9 @@ async def cmd_sync(update, context):
 
     parts = []
     if results["google"] > 0:
-        parts.append(f"Google: {results['google']} eventos")
+        parts.append(f"Google Calendar: {results['google']} eventos")
+    if results.get("google_tasks", 0) > 0:
+        parts.append(f"Google Tasks: {results['google_tasks']} tarefas")
     if results["microsoft"] > 0:
         parts.append(f"Outlook: {results['microsoft']} eventos")
     if results["errors"]:
@@ -2173,10 +2358,10 @@ async def cmd_sync(update, context):
 
 
 async def sync_calendarios_job(context):
-    """Job que sincroniza calendarios a cada 30 minutos."""
+    """Job que sincroniza calendarios a cada 15 minutos."""
     try:
         results = sync_all_calendars()
-        total = results.get("google", 0) + results.get("microsoft", 0)
+        total = results.get("google", 0) + results.get("microsoft", 0) + results.get("google_tasks", 0)
         if total > 0:
             logger.info(f"Calendar sync: {total} eventos sincronizados")
 
@@ -2256,6 +2441,8 @@ async def setup_commands(app):
         BotCommand("decompor", "Decompor tarefa em subtarefas"),
         BotCommand("energia", "Registrar nivel de energia (1-5)"),
         BotCommand("coaching", "Dica personalizada de produtividade"),
+        BotCommand("buscar", "Buscar em tarefas, eventos e anexos"),
+        BotCommand("anexar", "Anexar texto/nota a uma tarefa"),
         BotCommand("foco", "Modo foco (silenciar)"),
         BotCommand("cancelar", "Cancelar operacao"),
         BotCommand("agenda", "Ver agenda do dia (todos os calendarios)"),
@@ -2320,10 +2507,10 @@ async def post_init(app):
         name="initial_reminders",
     )
 
-    # Sync de calendarios a cada 30 minutos (primeiro sync apos 60s)
-    jq.run_repeating(sync_calendarios_job, interval=1800, first=60, name="calendar_sync")
+    # Sync de calendarios a cada 15 minutos (primeiro sync apos 60s)
+    jq.run_repeating(sync_calendarios_job, interval=900, first=60, name="calendar_sync")
 
-    logger.info("Jobs programados: resumo 7:30, check-in 13:00, reflexao 18:00, relatorio sex 17:00, recorrentes 6:00, calendar sync 30min")
+    logger.info("Jobs programados: resumo 7:30, check-in 13:00, reflexao 18:00, relatorio sex 17:00, recorrentes 6:00, calendar sync 15min")
 
 
 # ========== HEALTH CHECK (para Koyeb/PaaS) ==========
@@ -2445,6 +2632,8 @@ def main():
     app.add_handler(CommandHandler("energia", cmd_energia))
     app.add_handler(CommandHandler("coaching", cmd_coaching))
     app.add_handler(CommandHandler("foco", cmd_foco))
+    app.add_handler(CommandHandler("buscar", cmd_buscar))
+    app.add_handler(CommandHandler("anexar", cmd_anexar))
     app.add_handler(CommandHandler("cancelar", cmd_cancelar))
     app.add_handler(CommandHandler("status", cmd_status))
     app.add_handler(CommandHandler("conectar_google", cmd_conectar_google))

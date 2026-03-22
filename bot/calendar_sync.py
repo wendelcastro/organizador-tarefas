@@ -31,7 +31,9 @@ logger = logging.getLogger(__name__)
 GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
 GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
 GOOGLE_CALENDAR_URL = "https://www.googleapis.com/calendar/v3"
-GOOGLE_SCOPES = "https://www.googleapis.com/auth/calendar.readonly"
+GOOGLE_SCOPES = "https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/tasks.readonly"
+
+GOOGLE_TASKS_URL = "https://tasks.googleapis.com/tasks/v1"
 
 MICROSOFT_AUTH_URL = "https://login.microsoftonline.com/common/oauth2/v2.0/authorize"
 MICROSOFT_TOKEN_URL = "https://login.microsoftonline.com/common/oauth2/v2.0/token"
@@ -416,6 +418,198 @@ def fetch_microsoft_events(days_ahead=14):
     return events
 
 
+def fetch_google_tasks():
+    """Busca tarefas do Google Tasks (todas as listas, apenas nao concluidas)."""
+    token = get_valid_token("google")
+    if not token:
+        return []
+
+    headers = {"Authorization": f"Bearer {token}"}
+
+    try:
+        with httpx.Client(timeout=HTTP_TIMEOUT) as client:
+            # 1. Buscar todas as listas de tarefas
+            resp = client.get(
+                f"{GOOGLE_TASKS_URL}/users/@me/lists",
+                headers=headers,
+            )
+            if resp.status_code == 401:
+                logger.warning("Google Tasks: token invalido ou escopo tasks.readonly nao autorizado. "
+                               "O usuario precisa desconectar e reconectar o Google para autorizar o novo escopo.")
+                return []
+            if resp.status_code == 403:
+                logger.warning("Google Tasks: escopo tasks.readonly nao autorizado. "
+                               "O usuario precisa desconectar e reconectar o Google para autorizar o novo escopo.")
+                return []
+            resp.raise_for_status()
+            task_lists = resp.json().get("items", [])
+
+            # 2. Para cada lista, buscar tarefas pendentes
+            all_tasks = []
+            for tl in task_lists:
+                list_id = tl.get("id")
+                if not list_id:
+                    continue
+
+                resp = client.get(
+                    f"{GOOGLE_TASKS_URL}/lists/{list_id}/tasks",
+                    headers=headers,
+                    params={
+                        "showCompleted": "false",
+                        "showHidden": "false",
+                        "maxResults": "100",
+                    },
+                )
+                resp.raise_for_status()
+                items = resp.json().get("items", [])
+
+                for task in items:
+                    try:
+                        normalized = _normalize_google_task(task)
+                        if normalized:
+                            all_tasks.append(normalized)
+                    except Exception as e:
+                        logger.warning(f"Google Tasks: erro ao normalizar tarefa: {e}")
+
+            return all_tasks
+
+    except Exception as e:
+        logger.error(f"Google Tasks fetch error: {e}")
+        return []
+
+
+def _normalize_google_task(task):
+    """Normaliza uma tarefa do Google Tasks para o formato eventos_calendario."""
+    titulo = task.get("title", "").strip()
+    if not titulo:
+        return None  # Tarefas sem titulo sao separadores/vazias
+
+    due = task.get("due")  # formato RFC 3339: "2026-03-22T00:00:00.000Z"
+    if due:
+        try:
+            due_dt = datetime.fromisoformat(due.replace("Z", "+00:00")).astimezone(TZ_RECIFE)
+            dia = due_dt.strftime("%Y-%m-%d")
+            # Google Tasks due e apenas data, tratar como all-day
+            data_inicio = due_dt.replace(hour=0, minute=0, second=0).isoformat()
+            data_fim = (due_dt.replace(hour=0, minute=0, second=0) + timedelta(days=1)).isoformat()
+        except (ValueError, TypeError):
+            dia = None
+            data_inicio = None
+            data_fim = None
+    else:
+        dia = None
+        data_inicio = None
+        data_fim = None
+
+    # Links da tarefa (se existir)
+    links = task.get("links", [])
+    meeting_link = links[0].get("link", "") if links else ""
+
+    return {
+        "external_id": task.get("id", ""),
+        "provider": "google",
+        "titulo": f"[Task] {titulo}",
+        "descricao": (task.get("notes") or "")[:500],
+        "local_evento": "",
+        "data_inicio": data_inicio,
+        "data_fim": data_fim,
+        "dia": dia,
+        "horario_inicio": "",
+        "horario_fim": "",
+        "all_day": True,
+        "meeting_link": meeting_link,
+        "meeting_platform": _detect_meeting_platform(meeting_link) if meeting_link else None,
+        "recorrente": False,
+    }
+
+
+def create_google_event(titulo, data, horario_inicio=None, horario_fim=None, descricao=""):
+    """Cria um evento no Google Calendar.
+
+    Args:
+        titulo: Titulo do evento
+        data: Data no formato "YYYY-MM-DD"
+        horario_inicio: Horario de inicio "HH:MM" (None = all-day)
+        horario_fim: Horario de fim "HH:MM" (None = 1h apos inicio ou all-day)
+        descricao: Descricao do evento
+
+    Returns:
+        ID do evento criado ou None em caso de erro.
+    """
+    token = get_valid_token("google")
+    if not token:
+        logger.warning("Google Calendar: sem token valido para criar evento. "
+                       "O usuario precisa reconectar o Google com escopo calendar (read/write).")
+        return None
+
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json",
+    }
+
+    if horario_inicio:
+        # Evento com horario
+        start_dt = f"{data}T{horario_inicio}:00-03:00"
+        if horario_fim:
+            end_dt = f"{data}T{horario_fim}:00-03:00"
+        else:
+            # Default: 1h apos inicio
+            try:
+                h, m = map(int, horario_inicio.split(":"))
+                end_h = h + 1
+                if end_h >= 24:
+                    end_h = 23
+                    m = 59
+                end_dt = f"{data}T{end_h:02d}:{m:02d}:00-03:00"
+            except (ValueError, TypeError):
+                end_dt = start_dt
+
+        body = {
+            "summary": titulo,
+            "description": descricao,
+            "start": {"dateTime": start_dt, "timeZone": "America/Recife"},
+            "end": {"dateTime": end_dt, "timeZone": "America/Recife"},
+        }
+    else:
+        # Evento all-day
+        try:
+            dt = datetime.strptime(data, "%Y-%m-%d")
+            next_day = (dt + timedelta(days=1)).strftime("%Y-%m-%d")
+        except (ValueError, TypeError):
+            next_day = data
+
+        body = {
+            "summary": titulo,
+            "description": descricao,
+            "start": {"date": data},
+            "end": {"date": next_day},
+        }
+
+    try:
+        with httpx.Client(timeout=HTTP_TIMEOUT) as client:
+            resp = client.post(
+                f"{GOOGLE_CALENDAR_URL}/calendars/primary/events",
+                headers=headers,
+                json=body,
+            )
+            if resp.status_code == 401:
+                logger.warning("Google Calendar: token invalido para criar evento. "
+                               "O usuario precisa desconectar e reconectar com escopo calendar (read/write).")
+                return None
+            if resp.status_code == 403:
+                logger.warning("Google Calendar: sem permissao para criar eventos. "
+                               "Escopo calendar.readonly ativo — precisa reconectar com escopo calendar (read/write).")
+                return None
+            resp.raise_for_status()
+            created = resp.json()
+            event_id = created.get("id")
+            logger.info(f"Google Calendar: evento criado — {titulo} ({data}) id={event_id}")
+            return event_id
+    except Exception as e:
+        logger.error(f"Google Calendar: erro ao criar evento: {e}")
+        return None
+
+
 # ========== NORMALIZE ==========
 
 def _strip_html(text):
@@ -563,7 +757,7 @@ def _normalize_microsoft_event(raw):
 
 def sync_all_calendars():
     """Sincroniza todos os calendarios conectados com o Supabase."""
-    results = {"google": 0, "microsoft": 0, "errors": []}
+    results = {"google": 0, "microsoft": 0, "google_tasks": 0, "errors": []}
 
     for provider in ("google", "microsoft"):
         tokens = _load_tokens(provider)
@@ -613,6 +807,30 @@ def sync_all_calendars():
 
         except Exception as e:
             error_msg = f"{provider}: {str(e)}"
+            results["errors"].append(error_msg)
+            logger.error(f"Calendar sync error — {error_msg}")
+
+    # Sync Google Tasks (usa mesmo token Google, escopo tasks.readonly)
+    google_tokens = _load_tokens("google")
+    if google_tokens:
+        try:
+            tasks = fetch_google_tasks()
+            for t in tasks:
+                if not t.get("data_inicio"):
+                    continue  # Tarefas sem data nao entram no calendario
+                resp = _supabase_request(
+                    "POST",
+                    "eventos_calendario",
+                    data=t,
+                    extra_headers={"Prefer": "resolution=merge-duplicates,return=representation"},
+                )
+                if resp is not None:
+                    results["google_tasks"] += 1
+
+            if tasks:
+                logger.info(f"Calendar sync google_tasks: {results['google_tasks']} tarefas")
+        except Exception as e:
+            error_msg = f"google_tasks: {str(e)}"
             results["errors"].append(error_msg)
             logger.error(f"Calendar sync error — {error_msg}")
 
