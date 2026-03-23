@@ -2797,6 +2797,140 @@ body::after {
   from { opacity: 0; transform: translateY(-10px); }
   to { opacity: 1; transform: translateY(0); }
 }
+/* ========== CLEANUP PANEL ========== */
+.btn-cleanup {
+  display: flex; align-items: center; justify-content: center;
+  width: 34px; height: 34px; border-radius: 50%;
+  background: var(--bg-glass); border: 1px solid var(--border-subtle);
+  color: var(--text-secondary); cursor: pointer; transition: var(--transition);
+  font-size: 1rem;
+}
+.btn-cleanup:hover { border-color: var(--amber); color: var(--amber); background: hsla(43,52%,54%,0.1); }
+
+.cleanup-overlay {
+  position: fixed; inset: 0; z-index: 200;
+  background: rgba(0,0,0,0.6); backdrop-filter: blur(8px);
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; pointer-events: none; transition: opacity 0.3s ease;
+}
+.cleanup-overlay.active { opacity: 1; pointer-events: auto; }
+
+.cleanup-modal {
+  width: 94%; max-width: 650px; max-height: 85vh;
+  background: var(--bg-deep); border: 1px solid var(--border-hover);
+  border-radius: var(--radius); overflow: hidden;
+  display: flex; flex-direction: column;
+  transform: translateY(30px); transition: transform 0.3s ease;
+}
+.cleanup-overlay.active .cleanup-modal { transform: translateY(0); }
+
+.cleanup-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 1rem 1.2rem; border-bottom: 1px solid var(--border-subtle); flex-shrink: 0;
+}
+.cleanup-header h2 {
+  font-family: 'Cormorant Garamond', serif; font-size: 1.3rem;
+  background: linear-gradient(135deg, var(--offwhite), var(--amber));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+.cleanup-close {
+  width: 32px; height: 32px; border-radius: 50%;
+  background: var(--bg-glass); border: 1px solid var(--border-subtle);
+  color: var(--text-secondary); font-size: 1.2rem; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: var(--transition);
+}
+.cleanup-close:hover { color: var(--text-primary); border-color: var(--border-hover); }
+
+.cleanup-body { flex: 1; overflow-y: auto; padding: 1rem 1.2rem; }
+.cleanup-body::-webkit-scrollbar { width: 4px; }
+.cleanup-body::-webkit-scrollbar-thumb { background: var(--border-hover); border-radius: 4px; }
+
+.cleanup-status {
+  text-align: center; padding: 2rem 1rem; color: var(--text-secondary); font-size: 0.85rem;
+}
+.cleanup-status .spinner {
+  display: inline-block; width: 24px; height: 24px;
+  border: 2px solid var(--border-subtle); border-top-color: var(--amber);
+  border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 0.5rem;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.cleanup-summary {
+  display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap;
+}
+.cleanup-summary-card {
+  flex: 1; min-width: 120px; padding: 0.6rem 0.8rem;
+  background: var(--bg-glass); border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm); text-align: center;
+}
+.cleanup-summary-number { font-size: 1.4rem; font-weight: 700; color: var(--amber); }
+.cleanup-summary-label { font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+
+.cleanup-group {
+  margin-bottom: 1rem; border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm); overflow: hidden;
+}
+.cleanup-group-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0.6rem 0.8rem; background: var(--bg-glass);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.cleanup-group-title { font-size: 0.8rem; font-weight: 600; color: var(--text-primary); }
+.cleanup-group-badge {
+  font-size: 0.6rem; padding: 0.15rem 0.5rem; border-radius: 50px;
+  background: hsla(0,70%,55%,0.15); color: var(--pri-alta); font-weight: 600;
+}
+
+.cleanup-task {
+  display: flex; align-items: center; gap: 0.6rem;
+  padding: 0.5rem 0.8rem; border-bottom: 1px solid var(--border-subtle);
+  transition: var(--transition);
+}
+.cleanup-task:last-child { border-bottom: none; }
+.cleanup-task:hover { background: var(--bg-glass); }
+.cleanup-task input[type="checkbox"] {
+  width: 18px; height: 18px; accent-color: var(--amber); cursor: pointer; flex-shrink: 0;
+}
+.cleanup-task-info { flex: 1; min-width: 0; }
+.cleanup-task-title { font-size: 0.8rem; color: var(--text-primary); }
+.cleanup-task-meta { font-size: 0.65rem; color: var(--text-muted); margin-top: 0.1rem; }
+.cleanup-task-similarity {
+  font-size: 0.6rem; padding: 0.1rem 0.4rem; border-radius: 50px;
+  background: hsla(43,52%,54%,0.15); color: var(--amber); font-weight: 600; flex-shrink: 0;
+}
+.cleanup-task-actions { display: flex; gap: 0.3rem; flex-shrink: 0; }
+.cleanup-task-btn {
+  padding: 0.25rem 0.5rem; border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle); background: transparent;
+  color: var(--text-secondary); font-size: 0.65rem; cursor: pointer;
+  transition: var(--transition);
+}
+.cleanup-task-btn:hover { border-color: var(--border-hover); color: var(--text-primary); }
+.cleanup-task-btn.delete { color: var(--pri-alta); }
+.cleanup-task-btn.delete:hover { background: hsla(0,70%,55%,0.1); border-color: var(--pri-alta); }
+
+.cleanup-actions {
+  display: flex; gap: 0.5rem; padding: 0.8rem 1.2rem;
+  border-top: 1px solid var(--border-subtle); flex-shrink: 0;
+}
+.cleanup-btn {
+  flex: 1; padding: 0.55rem 1rem; border-radius: var(--radius-sm);
+  font-family: inherit; font-size: 0.8rem; cursor: pointer; transition: var(--transition);
+  display: flex; align-items: center; justify-content: center; gap: 0.4rem;
+}
+.cleanup-btn-delete {
+  background: hsla(0,70%,55%,0.15); border: 1px solid hsla(0,70%,55%,0.3);
+  color: var(--pri-alta); font-weight: 600;
+}
+.cleanup-btn-delete:hover { background: hsla(0,70%,55%,0.25); }
+.cleanup-btn-delete:disabled { opacity: 0.4; cursor: not-allowed; }
+.cleanup-btn-secondary {
+  background: var(--bg-glass); border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+}
+.cleanup-btn-secondary:hover { border-color: var(--border-hover); color: var(--text-primary); }
+
 </style>
 </head>
 <body>
@@ -2826,6 +2960,7 @@ body::after {
         <button data-view="timeblock" onclick="switchView('timeblock')">Blocos</button>
         <button data-view="kpis" onclick="switchView('kpis')">KPIs</button>
       </div>
+      <button class="btn-cleanup" onclick="openCleanupPanel()" title="Análise de duplicatas">🧹</button>
       <button class="btn-help-center" onclick="openHelpCenter()" title="Central de Ajuda">?</button>
       <button class="theme-toggle" onclick="toggleTheme()" title="Alternar tema">
         <span id="themeIcon">☀️</span>
@@ -3095,6 +3230,26 @@ body::after {
   <div class="detail-sheet" onclick="event.stopPropagation()">
     <div class="detail-handle"></div>
     <div id="detailContent"></div>
+  </div>
+</div>
+
+<!-- CLEANUP PANEL -->
+<div class="cleanup-overlay" id="cleanupOverlay" onclick="closeCleanupPanel(event)">
+  <div class="cleanup-modal" onclick="event.stopPropagation()">
+    <div class="cleanup-header">
+      <h2>🧹 Análise Inteligente</h2>
+      <button class="cleanup-close" onclick="closeCleanupPanel()">&times;</button>
+    </div>
+    <div class="cleanup-body" id="cleanupBody">
+      <div class="cleanup-status" id="cleanupLoading">
+        <div class="spinner"></div>
+        <div>Analisando suas tarefas...</div>
+      </div>
+    </div>
+    <div class="cleanup-actions" id="cleanupActions" style="display:none">
+      <button class="cleanup-btn cleanup-btn-secondary" onclick="selectAllCleanup()">Selecionar tudo</button>
+      <button class="cleanup-btn cleanup-btn-delete" id="cleanupDeleteBtn" disabled onclick="deleteSelectedCleanup()">🗑️ Excluir selecionados (0)</button>
+    </div>
   </div>
 </div>
 
@@ -6915,6 +7070,228 @@ function installPWA() {
     deferredPrompt = null;
     document.querySelector('.pwa-install-banner')?.remove();
   });
+}
+
+// ========== CLEANUP PANEL (Anti-Duplicatas) ==========
+
+function openCleanupPanel() {
+  document.getElementById('cleanupOverlay').classList.add('active');
+  runCleanupAnalysis();
+}
+
+function closeCleanupPanel(event) {
+  if (event && event.target !== event.currentTarget && !event.target.closest('.cleanup-close')) return;
+  document.getElementById('cleanupOverlay').classList.remove('active');
+}
+
+async function runCleanupAnalysis() {
+  const body = document.getElementById('cleanupBody');
+  const actions = document.getElementById('cleanupActions');
+  body.innerHTML = '<div class="cleanup-status"><div class="spinner"></div><div>Analisando suas tarefas...</div></div>';
+  actions.style.display = 'none';
+
+  // Get all non-completed tasks
+  const { data: allTasks, error } = await sb
+    .from('tarefas')
+    .select('id,titulo,categoria,prioridade,prazo,horario,status,created_at')
+    .neq('status', 'concluida')
+    .order('titulo', { ascending: true });
+
+  if (error || !allTasks || allTasks.length === 0) {
+    body.innerHTML = '<div class="cleanup-status">✅ Nenhuma tarefa pendente para analisar.</div>';
+    return;
+  }
+
+  // Find duplicate groups using fuzzy matching
+  const groups = [];
+  const used = new Set();
+
+  for (let i = 0; i < allTasks.length; i++) {
+    if (used.has(i)) continue;
+    const t1 = allTasks[i];
+    const title1 = (t1.titulo || '').toLowerCase().trim();
+    if (title1.length < 3) continue;
+
+    const group = [{ task: t1, similarity: 100 }];
+
+    for (let j = i + 1; j < allTasks.length; j++) {
+      if (used.has(j)) continue;
+      const t2 = allTasks[j];
+      const title2 = (t2.titulo || '').toLowerCase().trim();
+      if (title2.length < 3) continue;
+
+      const sim = stringSimilarity(title1, title2);
+      const contained = (title1.length > 5 && title2.includes(title1)) ||
+                        (title2.length > 5 && title1.includes(title2));
+
+      if (sim >= 0.7 || contained) {
+        group.push({ task: t2, similarity: Math.round(Math.max(sim, contained ? 0.85 : 0) * 100) });
+        used.add(j);
+      }
+    }
+
+    if (group.length > 1) {
+      used.add(i);
+      groups.push(group);
+    }
+  }
+
+  // Also find tasks with same day + similar time (possible conflicts)
+  const conflicts = [];
+  for (let i = 0; i < allTasks.length; i++) {
+    const t1 = allTasks[i];
+    if (!t1.prazo || !t1.horario) continue;
+    for (let j = i + 1; j < allTasks.length; j++) {
+      const t2 = allTasks[j];
+      if (!t2.prazo || !t2.horario) continue;
+      if (t1.prazo === t2.prazo && t1.horario === t2.horario && t1.titulo !== t2.titulo) {
+        // Same day, same time, different tasks
+        const alreadyGrouped = groups.some(g => g.some(item => item.task.id === t1.id || item.task.id === t2.id));
+        if (!alreadyGrouped) {
+          conflicts.push({ task1: t1, task2: t2 });
+        }
+      }
+    }
+  }
+
+  const totalDuplicatas = groups.reduce((sum, g) => sum + g.length - 1, 0);
+
+  if (groups.length === 0 && conflicts.length === 0) {
+    body.innerHTML = '<div class="cleanup-status">✅ Tudo limpo! Nenhuma duplicata ou conflito encontrado.</div>';
+    return;
+  }
+
+  // Render results
+  let html = '<div class="cleanup-summary">';
+  html += '<div class="cleanup-summary-card"><div class="cleanup-summary-number">' + groups.length + '</div><div class="cleanup-summary-label">Grupos similares</div></div>';
+  html += '<div class="cleanup-summary-card"><div class="cleanup-summary-number">' + totalDuplicatas + '</div><div class="cleanup-summary-label">Possíveis duplicatas</div></div>';
+  html += '<div class="cleanup-summary-card"><div class="cleanup-summary-number">' + conflicts.length + '</div><div class="cleanup-summary-label">Conflitos de horário</div></div>';
+  html += '</div>';
+
+  // Duplicate groups
+  groups.forEach(function(group, gIdx) {
+    html += '<div class="cleanup-group">';
+    html += '<div class="cleanup-group-header">';
+    html += '<span class="cleanup-group-title">Grupo ' + (gIdx + 1) + ' — "' + (group[0].task.titulo || '').substring(0, 40) + '"</span>';
+    html += '<span class="cleanup-group-badge">' + group.length + ' tarefas</span>';
+    html += '</div>';
+
+    group.forEach(function(item, tIdx) {
+      var t = item.task;
+      var prazoStr = t.prazo ? new Date(t.prazo + 'T12:00:00').toLocaleDateString('pt-BR', {day:'2-digit',month:'short'}) : 'sem data';
+      var catColors = {'Trabalho':'var(--cat-trabalho)','Consultoria':'var(--cat-consultoria)','Grupo Ser':'var(--cat-grupo-ser)','Pessoal':'var(--cat-pessoal)'};
+      var catColor = catColors[t.categoria] || 'var(--text-muted)';
+
+      html += '<div class="cleanup-task">';
+      html += '<input type="checkbox" class="cleanup-check" data-task-id="' + t.id + '" onchange="updateCleanupCount()"' + (tIdx > 0 ? ' checked' : '') + '>';
+      html += '<div class="cleanup-task-info">';
+      html += '<div class="cleanup-task-title">' + (t.titulo || '') + '</div>';
+      html += '<div class="cleanup-task-meta"><span style="color:' + catColor + '">' + (t.categoria || '') + '</span> · ' + prazoStr + (t.horario ? ' · ' + t.horario.substring(0,5) : '') + ' · ' + (t.status || '') + '</div>';
+      html += '</div>';
+      if (tIdx > 0) {
+        html += '<span class="cleanup-task-similarity">' + item.similarity + '%</span>';
+      } else {
+        html += '<span class="cleanup-task-similarity" style="background:hsla(142,52%,45%,0.15);color:hsl(142,52%,45%)">original</span>';
+      }
+      html += '<div class="cleanup-task-actions">';
+      html += '<button class="cleanup-task-btn" onclick="showTaskDetail(\'' + t.id + '\');closeCleanupPanel()">✏️</button>';
+      html += '</div>';
+      html += '</div>';
+    });
+
+    html += '</div>';
+  });
+
+  // Conflicts
+  if (conflicts.length > 0) {
+    html += '<div class="cleanup-group">';
+    html += '<div class="cleanup-group-header">';
+    html += '<span class="cleanup-group-title">⚠️ Conflitos de horário</span>';
+    html += '<span class="cleanup-group-badge" style="background:hsla(43,52%,54%,0.15);color:var(--amber)">' + conflicts.length + ' conflitos</span>';
+    html += '</div>';
+
+    conflicts.forEach(function(c) {
+      var prazoStr = c.task1.prazo ? new Date(c.task1.prazo + 'T12:00:00').toLocaleDateString('pt-BR', {day:'2-digit',month:'short'}) : '';
+      html += '<div class="cleanup-task">';
+      html += '<input type="checkbox" class="cleanup-check" data-task-id="' + c.task2.id + '" onchange="updateCleanupCount()">';
+      html += '<div class="cleanup-task-info">';
+      html += '<div class="cleanup-task-title">' + c.task1.titulo + ' <span style="color:var(--text-muted)">×</span> ' + c.task2.titulo + '</div>';
+      html += '<div class="cleanup-task-meta">Mesmo horário: ' + prazoStr + ' às ' + (c.task1.horario || '').substring(0,5) + '</div>';
+      html += '</div>';
+      html += '<div class="cleanup-task-actions">';
+      html += '<button class="cleanup-task-btn" onclick="showTaskDetail(\'' + c.task1.id + '\');closeCleanupPanel()">✏️ 1ª</button>';
+      html += '<button class="cleanup-task-btn" onclick="showTaskDetail(\'' + c.task2.id + '\');closeCleanupPanel()">✏️ 2ª</button>';
+      html += '</div>';
+      html += '</div>';
+    });
+
+    html += '</div>';
+  }
+
+  body.innerHTML = html;
+  actions.style.display = 'flex';
+  updateCleanupCount();
+}
+
+// Simple string similarity (Dice coefficient — fast approximation)
+function stringSimilarity(a, b) {
+  if (a === b) return 1;
+  if (a.length < 2 || b.length < 2) return 0;
+  var bigrams1 = new Map();
+  for (var i = 0; i < a.length - 1; i++) {
+    var bigram = a.substring(i, i + 2);
+    bigrams1.set(bigram, (bigrams1.get(bigram) || 0) + 1);
+  }
+  var intersection = 0;
+  for (var j = 0; j < b.length - 1; j++) {
+    var bg = b.substring(j, j + 2);
+    var count = bigrams1.get(bg) || 0;
+    if (count > 0) {
+      intersection++;
+      bigrams1.set(bg, count - 1);
+    }
+  }
+  return (2 * intersection) / (a.length + b.length - 2);
+}
+
+function updateCleanupCount() {
+  var checks = document.querySelectorAll('.cleanup-check:checked');
+  var btn = document.getElementById('cleanupDeleteBtn');
+  btn.textContent = '🗑️ Excluir selecionados (' + checks.length + ')';
+  btn.disabled = checks.length === 0;
+}
+
+function selectAllCleanup() {
+  var checks = document.querySelectorAll('.cleanup-check');
+  var allChecked = Array.from(checks).every(function(c) { return c.checked; });
+  checks.forEach(function(c) { c.checked = !allChecked; });
+  updateCleanupCount();
+}
+
+async function deleteSelectedCleanup() {
+  var checks = document.querySelectorAll('.cleanup-check:checked');
+  var ids = Array.from(checks).map(function(c) { return c.dataset.taskId; });
+
+  if (ids.length === 0) return;
+  if (!confirm('Excluir ' + ids.length + ' tarefa(s) selecionada(s)? Essa ação não pode ser desfeita.')) return;
+
+  var deleted = 0;
+  for (var i = 0; i < ids.length; i++) {
+    var ok = await removeTask(ids[i]);
+    if (ok) deleted++;
+  }
+
+  // Refresh tasks and re-run analysis
+  await loadTasks();
+  renderTasks();
+
+  if (deleted === ids.length) {
+    alert(deleted + ' tarefa(s) excluída(s) com sucesso!');
+  } else {
+    alert(deleted + ' de ' + ids.length + ' excluída(s). Algumas falharam.');
+  }
+
+  runCleanupAnalysis();
 }
 
 // ========== HELP SYSTEM ==========
