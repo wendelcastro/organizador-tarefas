@@ -1534,14 +1534,13 @@ body::after {
 .bulk-bar button:hover { background: var(--bg-glass); border-color: var(--border-hover); }
 .bulk-bar button.danger { border-color: rgba(239,68,68,0.3); color: var(--pri-alta); }
 .bulk-bar button.danger:hover { background: rgba(239,68,68,0.1); }
-/* Bulk select toggle button (visible on task list) */
-.bulk-toggle-btn { display: none; padding: 0.3rem 0.6rem; background: var(--bg-glass); border: 1px solid var(--border-subtle); border-radius: 50px; color: var(--text-muted); font-family: inherit; font-size: 0.7rem; cursor: pointer; transition: var(--transition); margin-left: auto; flex-shrink: 0; }
+/* Bulk select toggle button (small icon, always visible) */
+.bulk-toggle-btn { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; padding: 0; background: var(--bg-glass); border: 1px solid var(--border-subtle); border-radius: 50%; color: var(--text-muted); font-family: inherit; font-size: 0.8rem; cursor: pointer; transition: var(--transition); flex-shrink: 0; }
 .bulk-toggle-btn:hover { border-color: var(--border-hover); color: var(--text-secondary); }
-.bulk-toggle-btn.active { background: hsla(43,52%,54%,0.12); border-color: hsla(43,52%,54%,0.3); color: var(--amber); }
+.bulk-toggle-btn.active { background: hsla(43,52%,54%,0.15); border-color: var(--amber); color: var(--amber); }
 .task-card.selected { background: hsla(43,52%,54%,0.08); border-color: hsla(43,52%,54%,0.3); }
 .task-card .bulk-check { display: none; width: 18px; height: 18px; border: 2px solid var(--border-subtle); border-radius: 4px; margin-right: 0.5rem; flex-shrink: 0; cursor: pointer; align-items: center; justify-content: center; }
 .bulk-mode .task-card .bulk-check { display: flex; }
-.bulk-mode .bulk-toggle-btn { display: inline-flex; }
 .task-card.selected .bulk-check { background: var(--amber); border-color: var(--amber); }
 .task-card.selected .bulk-check::after { content: '\2713'; color: white; font-size: 0.7rem; }
 
@@ -3115,7 +3114,7 @@ body::after {
           <button class="status-tab" data-status="em_andamento" onclick="filterStatus('em_andamento')">Em andamento</button>
           <button class="status-tab" data-status="concluida" onclick="filterStatus('concluida')">Concluídas</button>
         </div>
-        <button class="bulk-toggle-btn" id="bulkToggleBtn" onclick="toggleBulkMode()" title="Selecionar várias tarefas" style="display:inline-flex">☑ Selecionar</button>
+        <button class="bulk-toggle-btn" id="bulkToggleBtn" onclick="toggleBulkMode()" title="Selecionar várias tarefas">☑</button>
       </div>
       <div class="task-list" id="taskList"></div>
     </div>
@@ -4584,7 +4583,7 @@ function enterBulkMode() {
   document.querySelector('.main').classList.add('bulk-mode');
   document.getElementById('bulkBar').classList.add('active');
   const btn = document.getElementById('bulkToggleBtn');
-  if (btn) { btn.classList.add('active'); btn.textContent = '☑ Selecionando...'; }
+  if (btn) btn.classList.add('active');
   updateBulkCount();
 }
 
@@ -4595,7 +4594,7 @@ function exitBulkMode() {
   document.getElementById('bulkBar').classList.remove('active');
   document.querySelectorAll('.task-card.selected').forEach(c => c.classList.remove('selected'));
   const btn = document.getElementById('bulkToggleBtn');
-  if (btn) { btn.classList.remove('active'); btn.textContent = '☑ Selecionar'; }
+  if (btn) btn.classList.remove('active');
   updateBulkCount();
 }
 
