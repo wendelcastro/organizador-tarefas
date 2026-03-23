@@ -605,6 +605,13 @@ body::after {
   box-shadow: 0 0 20px hsla(43,52%,54%,0.06);
 }
 .calendar-day.empty-day { opacity: 0.5; }
+.calendar-day.no-date-column {
+  border-style: dashed;
+  opacity: 0.8;
+}
+.calendar-day.no-date-column .calendar-day-header {
+  background: hsla(43,52%,54%,0.08);
+}
 
 .calendar-day-header {
   display: flex;
@@ -675,10 +682,20 @@ body::after {
 
 .calendar-task-time {
   font-size: 0.6rem;
-  color: var(--text-muted);
+  color: var(--cat-color, var(--text-muted));
   display: flex;
   align-items: center;
   gap: 0.25rem;
+  font-weight: 600;
+  opacity: 0.85;
+}
+.calendar-task-cat {
+  font-size: 0.55rem;
+  color: var(--cat-color, var(--text-muted));
+  opacity: 0.7;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 500;
 }
 
 .calendar-task-meeting {
@@ -3975,10 +3992,29 @@ function editTask(id) {
 function renderCalendar() {
   const weekDays = getWeekDays();
   const container = document.getElementById('calendarWeek');
-  const MAX_VISIBLE = window.innerWidth >= 1024 ? 4 : 3;
+  const MAX_VISIBLE = window.innerWidth >= 1024 ? 8 : 5;
 
   container.innerHTML = weekDays.map(day => {
-    const dayTasks = tasks.filter(t => t.prazo === day.date && t.status !== 'concluida');
+    const dayTasks = tasks.filter(t => {
+      if (t.status === 'concluida') return false;
+      // Exact date match
+      if (t.prazo === day.date) return true;
+      // Daily recurring tasks should appear on all days
+      if (t.recorrencia === 'diaria') {
+        const dayOfWeek = new Date(day.date + 'T12:00:00').getDay(); // 0=Sun
+        if (['Trabalho','Consultoria','Grupo Ser'].includes(t.categoria)) {
+          return dayOfWeek >= 1 && dayOfWeek <= 5; // Mon-Fri
+        }
+        return true; // All days for personal
+      }
+      // Weekly recurring: show on the matching day of week
+      if (t.recorrencia === 'semanal' && t.recorrencia_dia != null) {
+        const dayOfWeek = new Date(day.date + 'T12:00:00').getDay();
+        const mappedDay = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Convert JS (0=Sun) to Python (0=Mon)
+        return mappedDay === t.recorrencia_dia;
+      }
+      return false;
+    });
     const dayEvents = calendarEvents.filter(ev => ev.dia === day.date);
     dayTasks.sort((a, b) => (a.horario || 'zz').localeCompare(b.horario || 'zz'));
     dayEvents.sort((a, b) => (a.horario_inicio || 'zz').localeCompare(b.horario_inicio || 'zz'));
@@ -4011,10 +4047,11 @@ function renderCalendar() {
             const platform = detectMeetingPlatform(t.meeting_link);
             const meetIcon = platform ? '<svg class="meeting-icon" viewBox="0 0 24 24" fill="none" stroke="' + platform.color + '" stroke-width="2"><path d="M15.5 10l4.72-3.36a1 1 0 011.78.63v9.46a1 1 0 01-1.78.63L15.5 14"/><rect x="2" y="6" width="13.5" height="12" rx="2"/></svg>' : '';
             const timeStr = t.horario || '';
-            return `<div class="calendar-task" style="--cat-color:${CATEGORY_COLORS[t.categoria]}" data-task-id="${t.id}">
+            return `<div class="calendar-task" style="--cat-color:${CATEGORY_COLORS[t.categoria]}" data-task-id="${t.id}" draggable="true" ondragstart="handleDragStart(event)">
               <div class="calendar-task-content">
+                ${timeStr ? '<span class="calendar-task-time">🕐 ' + timeStr + (platform ? ' ' + meetIcon + ' ' + platform.label : '') + '</span>' : (platform ? '<span class="calendar-task-time">' + meetIcon + ' ' + platform.label + '</span>' : '')}
                 <span class="calendar-task-title">${t.titulo}</span>
-                ${timeStr || platform ? '<span class="calendar-task-time">' + (timeStr ? timeStr : '') + (platform ? ' ' + meetIcon + ' ' + platform.label : '') + '</span>' : ''}
+                <span class="calendar-task-cat">${t.categoria}${t.recorrencia ? ' · 🔄 ' + t.recorrencia : ''}</span>
               </div>
             </div>`;
           }).join('')}
@@ -4023,8 +4060,34 @@ function renderCalendar() {
       </div>`;
   }).join('');
 
+  // Add "no date" tasks section
+  const noDateTasks = tasks.filter(t => !t.prazo && t.status !== 'concluida');
+  if (noDateTasks.length > 0) {
+    container.innerHTML += `
+      <div class="calendar-day no-date-column" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleCalendarDrop(event, '')">
+        <div class="calendar-day-header">
+          <span class="calendar-day-name">📌</span>
+          <span class="calendar-day-number">Sem data</span>
+        </div>
+        <div class="calendar-day-tasks">
+          ${noDateTasks.slice(0, 6).map(t => {
+            return '<div class="calendar-task" style="--cat-color:' + (CATEGORY_COLORS[t.categoria] || 'var(--text-muted)') + '" data-task-id="' + t.id + '" draggable="true" ondragstart="handleDragStart(event)">' +
+              '<div class="calendar-task-content">' +
+              '<span class="calendar-task-title">' + t.titulo + '</span>' +
+              '</div></div>';
+          }).join('')}
+          ${noDateTasks.length > 6 ? '<div class="calendar-task-count">+' + (noDateTasks.length - 6) + ' mais</div>' : ''}
+        </div>
+      </div>`;
+
+    // Re-register click handlers for no-date column
+    container.querySelectorAll('.no-date-column .calendar-task[data-task-id]').forEach(el => {
+      el.addEventListener('click', () => showTaskDetail(el.dataset.taskId));
+    });
+  }
+
   // Clique nas tarefas do calendario
-  container.querySelectorAll('.calendar-task[data-task-id]').forEach(el => {
+  container.querySelectorAll('.calendar-day:not(.no-date-column) .calendar-task[data-task-id]').forEach(el => {
     el.addEventListener('click', () => showTaskDetail(el.dataset.taskId));
   });
 }
