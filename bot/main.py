@@ -397,7 +397,7 @@ def save_chat_id(chat_id):
 async def cmd_status(update, context):
     """Diagnostico do bot — verifica se IA esta funcionando."""
     info = []
-    info.append("🔧 *Diagnostico do Bot*\n")
+    info.append("🔧 *Diagnóstico do Bot*\n")
 
     # Provider de IA
     if ai_brain:
@@ -412,14 +412,14 @@ async def cmd_status(update, context):
             if test_resp:
                 info.append(f"✅ API respondendo: {test_resp[:50]}")
             else:
-                info.append("❌ API NAO respondeu (retornou None)")
+                info.append("❌ API NÃO respondeu (retornou None)")
         except Exception as e:
             info.append(f"❌ Erro ao chamar API: {e}")
     else:
         info.append("⚠️ IA: *DESATIVADA* (sem GEMINI_API_KEY ou ANTHROPIC_API_KEY)")
 
     # Env vars
-    info.append(f"\n📋 *Variaveis:*")
+    info.append(f"\n📋 *Variáveis:*")
     info.append(f"  GEMINI\\_API\\_KEY: {'✅' if GEMINI_API_KEY else '❌'}")
     info.append(f"  ANTHROPIC\\_API\\_KEY: {'✅' if ANTHROPIC_API_KEY else '❌'}")
     info.append(f"  GROQ\\_API\\_KEY: {'✅' if GROQ_API_KEY else '❌'}")
@@ -459,7 +459,7 @@ def formatar_tarefa_card(tarefa):
             linhas.append(f"   🕐 {h[:5]}")
 
     if tarefa.get("meeting_link"):
-        linhas.append(f"   🔗 [Entrar na reuniao]({tarefa['meeting_link']})")
+        linhas.append(f"   🔗 [Entrar na reunião]({tarefa['meeting_link']})")
 
     if tarefa.get("tempo_estimado_min"):
         linhas.append(f"   ⏱ ~{tarefa['tempo_estimado_min']}min")
@@ -480,7 +480,7 @@ def formatar_tarefa_card(tarefa):
 
 
 def formatar_confirmacao(classificacao):
-    """Formata mensagem de confirmacao."""
+    """Formata mensagem de confirmação."""
     card = formatar_tarefa_card(classificacao)
     msg = f"🧠 *Entendi! Classifiquei assim:*\n\n{card}\n\n"
 
@@ -619,7 +619,7 @@ async def processar_nova_tarefa(update, context, texto):
 
         # Adicionar alertas extras a mensagem
         if classificacao.get("_alerta_conflito"):
-            confirm_msg += f"\n\n⚠️ *Conflito de horario:* {classificacao['_alerta_conflito']}"
+            confirm_msg += f"\n\n⚠️ *Conflito de horário:* {classificacao['_alerta_conflito']}"
         if classificacao.get("_alerta_preditivo"):
             confirm_msg += f"\n\n📈 *Alerta:* {classificacao['_alerta_preditivo']}"
 
@@ -720,6 +720,51 @@ def _salvar_tarefa_e_contexto(tarefa_data):
     return tarefa, google_calendar_ok
 
 
+def _criar_copias_recorrencia_semanal(tarefa_data):
+    """Para tarefas diárias, cria cópias para o restante da semana atual."""
+    rec = tarefa_data.get("recorrencia")
+    if rec != "diaria":
+        return []
+
+    hoje = datetime.now(TZ_RECIFE)
+    prazo_str = tarefa_data.get("prazo") or hoje.strftime("%Y-%m-%d")
+
+    try:
+        prazo_base = datetime.strptime(prazo_str, "%Y-%m-%d")
+    except ValueError:
+        prazo_base = hoje
+
+    copias_criadas = []
+    cat = tarefa_data.get("categoria", "Pessoal")
+    # Para categorias de trabalho, apenas dias úteis (seg-sex). Para pessoal, todos os dias.
+    max_dia = 4 if cat in ("Trabalho", "Consultoria", "Grupo Ser") else 6
+
+    for offset in range(1, 7):
+        dia = prazo_base + timedelta(days=offset)
+        # Não ultrapassar o final da semana (domingo)
+        if dia.weekday() > max_dia:
+            continue
+        # Não criar se mesma data que a base
+        if dia.strftime("%Y-%m-%d") == prazo_str:
+            continue
+        # Não criar datas passadas
+        if dia.date() < hoje.date():
+            continue
+
+        tarefa = criar_tarefa(
+            titulo=tarefa_data.get("titulo", "Tarefa"),
+            categoria=tarefa_data.get("categoria", "Pessoal"),
+            prioridade=tarefa_data.get("prioridade", "media"),
+            prazo=dia.strftime("%Y-%m-%d"),
+            horario=tarefa_data.get("horario"),
+            tempo_estimado=tarefa_data.get("tempo_estimado_min"),
+        )
+        if tarefa:
+            copias_criadas.append(tarefa)
+
+    return copias_criadas
+
+
 async def processar_confirmacao(update, context, texto):
     """Processa confirmacao de tarefa unica."""
     pending = context.user_data.get("pending_task")
@@ -756,12 +801,16 @@ async def processar_confirmacao(update, context, texto):
         tarefa_data = pending
 
     tarefa, gcal_ok = _salvar_tarefa_e_contexto(tarefa_data)
+    # Criar cópias para a semana se for diária
+    copias = _criar_copias_recorrencia_semanal(tarefa_data) if tarefa else []
     clear_state(context)
 
     if tarefa:
         resposta = "✅ *Tarefa salva!*\n\n" + formatar_tarefa_card(tarefa)
         if gcal_ok:
             resposta += "\n\n📅 Adicionado ao Google Calendar"
+        if copias:
+            resposta += f"\n\n🔄 Tarefa diária — criada para mais {len(copias)} dia(s) desta semana"
         resposta += f"\n\n[📊 Dashboard](https://wendelcastro.github.io/organizador-tarefas/web/)"
         await update.message.reply_text(resposta, parse_mode="Markdown",
                                         disable_web_page_preview=True)
@@ -784,6 +833,7 @@ async def processar_confirmacao_multi(update, context, texto):
     if any(w in lower for w in ["sim", "ok", "confirma", "todas", "salva", "bora", "pode"]):
         salvas = 0
         gcal_count = 0
+        total_copias = 0
         for t in pending_tasks:
             tarefa, gcal_ok = _salvar_tarefa_e_contexto(t)
             if tarefa:
@@ -791,10 +841,14 @@ async def processar_confirmacao_multi(update, context, texto):
                 if gcal_ok:
                     gcal_count += 1
                 await _agendar_lembrete_se_hoje(context, tarefa)
+                # Criar cópias para a semana se for diária
+                copias = _criar_copias_recorrencia_semanal(t)
+                total_copias += len(copias)
         clear_state(context)
         gcal_msg = f"\n📅 {gcal_count} adicionada(s) ao Google Calendar" if gcal_count else ""
+        copias_msg = f"\n🔄 +{total_copias} cópia(s) diária(s) criadas para a semana" if total_copias else ""
         await update.message.reply_text(
-            f"✅ *{salvas} tarefas salvas!*{gcal_msg}\n\n"
+            f"✅ *{salvas} tarefas salvas!*{gcal_msg}{copias_msg}\n\n"
             f"[📊 Dashboard](https://wendelcastro.github.io/organizador-tarefas/web/)",
             parse_mode="Markdown", disable_web_page_preview=True
         )
@@ -829,7 +883,7 @@ async def processar_confirmacao_multi(update, context, texto):
 
     # Nao entendeu
     await update.message.reply_text(
-        "Nao entendi. Diz *'confirma'* pra salvar todas, ou *'ajusta a 2'* pra mudar uma especifica.",
+        "Não entendi. Diz *'confirma'* pra salvar todas, ou *'ajusta a 2'* pra mudar uma específica.",
         parse_mode="Markdown"
     )
 
@@ -939,7 +993,7 @@ async def _enviar_lembrete(context):
     )
 
     if tarefa.get("meeting_link"):
-        msg += f"\n🔗 [Entrar na reuniao]({tarefa['meeting_link']})"
+        msg += f"\n🔗 [Entrar na reunião]({tarefa['meeting_link']})"
 
     try:
         await context.bot.send_message(
@@ -1045,7 +1099,7 @@ async def relatorio_semanal_auto(context):
         dados = _preparar_dados_relatorio()
         relatorio = ai_brain.gerar_relatorio_semanal(dados)
 
-        msg = "📊 *Relatorio Semanal*\n\n" + relatorio
+        msg = "📊 *Relatório Semanal*\n\n" + relatorio
         msg += "\n\n_Bom fim de semana!_ 🎉"
 
         await context.bot.send_message(chat_id, msg, parse_mode="Markdown",
@@ -1176,29 +1230,30 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     logger.info(f"Chat ID salvo: {chat_id}")
     clear_state(context)
 
-    modo = "🧠 *Modo inteligente v2* (Claude IA)" if ai_brain else "⚡ *Modo basico* (sem IA)"
+    modo = "🧠 *Modo inteligente v2* (Claude IA)" if ai_brain else "⚡ *Modo básico* (sem IA)"
 
     await update.message.reply_text(
         f"👋 *Organizador de Tarefas v2*\n\n"
         f"{modo}\n\n"
-        "Mande texto ou audio e eu organizo pra voce!\n\n"
+        "Mande texto ou áudio e eu organizo pra você!\n\n"
         "*Comandos:*\n"
         "/tarefas — Ver pendentes\n"
         "/planejar — Planejamento inteligente\n"
         "/feedback — Feedback do dia\n"
-        "/resumo — Resumo rapido\n"
+        "/resumo — Resumo rápido\n"
         "/concluir — Concluir tarefa\n"
+        "/excluir — Excluir tarefa\n"
         "/editar — Editar tarefa\n"
-        "/relatorio — Relatorio semanal\n"
+        "/relatório — Relatório semanal\n"
         "/foco — Modo foco\n"
-        "/cancelar — Cancela operacao\n\n"
+        "/cancelar — Cancela operação\n\n"
         "*Novidades v2:*\n"
         "• IA entende datas: 'amanha', 'sexta', 'semana que vem'\n"
-        "• Detecta multiplas tarefas numa mensagem\n"
+        "• Detecta múltiplas tarefas numa mensagem\n"
         "• Alerta de sobrecarga no dia\n"
-        "• Lembretes 15min antes de reunioes\n"
-        "• Resumo matinal automatico as 7:30\n"
-        "• Relatorio semanal toda sexta 17h\n\n"
+        "• Lembretes 15min antes de reuniões\n"
+        "• Resumo matinal automático às 7:30\n"
+        "• Relatório semanal toda sexta 17h\n\n"
         f"📊 [Dashboard](https://wendelcastro.github.io/organizador-tarefas/web/)",
         parse_mode="Markdown",
         disable_web_page_preview=True,
@@ -1211,7 +1266,7 @@ async def cmd_tarefas(update: Update, context: ContextTypes.DEFAULT_TYPE):
     tarefas = listar_tarefas_pendentes(15)
 
     if not tarefas:
-        await update.message.reply_text("✅ Nenhuma tarefa pendente! Voce esta em dia.")
+        await update.message.reply_text("✅ Nenhuma tarefa pendente! Você está em dia.")
         return
 
     texto = f"📋 *Tarefas pendentes ({len(tarefas)}):*\n\n"
@@ -1244,7 +1299,7 @@ async def cmd_planejar(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await msg.edit_text(
             "📭 Nenhuma tarefa para hoje e nada atrasado!\n\n"
             "Que tal aproveitar para:\n"
-            "• 🇬🇧 Ingles (30min)\n"
+            "• 🇬🇧 Inglês (30min)\n"
             "• 📖 Leitura\n"
             "• 🧠 Projeto pessoal"
         )
@@ -1285,12 +1340,12 @@ async def cmd_energia(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if not args:
         await update.message.reply_text(
-            "⚡ *Registrar energia do periodo*\n\n"
+            "⚡ *Registrar energia do período*\n\n"
             "Uso:\n"
-            "• `/energia 4` — registra no periodo atual (auto)\n"
-            "• `/energia 3 manha` — registra para manha\n\n"
-            "Niveis: 1 (exausto) a 5 (energia total)\n"
-            "Periodos: manha, tarde, noite",
+            "• `/energia 4` — registra no período atual (auto)\n"
+            "• `/energia 3 manha` — registra para manhã\n\n"
+            "Níveis: 1 (exausto) a 5 (energia total)\n"
+            "Períodos: manhã, tarde, noite",
             parse_mode="Markdown",
         )
         return
@@ -1299,11 +1354,11 @@ async def cmd_energia(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         nivel = int(args[0])
     except ValueError:
-        await update.message.reply_text("❌ Nivel deve ser um numero de 1 a 5.")
+        await update.message.reply_text("❌ Nível deve ser um número de 1 a 5.")
         return
 
     if nivel < 1 or nivel > 5:
-        await update.message.reply_text("❌ Nivel deve ser entre 1 e 5.")
+        await update.message.reply_text("❌ Nível deve ser entre 1 e 5.")
         return
 
     # Detectar periodo
@@ -1311,7 +1366,7 @@ async def cmd_energia(update: Update, context: ContextTypes.DEFAULT_TYPE):
         periodo = args[1].lower()
         if periodo not in ("manha", "tarde", "noite"):
             await update.message.reply_text(
-                "❌ Periodo invalido. Use: manha, tarde ou noite."
+                "❌ Período inválido. Use: manhã, tarde ou noite."
             )
             return
     else:
@@ -1387,9 +1442,9 @@ async def cmd_resumo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "📊 *Resumo:*\n\n"
         f"📋 Total: *{resumo['total']}*\n"
         f"⏳ Pendentes: *{resumo['pendentes']}*\n"
-        f"✅ Concluidas esta semana: *{resumo['concluidas_semana']}*\n"
+        f"✅ Concluídas esta semana: *{resumo['concluidas_semana']}*\n"
         f"🔴 Atrasadas: *{resumo['atrasadas']}*\n"
-        f"🎥 Reunioes pendentes: *{resumo['reunioes_pendentes']}*\n"
+        f"🎥 Reuniões pendentes: *{resumo['reunioes_pendentes']}*\n"
         f"🔥 Alta prioridade: *{resumo['alta_prioridade']}*\n\n"
         f"[📊 Dashboard](https://wendelcastro.github.io/organizador-tarefas/web/)",
         parse_mode="Markdown", disable_web_page_preview=True,
@@ -1460,19 +1515,19 @@ async def cmd_relatorio(update: Update, context: ContextTypes.DEFAULT_TYPE):
     clear_state(context)
 
     if not ai_brain:
-        await update.message.reply_text("⚠️ Relatorio requer Claude API.")
+        await update.message.reply_text("⚠️ Relatório requer Claude API.")
         return
 
-    msg = await update.message.reply_text("📊 Gerando relatorio semanal...")
+    msg = await update.message.reply_text("📊 Gerando relatório semanal...")
 
     try:
         dados = _preparar_dados_relatorio()
         relatorio = ai_brain.gerar_relatorio_semanal(dados)
-        await msg.edit_text(f"📊 *Relatorio Semanal*\n\n{relatorio}",
+        await msg.edit_text(f"📊 *Relatório Semanal*\n\n{relatorio}",
                             parse_mode="Markdown", disable_web_page_preview=True)
     except Exception as e:
         logger.error(f"Erro no relatorio: {e}")
-        await msg.edit_text("❌ Erro ao gerar relatorio.")
+        await msg.edit_text("❌ Erro ao gerar relatório.")
 
 
 async def cmd_foco(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1556,7 +1611,7 @@ async def cmd_coaching(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Montar historico resumido
     historico = ""
     if concluidas:
-        historico += f"Concluidas hoje: {len(concluidas)}. "
+        historico += f"Concluídas hoje: {len(concluidas)}. "
     if atrasadas:
         historico += f"Atrasadas: {len(atrasadas)}. "
 
@@ -1577,8 +1632,8 @@ async def cmd_buscar(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not query:
         await update.message.reply_text(
             "🔍 *Busca inteligente*\n\n"
-            "Uso: /buscar reuniao com fulano\n\n"
-            "Busca em tarefas, eventos, anotacoes semanais e anexos.",
+            "Uso: /buscar reunião com fulano\n\n"
+            "Busca em tarefas, eventos, anotações semanais e anexos.",
             parse_mode="Markdown",
         )
         return
@@ -1653,10 +1708,10 @@ async def cmd_anexar(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Anexar texto/transcricao a uma tarefa ou avulso."""
     if not context.args:
         await update.message.reply_text(
-            "📎 *Anexar conteudo*\n\n"
+            "📎 *Anexar conteúdo*\n\n"
             "Uso:\n"
-            "• `/anexar Titulo do anexo` — depois envie o conteudo\n"
-            "• Responda a uma mensagem com `/anexar Titulo`\n\n"
+            "• `/anexar Título do anexo` — depois envie o conteúdo\n"
+            "• Responda a uma mensagem com `/anexar Título`\n\n"
             "O anexo fica salvo e aparece nas buscas.",
             parse_mode="Markdown",
         )
@@ -1668,7 +1723,7 @@ async def cmd_anexar(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.reply_to_message:
         conteudo = update.message.reply_to_message.text or ""
         if not conteudo:
-            await update.message.reply_text("❌ A mensagem respondida nao tem texto.")
+            await update.message.reply_text("❌ A mensagem respondida não tem texto.")
             return
 
         data = {
@@ -1688,9 +1743,44 @@ async def cmd_anexar(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Aguardar conteudo na proxima mensagem
         set_state(context, STATE_AGUARDANDO_ANEXO, titulo_anexo=titulo)
         await update.message.reply_text(
-            f"📎 Titulo: *{titulo}*\n\nAgora envie o conteudo (texto, transcricao, etc):",
+            f"📎 Título: *{titulo}*\n\nAgora envie o conteúdo (texto, transcrição, etc):",
             parse_mode="Markdown",
         )
+
+
+async def cmd_excluir(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Excluir tarefa (inline keyboard)."""
+    clear_state(context)
+    tarefas = supabase_request("GET", "tarefas", params={
+        "status": "neq.concluida",
+        "order": "prazo.asc.nullslast",
+        "limit": "20",
+    }) or []
+
+    if not tarefas:
+        await update.message.reply_text("Nenhuma tarefa pendente para excluir.")
+        return
+
+    keyboard = []
+    for t in tarefas:
+        prazo_str = t.get("prazo", "")
+        if prazo_str:
+            try:
+                d = datetime.strptime(prazo_str, "%Y-%m-%d")
+                prazo_str = d.strftime("%d/%m")
+            except ValueError:
+                pass
+        label = f"🗑️ {t['titulo'][:35]}"
+        if prazo_str:
+            label += f" ({prazo_str})"
+        keyboard.append([InlineKeyboardButton(label, callback_data=f"excluir_{t['id']}")])
+
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await update.message.reply_text(
+        "🗑️ *Qual tarefa quer excluir?*\nToque na tarefa:",
+        reply_markup=reply_markup,
+        parse_mode="Markdown"
+    )
 
 
 async def cmd_cancelar(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1698,9 +1788,9 @@ async def cmd_cancelar(update: Update, context: ContextTypes.DEFAULT_TYPE):
     state = get_state(context)
     clear_state(context)
     if state != STATE_IDLE:
-        await update.message.reply_text("🚫 Operacao cancelada.")
+        await update.message.reply_text("🚫 Operação cancelada.")
     else:
-        await update.message.reply_text("Nenhuma operacao em andamento.")
+        await update.message.reply_text("Nenhuma operação em andamento.")
 
 
 # ========== CALLBACK HANDLER (inline keyboards) ==========
@@ -1726,15 +1816,15 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             # Verificar se e recorrente
             if tarefa.get("recorrencia"):
                 await query.edit_message_text(
-                    f"✅ *Concluida:* {tarefa['titulo']}\n"
-                    f"🔄 Tarefa recorrente — proxima instancia sera criada automaticamente.",
+                    f"✅ *Concluída:* {tarefa['titulo']}\n"
+                    f"🔄 Tarefa recorrente — próxima instância será criada automaticamente.",
                     parse_mode="Markdown",
                 )
                 # Recriar para proxima ocorrencia
                 _recriar_recorrente(tarefa)
             else:
                 await query.edit_message_text(
-                    f"✅ *Concluida:* {tarefa['titulo']}",
+                    f"✅ *Concluída:* {tarefa['titulo']}",
                     parse_mode="Markdown",
                 )
         else:
@@ -1748,7 +1838,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
         if not ai_brain:
-            await query.edit_message_text("⚠️ Decomposicao requer Claude API.")
+            await query.edit_message_text("⚠️ Decomposição requer Claude API.")
             return
 
         # Buscar dados da tarefa
@@ -1757,7 +1847,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "select": "id,titulo,categoria,prioridade,prazo,horario,tempo_estimado_min",
         })
         if not result:
-            await query.edit_message_text("❌ Tarefa nao encontrada.")
+            await query.edit_message_text("❌ Tarefa não encontrada.")
             return
 
         tarefa = result[0]
@@ -1766,16 +1856,16 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
             subtarefas = ai_brain.decompor_tarefa(tarefa)
             if not subtarefas:
-                await query.edit_message_text("❌ Nao consegui decompor essa tarefa.")
+                await query.edit_message_text("❌ Não consegui decompor essa tarefa.")
                 return
 
-            msg = f"🔀 *Decomposicao de:* _{tarefa['titulo']}_\n\n"
+            msg = f"🔀 *Decomposição de:* _{tarefa['titulo']}_\n\n"
             for i, sub in enumerate(subtarefas, 1):
                 msg += f"*{i}.* {sub.get('titulo', 'Subtarefa')}"
                 if sub.get("tempo_estimado_min"):
                     msg += f" (~{sub['tempo_estimado_min']}min)"
                 msg += "\n"
-            msg += "\n✅ *Confirma a criacao das subtarefas?*"
+            msg += "\n✅ *Confirma a criação das subtarefas?*"
 
             set_state(context, STATE_CONFIRMING_DECOMP,
                       pending_decomp=subtarefas,
@@ -1793,6 +1883,34 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 "❌ Erro ao decompor tarefa."
             )
 
+    # EXCLUIR tarefa
+    elif data.startswith("excluir_"):
+        task_id = data.replace("excluir_", "")
+        # Find the task title
+        tarefa = supabase_request("GET", "tarefas", params={"id": f"eq.{task_id}", "select": "titulo"})
+        titulo = tarefa[0]["titulo"] if tarefa else "?"
+        keyboard = [
+            [InlineKeyboardButton("✅ Sim, excluir", callback_data=f"confirmar_excluir_{task_id}")],
+            [InlineKeyboardButton("❌ Não, manter", callback_data=f"cancelar_excluir_{task_id}")]
+        ]
+        await query.edit_message_text(
+            f"⚠️ *Excluir esta tarefa?*\n\n🗑️ {titulo}\n\nEssa ação não pode ser desfeita.",
+            reply_markup=InlineKeyboardMarkup(keyboard),
+            parse_mode="Markdown"
+        )
+
+    elif data.startswith("confirmar_excluir_"):
+        task_id = data.replace("confirmar_excluir_", "")
+        # Delete related subtarefas and anexos first (safety)
+        supabase_request("DELETE", "subtarefas", params={"tarefa_id": f"eq.{task_id}"})
+        supabase_request("DELETE", "anexos", params={"tarefa_id": f"eq.{task_id}"})
+        # Delete the task
+        result = supabase_request("DELETE", "tarefas", params={"id": f"eq.{task_id}"})
+        await query.edit_message_text("✅ Tarefa excluída com sucesso!")
+
+    elif data.startswith("cancelar_excluir_"):
+        await query.edit_message_text("👍 Tarefa mantida.")
+
     # EDITAR tarefa
     elif data.startswith("edit:"):
         task_id = data.split(":", 1)[1]
@@ -1807,7 +1925,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "• 'prioridade alta'\n"
             "• 'categoria grupo ser'\n"
             "• 'horario 14:00'\n"
-            "• 'titulo: Reuniao com equipe'\n\n"
+            "• 'titulo: Reunião com equipe'\n\n"
             "Ou envie /cancelar para desistir."
         )
 
@@ -1904,7 +2022,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 if (agora - state_time).total_seconds() > 1800:  # 30 min
                     clear_state(context)
                     await update.message.reply_text(
-                        "⏰ Confirmacao expirou. Mande a tarefa novamente."
+                        "⏰ Confirmação expirou. Mande a tarefa novamente."
                     )
                     return
             except (ValueError, TypeError):
@@ -1967,8 +2085,8 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 "resposta": texto,
             })
             await update.message.reply_text(
-                "✨ Reflexao salva! Vai aparecer na sua revisao semanal.\n\n"
-                "Descanse bem, amanha e um novo dia! 💪",
+                "✨ Reflexão salva! Vai aparecer na sua revisão semanal.\n\n"
+                "Descanse bem, amanhã é um novo dia! 💪",
             )
         except Exception as e:
             logger.error(f"Erro ao salvar reflexao: {e}")
@@ -2047,11 +2165,11 @@ async def processar_edicao(update, context, texto):
 
         if not updates:
             await update.message.reply_text(
-                "Nao entendi o que mudar. Exemplos:\n"
+                "Não entendi o que mudar. Exemplos:\n"
                 "• 'prioridade alta'\n"
                 "• 'muda pra sexta'\n"
                 "• 'categoria grupo ser'\n"
-                "• 'titulo: Novo titulo aqui'"
+                "• 'titulo: Novo título aqui'"
             )
             return
 
@@ -2068,19 +2186,19 @@ async def processar_edicao(update, context, texto):
             await update.message.reply_text("❌ Erro ao atualizar.")
     else:
         clear_state(context)
-        await update.message.reply_text("Edicao requer Claude API.")
+        await update.message.reply_text("Edição requer Claude API.")
 
 
 async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Recebe audio, transcreve e processa."""
     if not GROQ_API_KEY:
         await update.message.reply_text(
-            "🎤 Audio recebido, mas transcricao nao esta configurada.\n"
+            "🎤 Áudio recebido, mas transcrição não está configurada.\n"
             "Configure GROQ_API_KEY no .env"
         )
         return
 
-    msg = await update.message.reply_text("🎤 Transcrevendo audio...")
+    msg = await update.message.reply_text("🎤 Transcrevendo áudio...")
 
     try:
         voice = update.message.voice or update.message.audio
@@ -2093,7 +2211,7 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
         texto = transcrever_audio(ogg_path)
 
         if not texto:
-            await msg.edit_text("❌ Nao consegui transcrever. Tente novamente ou mande por texto.")
+            await msg.edit_text("❌ Não consegui transcrever. Tente novamente ou mande por texto.")
             return
 
         await msg.edit_text(f"🎤 Entendi: _{texto}_\n\nProcessando...", parse_mode="Markdown")
@@ -2101,7 +2219,7 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     except Exception as e:
         logger.error(f"Erro no handler de voz: {e}")
-        await msg.edit_text("❌ Erro ao processar audio.")
+        await msg.edit_text("❌ Erro ao processar áudio.")
 
 
 # ========== CONFIRMACAO DE DECOMPOSICAO ==========
@@ -2144,7 +2262,7 @@ async def processar_confirmacao_decomp(update, context, texto):
     # Cancelar
     if any(w in lower for w in ["nao", "cancela", "esquece"]):
         clear_state(context)
-        await update.message.reply_text("🚫 Decomposicao cancelada.")
+        await update.message.reply_text("🚫 Decomposição cancelada.")
         return
 
     await update.message.reply_text(
@@ -2160,7 +2278,7 @@ async def cmd_decompor(update: Update, context: ContextTypes.DEFAULT_TYPE):
     clear_state(context)
 
     if not ai_brain:
-        await update.message.reply_text("⚠️ Decomposicao requer Claude API. Configure ANTHROPIC_API_KEY.")
+        await update.message.reply_text("⚠️ Decomposição requer Claude API. Configure ANTHROPIC_API_KEY.")
         return
 
     tarefas = listar_tarefas_pendentes(10)
@@ -2207,15 +2325,15 @@ async def checkin_meiodia(context):
     percentual = (n_concluidas / total * 100) if total > 0 else 0
 
     if percentual >= 50:
-        encorajamento = "🔥 Otimo ritmo! Mais da metade ja concluida. Continue assim!"
+        encorajamento = "🔥 Ótimo ritmo! Mais da metade já concluída. Continue assim!"
     elif n_concluidas > 0:
-        encorajamento = "💪 Ja comecou bem! Foca nas prioridades da tarde."
+        encorajamento = "💪 Já começou bem! Foca nas prioridades da tarde."
     else:
-        encorajamento = "🚀 A tarde e sua! Comece pela tarefa mais importante."
+        encorajamento = "🚀 A tarde é sua! Comece pela tarefa mais importante."
 
     msg = (
         f"📊 *Check-in do meio-dia*\n\n"
-        f"✅ {n_concluidas}/{total} tarefas concluidas ate agora ({percentual:.0f}%)\n\n"
+        f"✅ {n_concluidas}/{total} tarefas concluídas até agora ({percentual:.0f}%)\n\n"
         f"{encorajamento}"
     )
 
@@ -2244,14 +2362,14 @@ async def reflexao_noturna(context):
         n_concluidas = len(concluidas) if concluidas else 0
         n_pendentes = len(pendentes) if pendentes else 0
 
-        msg = "🌅 *Reflexao do dia*\n\n"
-        msg += f"Hoje voce concluiu *{n_concluidas}* tarefa(s)"
+        msg = "🌅 *Reflexão do dia*\n\n"
+        msg += f"Hoje você concluiu *{n_concluidas}* tarefa(s)"
         if n_pendentes > 0:
             msg += f" e ficaram *{n_pendentes}* pendente(s)"
         msg += ".\n\n"
         msg += "💭 *Como foi seu dia?*\n"
-        msg += "Me conta: o que fez de melhor? O que ficou pra amanha?\n\n"
-        msg += "_Responde com texto livre — vou guardar pra sua revisao semanal._"
+        msg += "Me conta: o que fez de melhor? O que ficou pra amanhã?\n\n"
+        msg += "_Responde com texto livre — vou guardar pra sua revisão semanal._"
 
         await context.bot.send_message(
             chat_id=chat_id,
@@ -2273,11 +2391,11 @@ async def cmd_conectar_google(update, context):
     url = build_google_auth_url(chat_id)
     if not url:
         await update.message.reply_text(
-            "⚠️ Integracao Google nao configurada. Adicione GOOGLE_CLIENT_ID e GOOGLE_CLIENT_SECRET nas variaveis de ambiente."
+            "⚠️ Integração Google não configurada. Adicione GOOGLE_CLIENT_ID e GOOGLE_CLIENT_SECRET nas variáveis de ambiente."
         )
         return
     await update.message.reply_text(
-        f"🔗 Clique no link abaixo para conectar seu Google Calendar:\n\n{url}\n\nApos autorizar, volte aqui.",
+        f"🔗 Clique no link abaixo para conectar seu Google Calendar:\n\n{url}\n\nApós autorizar, volte aqui.",
         disable_web_page_preview=True,
     )
 
@@ -2288,11 +2406,11 @@ async def cmd_conectar_microsoft(update, context):
     url = build_microsoft_auth_url(chat_id)
     if not url:
         await update.message.reply_text(
-            "⚠️ Integracao Microsoft nao configurada. Adicione MICROSOFT_CLIENT_ID e MICROSOFT_CLIENT_SECRET nas variaveis de ambiente."
+            "⚠️ Integração Microsoft não configurada. Adicione MICROSOFT_CLIENT_ID e MICROSOFT_CLIENT_SECRET nas variáveis de ambiente."
         )
         return
     await update.message.reply_text(
-        f"🔗 Clique no link abaixo para conectar seu Outlook/Teams Calendar:\n\n{url}\n\nApos autorizar, volte aqui.",
+        f"🔗 Clique no link abaixo para conectar seu Outlook/Teams Calendar:\n\n{url}\n\nApós autorizar, volte aqui.",
         disable_web_page_preview=True,
     )
 
@@ -2318,7 +2436,7 @@ async def cmd_agenda(update, context):
 
     if not eventos:
         await update.message.reply_text(
-            "📅 Nenhum evento no calendario para hoje.\n\n"
+            "📅 Nenhum evento no calendário para hoje.\n\n"
             "Use /conectar_google ou /conectar_microsoft para sincronizar."
         )
         return
@@ -2339,7 +2457,7 @@ async def cmd_agenda(update, context):
 
 async def cmd_sync(update, context):
     """Forcar sincronizacao dos calendarios."""
-    await update.message.reply_text("🔄 Sincronizando calendarios...")
+    await update.message.reply_text("🔄 Sincronizando calendários...")
     results = sync_all_calendars()
 
     parts = []
@@ -2352,7 +2470,7 @@ async def cmd_sync(update, context):
     if results["errors"]:
         parts.append(f"Erros: {', '.join(results['errors'])}")
     if not parts:
-        parts.append("Nenhum calendario conectado")
+        parts.append("Nenhum calendário conectado")
 
     await update.message.reply_text(f"✅ Sync completo!\n" + "\n".join(parts))
 
@@ -2411,7 +2529,7 @@ async def enviar_lembrete_calendario(context):
         msg += f"📍 {ev['local_evento']}\n"
     msg += f"📌 {platform}\n"
     if ev.get("meeting_link"):
-        msg += f"\n🔗 [Entrar na reuniao]({ev['meeting_link']})"
+        msg += f"\n🔗 [Entrar na reunião]({ev['meeting_link']})"
 
     # Obter chat_id da configuracoes
     chat_id = get_chat_id()
@@ -2434,22 +2552,23 @@ async def setup_commands(app):
         BotCommand("tarefas", "Ver tarefas pendentes"),
         BotCommand("planejar", "Planejamento inteligente"),
         BotCommand("feedback", "Feedback do dia"),
-        BotCommand("resumo", "Resumo rapido"),
+        BotCommand("resumo", "Resumo rápido"),
         BotCommand("concluir", "Concluir tarefa"),
         BotCommand("editar", "Editar tarefa"),
-        BotCommand("relatorio", "Relatorio semanal"),
+        BotCommand("relatorio", "Relatório semanal"),
         BotCommand("decompor", "Decompor tarefa em subtarefas"),
-        BotCommand("energia", "Registrar nivel de energia (1-5)"),
+        BotCommand("energia", "Registrar nível de energia (1-5)"),
         BotCommand("coaching", "Dica personalizada de produtividade"),
         BotCommand("buscar", "Buscar em tarefas, eventos e anexos"),
         BotCommand("anexar", "Anexar texto/nota a uma tarefa"),
+        BotCommand("excluir", "Excluir tarefa"),
         BotCommand("foco", "Modo foco (silenciar)"),
-        BotCommand("cancelar", "Cancelar operacao"),
-        BotCommand("agenda", "Ver agenda do dia (todos os calendarios)"),
+        BotCommand("cancelar", "Cancelar operação"),
+        BotCommand("agenda", "Ver agenda do dia (todos os calendários)"),
         BotCommand("sync", "Sincronizar calendarios agora"),
         BotCommand("conectar_google", "Conectar Google Calendar"),
         BotCommand("conectar_microsoft", "Conectar Outlook/Teams"),
-        BotCommand("desconectar", "Desconectar calendario"),
+        BotCommand("desconectar", "Desconectar calendário"),
     ]
     await app.bot.set_my_commands(commands)
 
@@ -2540,12 +2659,12 @@ class HealthHandler(BaseHTTPRequestHandler):
         state = params.get("state", [None])[0]
 
         if not code or not state:
-            self._respond(400, "Parametros faltando (code ou state)")
+            self._respond(400, "Parâmetros faltando (code ou state)")
             return
 
         chat_id = _verify_state(state)
         if not chat_id:
-            self._respond(403, "Estado invalido ou expirado")
+            self._respond(403, "Estado inválido ou expirado")
             return
 
         try:
@@ -2634,6 +2753,7 @@ def main():
     app.add_handler(CommandHandler("foco", cmd_foco))
     app.add_handler(CommandHandler("buscar", cmd_buscar))
     app.add_handler(CommandHandler("anexar", cmd_anexar))
+    app.add_handler(CommandHandler("excluir", cmd_excluir))
     app.add_handler(CommandHandler("cancelar", cmd_cancelar))
     app.add_handler(CommandHandler("status", cmd_status))
     app.add_handler(CommandHandler("conectar_google", cmd_conectar_google))
