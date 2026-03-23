@@ -2697,6 +2697,8 @@ body::after {
   z-index: 302;
   width: 320px;
   max-width: 90vw;
+  max-height: 70vh;
+  overflow-y: auto;
   background: var(--bg-deep);
   border: 1px solid hsla(43,52%,54%,0.4);
   border-radius: var(--radius);
@@ -7551,19 +7553,37 @@ function _repositionOnboarding() {
   const popup = document.getElementById('onboardingPopup');
   const rect = targetEl.getBoundingClientRect();
   const pad = 8;
+  const maxHighlightH = window.innerHeight * 0.4;
 
-  highlight.style.top = (rect.top - pad) + 'px';
+  let highlightTop = rect.top - pad;
+  let highlightHeight = rect.height + pad * 2;
+  if (highlightHeight > maxHighlightH) {
+    const visibleCenter = Math.max(rect.top, 0) + Math.min(rect.height, window.innerHeight) / 2;
+    highlightTop = visibleCenter - maxHighlightH / 2;
+    highlightHeight = maxHighlightH;
+  }
+
+  highlight.style.top = highlightTop + 'px';
   highlight.style.left = (rect.left - pad) + 'px';
   highlight.style.width = (rect.width + pad * 2) + 'px';
-  highlight.style.height = (rect.height + pad * 2) + 'px';
+  highlight.style.height = highlightHeight + 'px';
 
-  _positionOnboardingPopup(rect, step.position, popup);
+  const cappedRect = {
+    top: highlightTop,
+    bottom: highlightTop + highlightHeight,
+    left: rect.left - pad,
+    right: rect.right + pad,
+    width: rect.width + pad * 2,
+    height: highlightHeight
+  };
+  _positionOnboardingPopup(cappedRect, step.position, popup);
 }
 
 function _positionOnboardingPopup(rect, position, popup) {
-  const popupWidth = 320;
+  const popupWidth = Math.min(320, window.innerWidth - 20);
   const popupHeight = popup.offsetHeight || 200;
-  const gap = 20;
+  const gap = 16;
+  const safeMargin = 10;
 
   let popupTop, popupLeft;
   popup.classList.remove('arrow-up', 'arrow-down');
@@ -7577,18 +7597,18 @@ function _positionOnboardingPopup(rect, position, popup) {
   } else if (position === 'top' && spaceAbove >= popupHeight) {
     popupTop = rect.top - popupHeight - gap;
     popup.classList.add('arrow-down');
-  } else if (spaceBelow >= popupHeight) {
+  } else if (spaceBelow >= spaceAbove) {
     popupTop = rect.bottom + gap;
     popup.classList.add('arrow-up');
-  } else if (spaceAbove >= popupHeight) {
+  } else {
     popupTop = rect.top - popupHeight - gap;
     popup.classList.add('arrow-down');
-  } else {
-    popupTop = rect.bottom + gap;
-    popup.classList.add('arrow-up');
   }
 
-  popupLeft = Math.max(10, Math.min(rect.left, window.innerWidth - popupWidth - 10));
+  // Clamp popup vertically within viewport
+  popupTop = Math.max(safeMargin, Math.min(popupTop, window.innerHeight - popupHeight - safeMargin));
+
+  popupLeft = Math.max(safeMargin, Math.min(rect.left, window.innerWidth - popupWidth - safeMargin));
 
   popup.style.top = popupTop + 'px';
   popup.style.left = popupLeft + 'px';
@@ -7631,13 +7651,34 @@ function showOnboardingStep(index) {
     setTimeout(() => {
       const rect = targetEl.getBoundingClientRect();
       const pad = 8;
+      const maxHighlightH = window.innerHeight * 0.4;
+
+      // Cap highlight height for large elements (e.g. task-list on mobile)
+      let highlightTop = rect.top - pad;
+      let highlightHeight = rect.height + pad * 2;
+      if (highlightHeight > maxHighlightH) {
+        // Center the capped highlight on the visible portion
+        const visibleCenter = Math.max(rect.top, 0) + Math.min(rect.height, window.innerHeight) / 2;
+        highlightTop = visibleCenter - maxHighlightH / 2;
+        highlightHeight = maxHighlightH;
+      }
+
       highlight.style.display = 'block';
-      highlight.style.top = (rect.top - pad) + 'px';
+      highlight.style.top = highlightTop + 'px';
       highlight.style.left = (rect.left - pad) + 'px';
       highlight.style.width = (rect.width + pad * 2) + 'px';
-      highlight.style.height = (rect.height + pad * 2) + 'px';
+      highlight.style.height = highlightHeight + 'px';
 
-      _positionOnboardingPopup(rect, step.position, popup);
+      // Use the capped rect for popup positioning
+      const cappedRect = {
+        top: highlightTop,
+        bottom: highlightTop + highlightHeight,
+        left: rect.left - pad,
+        right: rect.right + pad,
+        width: rect.width + pad * 2,
+        height: highlightHeight
+      };
+      _positionOnboardingPopup(cappedRect, step.position, popup);
     }, 400);
   } else {
     highlight.style.display = 'none';
