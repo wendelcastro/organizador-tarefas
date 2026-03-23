@@ -3418,23 +3418,28 @@ async function updateTask(id, updates) {
 
 // ========== SUPABASE: EXCLUIR TAREFA ==========
 async function removeTask(id) {
-  const { data, error } = await sb
-    .from('tarefas')
-    .delete()
-    .eq('id', id)
-    .select();
+  try {
+    // Primeiro excluir subtarefas e anexos vinculados (caso CASCADE não esteja ativo)
+    await sb.from('subtarefas').delete().eq('tarefa_id', id);
+    await sb.from('anexos').delete().eq('tarefa_id', id);
 
-  if (error) {
-    console.error('Erro ao excluir tarefa:', error.message, error.details, error.hint);
-    alert('Erro ao excluir: ' + error.message);
+    // Excluir a tarefa
+    const { error } = await sb
+      .from('tarefas')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.error('Erro ao excluir tarefa:', error.message, error.details, error.hint);
+      alert('Erro ao excluir: ' + error.message);
+      return false;
+    }
+    return true;
+  } catch (e) {
+    console.error('Exceção ao excluir tarefa:', e);
+    alert('Erro ao excluir tarefa: ' + e.message);
     return false;
   }
-  if (!data || data.length === 0) {
-    console.error('Delete retornou 0 linhas — possivel bloqueio RLS ou trigger');
-    alert('Erro: tarefa não foi excluída no banco. Verifique o console.');
-    return false;
-  }
-  return true;
 }
 
 // ========== SUPABASE: REALTIME ==========
