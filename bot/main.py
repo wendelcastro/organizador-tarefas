@@ -261,6 +261,72 @@ def listar_tarefas_do_dia(data=None):
     return supabase_request("GET", "tarefas", params=params) or []
 
 
+def detectar_duplicatas(titulo_novo, prazo_novo=None, tarefas_existentes=None):
+    """Detecta tarefas similares já existentes para evitar duplicatas.
+
+    Retorna lista de tarefas similares (vazia se nenhuma).
+    Usa SequenceMatcher para comparação fuzzy de títulos.
+    """
+    from difflib import SequenceMatcher
+
+    if not titulo_novo:
+        return []
+
+    if not tarefas_existentes:
+        # Buscar tarefas pendentes dos próximos 7 dias
+        hoje = datetime.now(TZ_RECIFE).strftime("%Y-%m-%d")
+        fim = (datetime.now(TZ_RECIFE) + timedelta(days=7)).strftime("%Y-%m-%d")
+        tarefas_existentes = supabase_request("GET", "tarefas", params={
+            "status": "neq.concluida",
+            "prazo": f"gte.{hoje}",
+            "order": "prazo.asc",
+            "select": "id,titulo,categoria,prioridade,prazo,horario,status",
+        }) or []
+
+    titulo_lower = titulo_novo.lower().strip()
+    if not titulo_lower:
+        return []
+
+    similares = []
+
+    for t in tarefas_existentes:
+        titulo_existente = (t.get("titulo") or "").lower().strip()
+        if not titulo_existente:
+            continue
+
+        # Comparação exata
+        if titulo_lower == titulo_existente:
+            t["_similaridade"] = 100
+            t["_tipo_match"] = "exata"
+            similares.append(t)
+            continue
+
+        # Comparação fuzzy
+        ratio = SequenceMatcher(None, titulo_lower, titulo_existente).ratio()
+        if ratio >= 0.75:
+            t["_similaridade"] = round(ratio * 100)
+            t["_tipo_match"] = "similar"
+            similares.append(t)
+            continue
+
+        # Verificar se um contém o outro
+        if len(titulo_lower) > 5 and len(titulo_existente) > 5:
+            if titulo_lower in titulo_existente or titulo_existente in titulo_lower:
+                t["_similaridade"] = 85
+                t["_tipo_match"] = "contida"
+                similares.append(t)
+                continue
+
+    # Se tem prazo, priorizar duplicatas no mesmo dia
+    if prazo_novo and similares:
+        similares.sort(key=lambda x: (
+            0 if x.get("prazo") == prazo_novo else 1,
+            -x.get("_similaridade", 0)
+        ))
+
+    return similares
+
+
 def listar_tarefas_atrasadas():
     hoje = datetime.now(TZ_RECIFE).strftime("%Y-%m-%d")
     params = {
@@ -476,6 +542,11 @@ def formatar_tarefa_card(tarefa):
     elif status == "em_andamento":
         linhas.append("   🔄 Em andamento")
 
+    # Badge de duplicata, se detectada
+    if isinstance(tarefa, dict) and tarefa.get("_duplicatas"):
+        for d in tarefa["_duplicatas"][:1]:
+            linhas.append(f"   ⚠️ _Similar a: {d.get('titulo')} ({d.get('prazo', 'sem data')})_")
+
     return "\n".join(linhas)
 
 
@@ -561,6 +632,21 @@ async def processar_nova_tarefa(update, context, texto):
         if isinstance(classificacao, dict) and classificacao.get("multiplas"):
             tarefas = classificacao["tarefas"]
 
+            # Verificar duplicatas para cada tarefa do lote
+            todas_pendentes = supabase_request("GET", "tarefas", params={
+                "status": "neq.concluida",
+                "order": "prazo.asc",
+                "select": "id,titulo,categoria,prioridade,prazo,horario,status",
+            }) or []
+
+            tarefas_com_aviso = []
+            for t in tarefas:
+                dups = detectar_duplicatas(t.get("titulo", ""), t.get("prazo"), todas_pendentes)
+                if dups:
+                    t["_duplicatas"] = dups[:2]
+                tarefas_com_aviso.append(t)
+            tarefas = tarefas_com_aviso
+
             # Montar lista de cards em blocos (Telegram limita 4096 chars)
             header = f"🧠 *Detectei {len(tarefas)} tarefas:*\n\n"
             footer = "\n✅ *Confirma todas?* Ou diz qual ajustar (ex: 'ajusta a 2')."
@@ -615,9 +701,24 @@ async def processar_nova_tarefa(update, context, texto):
             except Exception as e:
                 logger.warning(f"Erro no alerta preditivo: {e}")
 
+        # Verificar duplicatas antes de confirmar
+        duplicatas = detectar_duplicatas(
+            classificacao.get("titulo", ""),
+            classificacao.get("prazo"),
+        )
+        if duplicatas:
+            classificacao["_duplicatas"] = duplicatas
+
         confirm_msg = formatar_confirmacao(classificacao)
 
         # Adicionar alertas extras a mensagem
+        if classificacao.get("_duplicatas"):
+            dup_list = classificacao["_duplicatas"][:3]  # Máximo 3
+            confirm_msg += "\n\n⚠️ *Possível duplicata encontrada:*\n"
+            for d in dup_list:
+                prazo_d = d.get("prazo", "sem data")
+                confirm_msg += f"  • _{d.get('titulo')}_ ({prazo_d}) — {d.get('_similaridade')}% similar\n"
+            confirm_msg += "\nDeseja criar mesmo assim?"
         if classificacao.get("_alerta_conflito"):
             confirm_msg += f"\n\n⚠️ *Conflito de horário:* {classificacao['_alerta_conflito']}"
         if classificacao.get("_alerta_preditivo"):
@@ -672,6 +773,15 @@ def _salvar_tarefa_e_contexto(tarefa_data):
     Retorna tupla (tarefa, google_calendar_ok) onde google_calendar_ok indica
     se o evento foi criado no Google Calendar.
     """
+    # Última verificação anti-duplicata (safety net)
+    duplicatas_exatas = detectar_duplicatas(tarefa_data.get("titulo", ""), tarefa_data.get("prazo"))
+    duplicatas_exatas = [d for d in duplicatas_exatas if d.get("_similaridade", 0) == 100
+                         and d.get("prazo") == tarefa_data.get("prazo")]
+    if duplicatas_exatas:
+        logger.warning(f"Duplicata exata detectada: '{tarefa_data.get('titulo')}' já existe para {tarefa_data.get('prazo')}")
+        # Retorna a tarefa existente em vez de criar uma nova
+        return duplicatas_exatas[0], False
+
     tarefa = criar_tarefa(
         titulo=tarefa_data.get("titulo", "Tarefa"),
         categoria=tarefa_data.get("categoria", "Pessoal"),
@@ -1748,6 +1858,68 @@ async def cmd_anexar(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
 
+async def cmd_limpar(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Analisa tarefas duplicadas ou repetitivas para limpeza."""
+    clear_state(context)
+
+    todas = supabase_request("GET", "tarefas", params={
+        "status": "neq.concluida",
+        "order": "titulo.asc",
+        "select": "id,titulo,categoria,prioridade,prazo,horario,status",
+    }) or []
+
+    if not todas:
+        await update.message.reply_text("Nenhuma tarefa pendente.")
+        return
+
+    from difflib import SequenceMatcher
+
+    # Encontrar grupos de tarefas similares
+    grupos = []
+    usados = set()
+
+    for i, t1 in enumerate(todas):
+        if i in usados:
+            continue
+        grupo = [t1]
+        for j, t2 in enumerate(todas):
+            if j <= i or j in usados:
+                continue
+            titulo1 = (t1.get("titulo") or "").lower()
+            titulo2 = (t2.get("titulo") or "").lower()
+            if not titulo1 or not titulo2:
+                continue
+            ratio = SequenceMatcher(None, titulo1, titulo2).ratio()
+            if ratio >= 0.7 or (len(titulo1) > 5 and titulo1 in titulo2) or (len(titulo2) > 5 and titulo2 in titulo1):
+                grupo.append(t2)
+                usados.add(j)
+        if len(grupo) > 1:
+            usados.add(i)
+            grupos.append(grupo)
+
+    if not grupos:
+        await update.message.reply_text(
+            "✅ Nenhuma duplicata encontrada! Suas tarefas estão organizadas."
+        )
+        return
+
+    msg = f"🔍 *Encontrei {len(grupos)} grupo(s) de tarefas similares:*\n\n"
+    total_duplicatas = 0
+
+    for idx, grupo in enumerate(grupos, 1):
+        msg += f"*Grupo {idx}:* ({len(grupo)} tarefas)\n"
+        for t in grupo:
+            prazo = t.get("prazo", "sem data")
+            msg += f"  • {t.get('titulo')} — {prazo}\n"
+            total_duplicatas += 1
+        msg += "\n"
+
+    msg += f"Total: {total_duplicatas} tarefas em {len(grupos)} grupos similares.\n"
+    msg += "\nUse /excluir para remover as duplicatas."
+
+    await update.message.reply_text(msg, parse_mode="Markdown")
+
+
 async def cmd_excluir(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Excluir tarefa (inline keyboard)."""
     clear_state(context)
@@ -2562,6 +2734,7 @@ async def setup_commands(app):
         BotCommand("buscar", "Buscar em tarefas, eventos e anexos"),
         BotCommand("anexar", "Anexar texto/nota a uma tarefa"),
         BotCommand("excluir", "Excluir tarefa"),
+        BotCommand("limpar", "Encontrar tarefas duplicadas"),
         BotCommand("foco", "Modo foco (silenciar)"),
         BotCommand("cancelar", "Cancelar operação"),
         BotCommand("agenda", "Ver agenda do dia (todos os calendários)"),
@@ -2754,6 +2927,7 @@ def main():
     app.add_handler(CommandHandler("buscar", cmd_buscar))
     app.add_handler(CommandHandler("anexar", cmd_anexar))
     app.add_handler(CommandHandler("excluir", cmd_excluir))
+    app.add_handler(CommandHandler("limpar", cmd_limpar))
     app.add_handler(CommandHandler("cancelar", cmd_cancelar))
     app.add_handler(CommandHandler("status", cmd_status))
     app.add_handler(CommandHandler("conectar_google", cmd_conectar_google))

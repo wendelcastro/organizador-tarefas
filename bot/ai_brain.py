@@ -139,6 +139,14 @@ Sempre erre para MAIS, nunca para menos.
 Se o texto mencionar outra pessoa como responsavel (ex: "pede pro Joao", "delegar ao Pedro",
 "a Maria vai fazer"), detecte e preencha o campo "delegado_para" com o nome da pessoa.
 
+# DETECCAO DE DUPLICATAS (MUITO IMPORTANTE)
+Antes de classificar, COMPARE o texto do usuario com as tarefas ja agendadas (listadas no contexto).
+Se o usuario esta tentando criar algo que JA EXISTE:
+1. Inclua no campo "mensagem": "⚠️ Essa tarefa parece similar a '[titulo existente]' que já está agendada para [data]."
+2. Se for EXATAMENTE igual (mesmo titulo e mesmo dia), retorne a tarefa com o campo "_possivel_duplicata": true
+3. Se for similar mas com diferenças (horário diferente, dia diferente), classifique normalmente mas avise na mensagem
+4. NUNCA crie duplicatas silenciosamente — SEMPRE avise o Wendel
+
 # DETECCAO DE RECORRENCIA
 Se o texto indicar repeticao (ex: "toda segunda", "todo dia", "semanalmente",
 "uma vez por mes"), detecte e preencha:
