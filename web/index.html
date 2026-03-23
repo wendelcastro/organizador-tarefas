@@ -245,6 +245,12 @@ body::after {
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
   border-bottom: 1px solid var(--border-subtle);
+  position: sticky;
+  top: 0;
+  z-index: 16;
+  background: var(--bg-deep);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
 }
 .stats-bar::-webkit-scrollbar { display: none; }
 
@@ -295,6 +301,12 @@ body::after {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
+  position: sticky;
+  top: 0;
+  z-index: 16;
+  background: var(--bg-deep);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
 }
 .filter-bar::-webkit-scrollbar { display: none; }
 
@@ -325,13 +337,18 @@ body::after {
 .status-tabs {
   display: flex;
   gap: 0.2rem;
-  background: var(--bg-glass);
+  background: var(--bg-deep);
   border: 1px solid var(--border-subtle);
   border-radius: 50px;
   padding: 3px;
   margin-bottom: 0.75rem;
   overflow-x: auto;
   scrollbar-width: none;
+  position: sticky;
+  top: 0;
+  z-index: 15;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
 }
 .status-tabs::-webkit-scrollbar { display: none; }
 
