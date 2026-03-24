@@ -1217,6 +1217,21 @@ body::after {
   margin-top: 0.3rem;
   text-align: center;
 }
+/* Pomodoro tooltip on task cards */
+.pomo-start-btn { position: relative; }
+.pomo-start-btn::after {
+  content: 'Pomodoro: 25 min de foco total nesta tarefa. O tempo é registrado automaticamente.';
+  position: absolute; bottom: calc(100% + 8px); right: 0;
+  background: var(--bg-surface); border: 1px solid var(--border-hover); border-radius: 8px;
+  padding: 0.5rem 0.7rem; font-size: 0.65rem; color: var(--text-secondary);
+  white-space: normal; width: 200px; line-height: 1.4;
+  opacity: 0; pointer-events: none; transition: opacity 0.2s; z-index: 50;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+}
+.pomo-start-btn:hover::after { opacity: 1; }
+@media (max-width: 768px) {
+  .pomo-start-btn::after { display: none; }
+}
 .task-pomo-time {
   font-size: 0.6rem;
   color: var(--amber);
@@ -4199,6 +4214,25 @@ function showTaskDetail(id) {
   // Placeholder for attachments — will be loaded async
   html += '<div id="detailAttachmentsContainer"></div>';
 
+  // Pomodoro section (only for non-completed tasks)
+  if (task.status !== 'concluida') {
+    const accumMin = getPomodoroAccumMinutes(task.id);
+    html += `
+    <div style="margin:1rem 0;padding:0.75rem;background:var(--bg-glass);border:1px solid var(--border-subtle);border-radius:var(--radius-sm)">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem">
+        <div>
+          <div style="font-size:0.75rem;font-weight:600;color:var(--text-primary);margin-bottom:0.2rem">🍅 Pomodoro</div>
+          <div style="font-size:0.65rem;color:var(--text-secondary);line-height:1.4">Timer de 25 min de foco total. Ajuda a manter a concentração em uma tarefa por vez. O tempo é registrado automaticamente.</div>
+          ${accumMin > 0 ? '<div style="font-size:0.65rem;color:var(--amber);margin-top:0.3rem">⏱ ' + accumMin + ' min acumulados nesta tarefa</div>' : ''}
+        </div>
+        <button onclick="closeDetail();startPomodoro('${task.id}')" style="flex-shrink:0;padding:0.4rem 0.8rem;background:hsla(43,52%,54%,0.1);border:1px solid var(--amber);border-radius:50px;color:var(--amber);font-size:0.7rem;font-family:inherit;cursor:pointer;display:flex;align-items:center;gap:0.3rem;transition:var(--transition)">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          Iniciar
+        </button>
+      </div>
+    </div>`;
+  }
+
   html += `
     <div class="detail-actions">
       <button class="detail-btn detail-btn-edit" onclick="closeDetail();editTask('${task.id}')">
@@ -6816,14 +6850,45 @@ renderToday = function() {
       todayTaskList.insertAdjacentHTML('beforebegin', coachingHTML);
     }
   }
+  // Add pomodoro buttons to today task cards
+  if (todayTaskList) {
+    todayTaskList.querySelectorAll('.task-actions').forEach(actionsDiv => {
+      const card = actionsDiv.closest('.task-card');
+      if (!card || card.classList.contains('completed')) return;
+      const taskId = card.dataset.taskId;
+      const accumMin = getPomodoroAccumMinutes(taskId);
+      if (accumMin > 0) {
+        const meta = card.querySelector('.task-meta');
+        if (meta && !meta.querySelector('.task-pomo-time')) {
+          const span = document.createElement('span');
+          span.className = 'task-pomo-time';
+          span.innerHTML = '&#127813; ' + accumMin + 'min';
+          meta.appendChild(span);
+        }
+      }
+      if (actionsDiv.querySelector('.pomo-start-btn')) return;
+      const btn = document.createElement('button');
+      btn.className = 'task-action-btn pomo-start-btn';
+      btn.title = 'Iniciar Pomodoro — timer de 25 min de foco nesta tarefa';
+      btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>';
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        startPomodoro(taskId);
+        if ('Notification' in window && Notification.permission === 'default') {
+          Notification.requestPermission();
+        }
+      });
+      actionsDiv.insertBefore(btn, actionsDiv.firstChild);
+    });
+  }
 };
 
 // ========== PATCH: renderTasks to include pomodoro button & accum time ==========
 const _originalRenderTasks = renderTasks;
 renderTasks = function() {
   _originalRenderTasks();
-  // Add pomodoro buttons to task actions
-  document.querySelectorAll('#taskList .task-actions').forEach(actionsDiv => {
+  // Add pomodoro buttons to task actions (Todas + Hoje)
+  document.querySelectorAll('#taskList .task-actions, #todayTaskList .task-actions').forEach(actionsDiv => {
     const card = actionsDiv.closest('.task-card');
     if (!card || card.classList.contains('completed')) return;
     const taskId = card.dataset.taskId;
@@ -6844,7 +6909,7 @@ renderTasks = function() {
     if (actionsDiv.querySelector('.pomo-start-btn')) return;
     const btn = document.createElement('button');
     btn.className = 'task-action-btn pomo-start-btn';
-    btn.title = 'Pomodoro';
+    btn.title = 'Iniciar Pomodoro — timer de 25 min de foco nesta tarefa';
     btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>';
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
