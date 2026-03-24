@@ -188,6 +188,97 @@ Quando voce faz `git push` no GitHub, o Koyeb automaticamente:
 
 ---
 
+## Hospedagem e Uptime (Koyeb + UptimeRobot)
+
+### O Problema: Scale-to-Zero no Koyeb Free
+
+O projeto está hospedado no Koyeb usando a instância **Free (Eco)** com as seguintes specs:
+
+| Recurso | Valor |
+|---------|-------|
+| vCPU | 0.1 |
+| RAM | 512MB |
+| Disco | 2000MB |
+| Região | Washington, D.C. |
+
+A instância gratuita do Koyeb possui uma limitação chamada **scale-to-zero**: quando o serviço
+não recebe tráfego por um período de inatividade (~3900 segundos / ~65 minutos), a instância
+entra em modo **"Sleeping"**. Nesse estado, o app **para de rodar completamente** e só é
+reativado quando recebe uma nova requisição (cold start), o que pode levar vários segundos.
+
+**Por que isso é um problema?**
+- O bot do Telegram precisa rodar 24/7 para enviar lembretes, resumos e sincronizar calendários
+- Se a instância dormir, o bot para de responder e perde jobs agendados
+- Com a instância Free, o scale-to-zero é **obrigatório** e não pode ser desabilitado
+- O mínimo de instâncias fica fixo em 0 e o idle period não pode ser alterado
+- Apenas instâncias **pagas** permitem configurar scaling com mínimo de 1 instância (always-on)
+
+### A Solução: UptimeRobot (Ping Externo)
+
+Para manter o serviço sempre ativo **sem custo adicional**, foi configurado um monitor HTTP
+no [UptimeRobot](https://uptimerobot.com) (plano gratuito) que faz uma requisição GET à URL
+da aplicação a cada 5 minutos. Isso impede que o Koyeb detecte inatividade e coloque o
+serviço para dormir.
+
+#### Configuração do Monitor
+
+| Parâmetro | Valor |
+|-----------|-------|
+| Serviço | [UptimeRobot](https://uptimerobot.com) — plano Free (até 50 monitores) |
+| Tipo | HTTP(S) Monitor |
+| URL monitorada | `https://delicate-latashia-wendelcastro-30fcdc8a.koyeb.app/` |
+| Intervalo | 5 minutos |
+| Status Page | [stats.uptimerobot.com/Zq26ipXHfd](https://stats.uptimerobot.com/Zq26ipXHfd) |
+
+#### Como funciona
+
+```
+UptimeRobot (a cada 5 min)
+    │
+    ▼  GET https://seu-app.koyeb.app/
+    │
+Koyeb recebe tráfego → nunca detecta inatividade → NÃO entra em Sleeping
+    │
+    ▼
+Health Check responde: "OK - Organizador de Tarefas v2 rodando"
+```
+
+1. O UptimeRobot envia uma requisição HTTP GET à URL do app a cada 5 minutos
+2. O Koyeb recebe o tráfego e **nunca detecta inatividade** suficiente para entrar em Sleeping
+3. O app responde com `"OK - Organizador de Tarefas v2 rodando"` confirmando que está no ar
+4. Se o app cair por algum motivo, o UptimeRobot envia uma **notificação por e-mail**
+
+#### Passo a passo para configurar
+
+1. Crie uma conta gratuita em [uptimerobot.com](https://uptimerobot.com)
+2. No painel, clique em **Add New Monitor**
+3. Tipo: **HTTP(s)**
+4. Nome: `Organizador de Tarefas`
+5. URL: cole a URL do seu deploy no Koyeb (ex: `https://seu-app.koyeb.app/`)
+6. Intervalo: **5 minutos** (o mínimo do plano Free)
+7. Clique **Create Monitor**
+8. Pronto — o serviço nunca mais vai dormir!
+
+### Alternativa Paga
+
+Caso no futuro se deseje eliminar completamente o risco de sleeping sem depender de serviço
+externo, basta fazer upgrade para uma instância paga no Koyeb (a partir de ~$2.70/mês na
+instância Nano) e configurar o scaling com **mínimo de 1 instância**.
+
+### Configurações Atuais do Deploy no Koyeb
+
+| Parâmetro | Valor |
+|-----------|-------|
+| Repositório | `wendelcastro/organizador-tarefas` (branch: `main`) |
+| Builder | Dockerfile |
+| Porta | 8000 |
+| Instância | Free (Eco) — 0.1 vCPU, 512MB RAM |
+| Região | Washington, D.C. |
+| Scaling | Autoscaling 0-1 instâncias (com UptimeRobot mantendo sempre em 1) |
+| Variáveis de ambiente | 10 configuradas |
+
+---
+
 ## Opcao B: Oracle Cloud Always Free (Mais Robusto)
 
 **O que e?** Servidor virtual (VM) gratuito para sempre da Oracle.

@@ -88,7 +88,7 @@ A IA:
 - [x] Alerta preditivo de sobrecarga ao adicionar tarefas
 - [x] Deteccao automatica de conflitos de horario
 - [x] Sync de calendarios a cada 15 minutos
-- [x] Keep-alive interno: ping a cada 4 minutos para evitar sleep no free tier do Koyeb
+- [x] Keep-alive externo: UptimeRobot pinga a cada 5 minutos para evitar scale-to-zero do Koyeb
 
 ### Dashboard Web (7 views)
 - [x] 7 views: Todas | Hoje | Semana | Revisão Semanal | Matriz Eisenhower | Blocos de Tempo | KPIs
@@ -415,6 +415,10 @@ O bot para quando voce fecha o terminal. Para rodar permanentemente, veja `docs/
 - **Koyeb** (mais simples, sem Linux) — 5 minutos de setup, auto-deploy via git push
 - **Oracle Cloud** (mais robusto) — VM gratuita para sempre, 30 minutos de setup
 
+**Uptime:** A instância Free do Koyeb tem scale-to-zero (~65 min de inatividade = sleeping).
+Resolvemos com [UptimeRobot](https://uptimerobot.com) (grátis) pingando a cada 5 minutos.
+Detalhes completos em `docs/05-deploy-24h.md` > "Hospedagem e Uptime".
+
 ---
 
 ## Comandos do Bot
@@ -537,6 +541,7 @@ organizador-tarefas/
 | Microsoft Graph API | Gratis | Sincronizacao de eventos |
 | Claude API (Sonnet) | ~R$5-15/mes | Fallback opcional |
 | Koyeb (deploy 24/7) | Gratis | 1 instancia, 512MB RAM |
+| UptimeRobot | Gratis | Ping a cada 5min para evitar sleeping do Koyeb |
 | **Total estimado** | **R$0/mes** | 100% gratuito com Gemini como IA principal |
 
 ---
