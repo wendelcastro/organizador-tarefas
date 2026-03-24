@@ -1527,15 +1527,15 @@ body::after {
 .status-indicator.concluida { background: hsla(43,52%,54%,0.1); color: var(--amber); }
 
 /* ========== BULK ACTIONS ========== */
-.bulk-bar { position: fixed; top: auto; bottom: calc(5rem + var(--safe-bottom) + 10px); left: 50%; transform: translateX(-50%) translateY(100%); background: var(--bg-surface); border: 1px solid var(--border-hover); border-radius: 2rem; padding: 0.4rem 0.7rem; display: flex; align-items: center; gap: 0.5rem; z-index: 90; transition: var(--transition); box-shadow: 0 8px 32px rgba(0,0,0,0.4); max-width: 95vw; }
-.bulk-bar.active { transform: translateX(-50%) translateY(0); }
+.bulk-bar { position: fixed; top: auto; bottom: calc(5rem + var(--safe-bottom) + 10px); left: 50%; transform: translateX(-50%) translateY(200%); opacity: 0; pointer-events: none; background: var(--bg-surface); border: 1px solid var(--border-hover); border-radius: 2rem; padding: 0.4rem 0.7rem; display: flex; align-items: center; gap: 0.5rem; z-index: 90; transition: var(--transition); box-shadow: 0 8px 32px rgba(0,0,0,0.4); max-width: 95vw; }
+.bulk-bar.active { transform: translateX(-50%) translateY(0); opacity: 1; pointer-events: auto; }
 .bulk-bar .bulk-count { font-size: 0.75rem; color: var(--text-primary); font-weight: 600; white-space: nowrap; }
 .bulk-bar button { background: none; border: 1px solid var(--border-subtle); color: var(--text-primary); padding: 0.35rem 0.6rem; border-radius: 1rem; cursor: pointer; font-size: 0.72rem; transition: var(--transition); font-family: inherit; white-space: nowrap; }
 .bulk-bar button:hover { background: var(--bg-glass); border-color: var(--border-hover); }
 .bulk-bar button.danger { border-color: rgba(239,68,68,0.3); color: var(--pri-alta); }
 .bulk-bar button.danger:hover { background: rgba(239,68,68,0.1); }
-/* Bulk select toggle button (small icon, always visible) */
-.bulk-toggle-btn { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; padding: 0; background: var(--bg-glass); border: 1px solid var(--border-subtle); border-radius: 50%; color: var(--text-muted); font-family: inherit; font-size: 0.8rem; cursor: pointer; transition: var(--transition); flex-shrink: 0; }
+/* Bulk select toggle button */
+.bulk-toggle-btn { display: inline-flex; align-items: center; justify-content: center; gap: 0.3rem; padding: 0.35rem 0.7rem; background: var(--bg-glass); border: 1px solid var(--border-subtle); border-radius: 50px; color: var(--text-muted); font-family: inherit; font-size: 0.7rem; cursor: pointer; transition: var(--transition); flex-shrink: 0; white-space: nowrap; }
 .bulk-toggle-btn:hover { border-color: var(--border-hover); color: var(--text-secondary); }
 .bulk-toggle-btn.active { background: hsla(43,52%,54%,0.15); border-color: var(--amber); color: var(--amber); }
 .task-card.selected { background: hsla(43,52%,54%,0.08); border-color: hsla(43,52%,54%,0.3); }
@@ -1647,7 +1647,7 @@ body::after {
 }
 
 /* ========== DRAG & DROP ========== */
-.task-card.dragging { opacity: 0.5; transform: scale(0.95); }
+.task-card.dragging, .calendar-task.dragging { opacity: 0.5; transform: scale(0.95); }
 .task-card.drag-over { border-color: var(--amber); box-shadow: 0 0 12px hsla(43,52%,54%,0.2); }
 .status-tab.drag-over { background: hsla(43,52%,54%,0.15); color: var(--text-primary); }
 .calendar-day.drag-over { border-color: var(--amber); background: hsla(43,52%,54%,0.06); box-shadow: 0 0 16px hsla(43,52%,54%,0.1); }
@@ -3107,14 +3107,14 @@ body::after {
       <span class="overdue-banner-text" id="overdueBannerText"></span>
     </div>
     <div class="tasks-view" id="tasksView">
-      <div style="display:flex;align-items:center;gap:0.4rem;margin-top:0.75rem">
-        <div class="status-tabs" style="margin-top:0;flex:1">
+      <div class="status-tabs-wrapper" style="display:flex;align-items:center;gap:0.4rem;position:sticky;top:0;z-index:15;background:var(--bg-deep);padding-top:0.75rem;padding-bottom:0.25rem;margin-top:0">
+        <div class="status-tabs" style="margin-top:0;flex:1;position:static">
           <button class="status-tab active" data-status="all" onclick="filterStatus('all')">Todas</button>
           <button class="status-tab" data-status="pendente" onclick="filterStatus('pendente')">Pendentes</button>
           <button class="status-tab" data-status="em_andamento" onclick="filterStatus('em_andamento')">Em andamento</button>
           <button class="status-tab" data-status="concluida" onclick="filterStatus('concluida')">Concluídas</button>
         </div>
-        <button class="bulk-toggle-btn" id="bulkToggleBtn" onclick="toggleBulkMode()" title="Selecionar várias tarefas">☑</button>
+        <button class="bulk-toggle-btn" id="bulkToggleBtn" onclick="toggleBulkMode()" title="Selecionar várias tarefas">☑ Selecionar</button>
       </div>
       <div class="task-list" id="taskList"></div>
     </div>
@@ -3581,7 +3581,7 @@ function renderCalendarEvent(ev) {
   const timeStr = ev.all_day ? 'Dia todo' : (ev.horario_inicio || '');
   const badge = `<span class="event-badge ${provider}" style="font-size:0.45rem">${provider === 'microsoft' ? 'Teams' : 'Google'}</span>`;
 
-  return `<div class="calendar-event ${provider}">
+  return `<div class="calendar-event ${provider}" data-event-id="${ev.id}">
     <div class="calendar-task-content">
       <span class="calendar-task-title">${ev.titulo} ${badge}</span>
       ${timeStr ? '<span class="calendar-task-time">' + timeStr + '</span>' : ''}
@@ -4085,7 +4085,7 @@ function renderCalendar() {
             const platform = detectMeetingPlatform(t.meeting_link);
             const meetIcon = platform ? '<svg class="meeting-icon" viewBox="0 0 24 24" fill="none" stroke="' + platform.color + '" stroke-width="2"><path d="M15.5 10l4.72-3.36a1 1 0 011.78.63v9.46a1 1 0 01-1.78.63L15.5 14"/><rect x="2" y="6" width="13.5" height="12" rx="2"/></svg>' : '';
             const timeStr = t.horario || '';
-            return `<div class="calendar-task" style="--cat-color:${CATEGORY_COLORS[t.categoria]}" data-task-id="${t.id}" draggable="true" ondragstart="handleDragStart(event)">
+            return `<div class="calendar-task" style="--cat-color:${CATEGORY_COLORS[t.categoria]}" data-task-id="${t.id}" draggable="true" ondragstart="handleDragStart(event)" ondragend="handleDragEnd(event)">
               <div class="calendar-task-content">
                 ${timeStr ? '<span class="calendar-task-time">🕐 ' + timeStr + (platform ? ' ' + meetIcon + ' ' + platform.label : '') + '</span>' : (platform ? '<span class="calendar-task-time">' + meetIcon + ' ' + platform.label + '</span>' : '')}
                 <span class="calendar-task-title">${t.titulo}</span>
@@ -4109,7 +4109,7 @@ function renderCalendar() {
         </div>
         <div class="calendar-day-tasks">
           ${noDateTasks.slice(0, 6).map(t => {
-            return '<div class="calendar-task" style="--cat-color:' + (CATEGORY_COLORS[t.categoria] || 'var(--text-muted)') + '" data-task-id="' + t.id + '" draggable="true" ondragstart="handleDragStart(event)">' +
+            return '<div class="calendar-task" style="--cat-color:' + (CATEGORY_COLORS[t.categoria] || 'var(--text-muted)') + '" data-task-id="' + t.id + '" draggable="true" ondragstart="handleDragStart(event)" ondragend="handleDragEnd(event)">' +
               '<div class="calendar-task-content">' +
               '<span class="calendar-task-title">' + t.titulo + '</span>' +
               '</div></div>';
@@ -4127,6 +4127,11 @@ function renderCalendar() {
   // Clique nas tarefas do calendario
   container.querySelectorAll('.calendar-day:not(.no-date-column) .calendar-task[data-task-id]').forEach(el => {
     el.addEventListener('click', () => showTaskDetail(el.dataset.taskId));
+  });
+
+  // Clique nos eventos do calendario (agenda)
+  container.querySelectorAll('.calendar-event[data-event-id]').forEach(el => {
+    el.addEventListener('click', () => showEventDetail(el.dataset.eventId));
   });
 }
 
@@ -4225,6 +4230,55 @@ function showTaskDetail(id) {
       container.innerHTML = renderAttachmentsSection(task.id, attachments);
     }
   });
+}
+
+function showEventDetail(id) {
+  const ev = calendarEvents.find(e => String(e.id) === String(id));
+  if (!ev) return;
+
+  const provider = ev.provider || 'google';
+  const providerLabel = provider === 'microsoft' ? 'Microsoft Teams/Outlook' : 'Google Calendar';
+  const providerColor = provider === 'microsoft' ? 'hsl(215, 70%, 55%)' : 'hsl(142, 52%, 45%)';
+  const timeStr = ev.all_day ? 'Dia todo' : ((ev.horario_inicio || '') + (ev.horario_fim ? ' — ' + ev.horario_fim : ''));
+
+  let html = `
+    <span class="detail-category" style="background:rgba(255,255,255,0.05);color:${providerColor}">${providerLabel}</span>
+    <h2 class="detail-title">${ev.titulo}</h2>
+    <div class="detail-grid">
+      <div>
+        <div class="detail-field-label">Data</div>
+        <div class="detail-field-value">${ev.dia ? formatDate(ev.dia) : 'Sem data'}</div>
+      </div>
+      <div>
+        <div class="detail-field-label">Horário</div>
+        <div class="detail-field-value">${timeStr || 'Sem horário'}</div>
+      </div>
+      ${ev.local ? `<div>
+        <div class="detail-field-label">Local</div>
+        <div class="detail-field-value">📍 ${ev.local}</div>
+      </div>` : ''}
+    </div>`;
+
+  if (ev.descricao) {
+    html += `<div class="detail-notes">${ev.descricao}</div>`;
+  }
+
+  if (ev.meeting_link) {
+    html += `<div style="margin:1rem 0">
+      <a href="${ev.meeting_link}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:0.4rem;padding:0.5rem 1rem;background:${providerColor};color:white;border-radius:8px;text-decoration:none;font-size:0.8rem;font-weight:500">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><path d="M15.5 10l4.72-3.36a1 1 0 011.78.63v9.46a1 1 0 01-1.78.63L15.5 14"/><rect x="2" y="6" width="13.5" height="12" rx="2"/></svg>
+        Entrar na reunião
+      </a>
+    </div>`;
+  }
+
+  html += `
+    <div class="detail-actions">
+      <button class="detail-btn detail-btn-close" onclick="closeDetail()">Fechar</button>
+    </div>`;
+
+  document.getElementById('detailContent').innerHTML = html;
+  document.getElementById('detailOverlay').classList.add('active');
 }
 
 function closeDetail(event) {
@@ -4363,6 +4417,7 @@ document.getElementById('todayTaskList').addEventListener('click', function(e) {
 
 // ========== VIEW SWITCH ==========
 function switchView(view) {
+  if (bulkMode) exitBulkMode();
   document.querySelectorAll('.view-toggle button').forEach(b => b.classList.toggle('active', b.dataset.view === view));
   document.querySelectorAll('.nav-item').forEach(b => b.classList.toggle('active', b.dataset.view === view));
 
@@ -5010,18 +5065,18 @@ function setupDragAndDrop() {
 }
 
 function handleDragStart(e) {
-  draggedTaskId = e.target.closest('.task-card')?.dataset.taskId || e.target.dataset.taskId;
+  draggedTaskId = e.target.closest('.task-card')?.dataset.taskId || e.target.closest('.calendar-task')?.dataset.taskId || e.target.dataset.taskId;
   if (!draggedTaskId) return;
   e.dataTransfer.effectAllowed = 'move';
   e.dataTransfer.setData('text/plain', draggedTaskId);
   setTimeout(() => {
-    const card = e.target.closest('.task-card') || e.target;
+    const card = e.target.closest('.task-card') || e.target.closest('.calendar-task') || e.target;
     card.classList.add('dragging');
   }, 0);
 }
 
 function handleDragEnd(e) {
-  const card = e.target.closest('.task-card') || e.target;
+  const card = e.target.closest('.task-card') || e.target.closest('.calendar-task') || e.target;
   card.classList.remove('dragging');
   draggedTaskId = null;
   document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
