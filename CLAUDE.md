@@ -31,7 +31,7 @@ sistema de ajuda in-app e PWA com Service Worker.
 ```
 
 ## Arquivos Chave
-- `bot/main.py` — Ponto de entrada, handlers (21 comandos), jobs programados, health check HTTP (porta 8000), OAuth callbacks
+- `bot/main.py` — Ponto de entrada, handlers (23 comandos), jobs programados, health check HTTP (porta 8000), OAuth callbacks
 - `bot/ai_brain.py` — Cérebro IA: dual provider (Gemini/Claude), classificação, resolução temporal, sobrecarga, múltiplas tarefas, coaching, decomposição
 - `bot/calendar_sync.py` — Integração Google Calendar + Microsoft Outlook/Teams (OAuth2, sync, lembretes, criação de eventos, Google Tasks)
 - `web/index.html` — Dashboard Premium (7 views, gamificação, drag&drop, Eisenhower, Pomodoro, busca com highlight, anexos com drag & drop, energia, histórico semanal, hábitos, timeline, bulk, dark/light, realtime, PWA, sistema de ajuda in-app)
@@ -52,13 +52,15 @@ sistema de ajuda in-app e PWA com Service Worker.
 - `supabase/009_eventos_calendario.sql` — Tabela eventos_calendario para sync Google/Microsoft
 - `supabase/010_anexos_busca.sql` — Tabela anexos + indices full-text search (portugues)
 
-## Comandos do Bot (21 comandos)
+## Comandos do Bot (23 comandos)
 
 ### Tarefas
 - `/start` — Boas-vindas + salva chat ID
 - `/tarefas` — Lista pendentes com prioridade
 - `/concluir` — Inline keyboard interativo para concluir
 - `/editar` — Edita tarefa por inline keyboard + texto livre
+- `/excluir` — Inline keyboard para excluir tarefa
+- `/limpar` — Detecta tarefas duplicadas/similares para limpeza
 - `/decompor` — Quebra tarefa grande em subtarefas com tempo estimado
 - `/cancelar` — Cancela operacao atual
 

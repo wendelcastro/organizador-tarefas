@@ -55,7 +55,7 @@ A IA:
 - [x] Fallback inteligente: mesmo sem IA, detecta multiplas tarefas por cabecalhos de dia
 - [x] Splitting automatico de mensagens longas (20+ tarefas, limite 4096 chars do Telegram)
 
-### Bot Telegram (21 comandos)
+### Bot Telegram (23 comandos)
 - [x] `/start` — Boas-vindas + salva chat ID
 - [x] `/tarefas` — Lista pendentes com prioridade
 - [x] `/planejar` — Planejamento inteligente do dia (usa dados de energia)
@@ -63,6 +63,8 @@ A IA:
 - [x] `/resumo` — Resumo rapido com numeros
 - [x] `/concluir` — Inline keyboard interativo (escolhe qual tarefa)
 - [x] `/editar` — Edita tarefa por inline keyboard + texto livre
+- [x] `/excluir` — Inline keyboard para excluir tarefa
+- [x] `/limpar` — Detecta tarefas duplicadas/similares para limpeza
 - [x] `/relatorio` — Relatorio semanal on-demand
 - [x] `/foco` — Modo foco (silencia lembretes de baixa prioridade)
 - [x] `/decompor` — Quebra tarefa grande em subtarefas com tempo estimado
@@ -431,6 +433,8 @@ Detalhes completos em `docs/05-deploy-24h.md` > "Hospedagem e Uptime".
 | `/tarefas` | Lista todas as pendentes | `/tarefas` |
 | `/concluir` | Botoes inline para escolher qual concluir | `/concluir` |
 | `/editar` | Botoes inline + texto para editar campo | `/editar` |
+| `/excluir` | Botoes inline para escolher qual excluir | `/excluir` |
+| `/limpar` | Detecta tarefas duplicadas/similares | `/limpar` |
 | `/decompor` | Quebra tarefa grande em subtarefas | `/decompor` |
 | `/cancelar` | Cancela qualquer operacao em andamento | `/cancelar` |
 
@@ -494,7 +498,7 @@ organizador-tarefas/
 ├── Procfile              # Para deploy em PaaS
 │
 ├── bot/                  # Bot Telegram + IA + Calendar
-│   ├── main.py           # Ponto de entrada, 21 handlers, jobs, health check, OAuth
+│   ├── main.py           # Ponto de entrada, 23 handlers, jobs, health check, OAuth
 │   ├── ai_brain.py       # Cerebro IA (Gemini/Claude, classificacao, coaching, decomposicao)
 │   ├── calendar_sync.py  # Sync Google Calendar + Microsoft Outlook/Teams (OAuth2)
 │   └── requirements.txt  # Dependencias Python (3 pacotes)
@@ -593,7 +597,7 @@ Este projeto foi construido do zero com a ajuda do Claude Code. Cada etapa ensin
 
 | Feature | Status |
 |---------|--------|
-| Bot Telegram com IA (21 comandos) | Funcionando |
+| Bot Telegram com IA (23 comandos) | Funcionando |
 | Dashboard web (7 views + PWA) | Funcionando |
 | Gamificação (XP, níveis, streaks) | Funcionando |
 | Matriz de Eisenhower (drag&drop) | Funcionando |

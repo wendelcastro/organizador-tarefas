@@ -100,14 +100,14 @@ git push -u origin main
 Pronto! Seu dashboard estara em:
 `https://seuusuario.github.io/organizador-tarefas`
 
-## Sobre o Antigravity (Project IDX / Google)
+## IDEs Online (alternativas ao local)
 
-O Project IDX (antigo Antigravity) e um IDE online do Google.
-Voce pode usa-lo para visualizar o projeto em tempo real no navegador.
-Porem, para este projeto, recomendo usar o **GitHub + Claude Code** localmente
-e abrir o dashboard via GitHub Pages - e mais simples e direto.
+Existem IDEs online como **GitHub Codespaces**, **Gitpod** ou **Google IDX** que permitem
+editar o projeto direto no navegador. Porém, para este projeto, recomendamos usar o
+**GitHub + Claude Code** localmente e abrir o dashboard via GitHub Pages — é mais simples
+e direto.
 
-Se quiser usar o IDX para preview ao vivo enquanto desenvolve, ele aceita
+Se quiser usar um IDE online para preview ao vivo enquanto desenvolve, todos aceitam
 importar projetos do GitHub diretamente.
 
 ## Estrutura atual do projeto no GitHub

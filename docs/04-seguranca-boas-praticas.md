@@ -261,7 +261,7 @@ meu-projeto/
 ├── Procfile              <- Declaração de worker para PaaS
 │
 ├── bot/                  <- Código do bot
-│   ├── main.py           <- 21 handlers, jobs, health check, OAuth
+│   ├── main.py           <- 23 handlers, jobs, health check, OAuth
 │   ├── ai_brain.py       <- Cérebro IA (Gemini/Claude)
 │   ├── calendar_sync.py  <- Sync Google + Microsoft
 │   └── requirements.txt

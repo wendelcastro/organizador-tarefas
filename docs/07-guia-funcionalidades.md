@@ -203,9 +203,52 @@ A IA interpreta a mudanca e atualiza os campos corretos.
 
 **No dashboard:** Clique no card da tarefa para abrir o modal de detalhe. La voce pode editar todos os campos diretamente.
 
-### Cancelar operacao (`/cancelar`)
+### Excluir tarefa (`/excluir`)
 
-Cancela qualquer operacao em andamento (confirmacao, edicao, etc).
+Mostra um teclado inline com botões para escolher qual tarefa excluir.
+
+```
+/excluir
+```
+
+O bot mostra:
+```
+Qual tarefa quer excluir?
+[🗑️ Reuniao com Carlos (23/03)]
+[🗑️ Corrigir provas de IA]
+[🗑️ Preparar slide]
+```
+
+Clique no botão da tarefa que deseja remover. A exclusão é definitiva.
+
+**No dashboard:** Abra o detalhe da tarefa e clique em "Excluir", ou use a seleção em lote.
+
+### Limpar duplicatas (`/limpar`)
+
+Analisa todas as tarefas pendentes e encontra grupos de tarefas com títulos similares (possíveis duplicatas).
+
+```
+/limpar
+```
+
+Resposta do bot:
+```
+🔍 Encontrei 2 grupo(s) de tarefas similares:
+
+Grupo 1: (3 tarefas)
+  • Reunião com Carlos — 23/03
+  • Reuniao com Carlos do Ser — 24/03
+  • Reunião Carlos — sem data
+
+Total: 3 tarefas em 1 grupo similar.
+Use /excluir para remover as duplicatas.
+```
+
+O algoritmo usa similaridade de texto (SequenceMatcher ≥ 70%) para detectar títulos parecidos. Útil quando você cria tarefas por voz e a IA gera variações do mesmo título.
+
+### Cancelar operação (`/cancelar`)
+
+Cancela qualquer operação em andamento (confirmação, edição, etc).
 
 ```
 /cancelar
@@ -734,12 +777,18 @@ O dashboard possui **7 views** acessíveis tanto pelo menu superior (desktop) qu
 
 **O que faz:** Selecionar e agir sobre múltiplas tarefas de uma vez.
 
-**Onde:** Dashboard web — qualquer view com cards.
+**Onde:** Dashboard web — view "Todas" e "Hoje".
 
 **Como usar:**
-1. Segure **Shift** e clique em múltiplos cards para selecioná-los
-2. Uma barra de ações aparece no topo
-3. Opções: **Concluir todos** ou **Excluir todos**
+1. Clique no botão **"☑ Selecionar"** ao lado das abas de status
+2. Cada card ganha um checkbox — clique nos cards que deseja selecionar
+3. Uma barra de ações aparece na parte inferior com o contador de selecionados
+4. Opções: **Concluir** ou **Excluir** as tarefas selecionadas
+5. Clique em **Cancelar** para sair do modo seleção
+
+**Atalho:** Segure **Shift** e clique em um card para entrar no modo seleção diretamente.
+
+A barra de ações some automaticamente ao trocar de view ou quando nenhuma tarefa está selecionada.
 
 ### Drag & Drop
 
