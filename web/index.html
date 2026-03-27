@@ -4932,9 +4932,9 @@ async function loadGamification() {
     const { data, error } = await sb.from('gamificacao').select('*').limit(1).single();
     if (error) throw error;
     if (data) {
-      gamification.xp = data.xp || 0;
-      gamification.streak = data.streak || 0;
-      gamification.streakRecord = data.streak_record || 0;
+      gamification.xp = data.xp_total || 0;
+      gamification.streak = data.streak_atual || 0;
+      gamification.streakRecord = data.streak_recorde || 0;
       gamification.level = getLevelForXP(gamification.xp);
       gamification.title = LEVEL_TITLES[gamification.level - 1];
     }
@@ -4969,13 +4969,15 @@ async function updateGamification(xpGained) {
       const { data: existing } = await sb.from('gamificacao').select('id').limit(1).single();
       if (existing) {
         await sb.from('gamificacao').update({
-          xp: gamification.xp, streak: gamification.streak,
-          streak_record: gamification.streakRecord, updated_at: new Date().toISOString()
+          xp_total: gamification.xp, streak_atual: gamification.streak,
+          streak_recorde: gamification.streakRecord, nivel: gamification.level,
+          titulo: gamification.title, updated_at: new Date().toISOString()
         }).eq('id', existing.id);
       } else {
         await sb.from('gamificacao').insert({
-          xp: gamification.xp, streak: gamification.streak,
-          streak_record: gamification.streakRecord
+          xp_total: gamification.xp, streak_atual: gamification.streak,
+          streak_recorde: gamification.streakRecord, nivel: gamification.level,
+          titulo: gamification.title
         });
       }
     } catch (e) { console.warn('Erro ao salvar gamificacao no Supabase:', e.message); }
@@ -5215,15 +5217,14 @@ async function saveWeekSnapshot() {
   const annotation = document.getElementById('weekAnnotation')?.value || '';
 
   const snapshot = {
-    week_start: weekStart, week_end: weekEnd,
-    total_tasks: total, completed_tasks: completed,
-    completion_rate: rate, annotation: annotation,
-    snapshot_data: JSON.stringify({ tasks: weekTasks.map(t => ({ id: t.id, titulo: t.titulo, status: t.status, categoria: t.categoria })) })
+    semana_inicio: weekStart, semana_fim: weekEnd,
+    total_tarefas: total, concluidas: completed,
+    taxa_conclusao: rate, anotacao: annotation
   };
 
   try {
     // Check if snapshot already exists for this week
-    const { data: existing } = await sb.from('historico_semanal').select('id').eq('week_start', weekStart).single();
+    const { data: existing } = await sb.from('historico_semanal').select('id').eq('semana_inicio', weekStart).single();
     if (existing) {
       await sb.from('historico_semanal').update(snapshot).eq('id', existing.id);
     } else {
@@ -5249,9 +5250,9 @@ async function saveWeekSnapshot() {
 
 async function saveAnnotation(weekStart, text) {
   try {
-    const { data: existing } = await sb.from('historico_semanal').select('id').eq('week_start', weekStart).single();
+    const { data: existing } = await sb.from('historico_semanal').select('id').eq('semana_inicio', weekStart).single();
     if (existing) {
-      await sb.from('historico_semanal').update({ annotation: text }).eq('id', existing.id);
+      await sb.from('historico_semanal').update({ anotacao: text }).eq('id', existing.id);
     }
   } catch (e) {
     const key = 'weekSnapshot_' + weekStart;
@@ -5270,8 +5271,8 @@ function saveCurrentWeek() {
 
 async function loadWeekAnnotation(weekStart) {
   try {
-    const { data } = await sb.from('historico_semanal').select('annotation').eq('week_start', weekStart).single();
-    if (data) return data.annotation || '';
+    const { data } = await sb.from('historico_semanal').select('anotacao').eq('semana_inicio', weekStart).single();
+    if (data) return data.anotacao || '';
   } catch (e) {
     const key = 'weekSnapshot_' + weekStart;
     const saved = localStorage.getItem(key);
@@ -5285,7 +5286,7 @@ async function loadWeekAnnotation(weekStart) {
 async function loadWeekHistoryList() {
   let histories = [];
   try {
-    const { data, error } = await sb.from('historico_semanal').select('*').order('week_start', { ascending: false }).limit(10);
+    const { data, error } = await sb.from('historico_semanal').select('*').order('semana_inicio', { ascending: false }).limit(10);
     if (!error && data) histories = data;
   } catch (e) {
     // Fallback: localStorage
@@ -5305,14 +5306,15 @@ async function loadWeekHistoryList() {
 
   container.innerHTML = '<h3 style="font-size:0.75rem;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.5rem">Histórico de semanas</h3>' +
     histories.map(h => {
-      const rateColor = h.completion_rate >= 70 ? 'var(--cat-pessoal)' : h.completion_rate >= 40 ? 'var(--pri-media)' : 'var(--pri-alta)';
-      return `<div class="history-card" onclick="navigateToWeek('${h.week_start}')">
+      const rate = h.taxa_conclusao || 0;
+      const rateColor = rate >= 70 ? 'var(--cat-pessoal)' : rate >= 40 ? 'var(--pri-media)' : 'var(--pri-alta)';
+      return `<div class="history-card" onclick="navigateToWeek('${h.semana_inicio}')">
         <div class="history-card-header">
-          <span class="history-card-period">${formatDate(h.week_start)} — ${formatDate(h.week_end)}</span>
-          <span class="history-card-rate" style="color:${rateColor}">${h.completion_rate}%</span>
+          <span class="history-card-period">${formatDate(h.semana_inicio)} — ${formatDate(h.semana_fim)}</span>
+          <span class="history-card-rate" style="color:${rateColor}">${rate}%</span>
         </div>
-        <div style="font-size:0.72rem;color:var(--text-secondary)">${h.completed_tasks || 0}/${h.total_tasks || 0} concluídas</div>
-        ${h.annotation ? '<div class="history-card-note">' + h.annotation + '</div>' : ''}
+        <div style="font-size:0.72rem;color:var(--text-secondary)">${h.concluidas || 0}/${h.total_tarefas || 0} concluídas</div>
+        ${h.anotacao ? '<div class="history-card-note">' + h.anotacao + '</div>' : ''}
       </div>`;
     }).join('');
 }
@@ -6072,28 +6074,38 @@ function initEnergyLogger() {
       const labelEl = period.querySelector('.energy-level-label');
       if (labelEl) labelEl.textContent = nivelLabels[newLevel];
 
-      // Save to Supabase
+      // Save to Supabase (one row per period)
       const today = new Date().toISOString().split('T')[0];
       try {
-        await fetch(SUPABASE_URL + '/rest/v1/energia_diaria', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'apikey': SUPABASE_KEY,
-            'Authorization': 'Bearer ' + SUPABASE_KEY,
-            'Prefer': 'resolution=merge-duplicates'
-          },
-          body: JSON.stringify({
-            data: today,
-            manha: energyData.manha,
-            tarde: energyData.tarde,
-            noite: energyData.noite
-          })
-        });
+        if (newLevel > 0) {
+          await fetch(SUPABASE_URL + '/rest/v1/energia_diaria', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'apikey': SUPABASE_KEY,
+              'Authorization': 'Bearer ' + SUPABASE_KEY,
+              'Prefer': 'resolution=merge-duplicates'
+            },
+            body: JSON.stringify({
+              data: today,
+              periodo: periodKey,
+              nivel: newLevel
+            })
+          });
+        } else {
+          // Level 0 means reset — delete the row
+          await fetch(SUPABASE_URL + '/rest/v1/energia_diaria?data=eq.' + today + '&periodo=eq.' + periodKey, {
+            method: 'DELETE',
+            headers: {
+              'apikey': SUPABASE_KEY,
+              'Authorization': 'Bearer ' + SUPABASE_KEY
+            }
+          });
+        }
       } catch (e) {
         console.warn('Erro ao salvar energia:', e.message);
-        localStorage.setItem('energy_' + today, JSON.stringify(energyData));
       }
+      localStorage.setItem('energy_' + today, JSON.stringify(energyData));
     });
   });
 }
@@ -6101,7 +6113,7 @@ function initEnergyLogger() {
 async function loadEnergyData() {
   const today = new Date().toISOString().split('T')[0];
   try {
-    const res = await fetch(SUPABASE_URL + '/rest/v1/energia_diaria?data=eq.' + today, {
+    const res = await fetch(SUPABASE_URL + '/rest/v1/energia_diaria?data=eq.' + today + '&select=periodo,nivel', {
       headers: {
         'apikey': SUPABASE_KEY,
         'Authorization': 'Bearer ' + SUPABASE_KEY
@@ -6109,9 +6121,12 @@ async function loadEnergyData() {
     });
     const data = await res.json();
     if (data && data.length > 0) {
-      energyData.manha = data[0].manha || 0;
-      energyData.tarde = data[0].tarde || 0;
-      energyData.noite = data[0].noite || 0;
+      // Each row is one period: { periodo: 'manha', nivel: 4 }
+      data.forEach(row => {
+        if (row.periodo && row.nivel) {
+          energyData[row.periodo] = row.nivel;
+        }
+      });
     }
   } catch (e) {
     // Fallback: localStorage
@@ -6976,16 +6991,16 @@ async function performSearch(query) {
     const { data: weeks } = await sb
       .from('historico_semanal')
       .select('*')
-      .ilike('annotation', '%' + query + '%')
-      .order('week_start', { ascending: false })
+      .ilike('anotacao', '%' + query + '%')
+      .order('semana_inicio', { ascending: false })
       .limit(3);
     if (weeks) {
       weeks.forEach(w => items.push({
         type: 'Anotação semanal', icon: '\ud83d\udcdd',
-        title: 'Semana de ' + w.week_start,
-        meta: (w.completed_tasks || 0) + '/' + (w.total_tasks || 0) + ' tarefas \u00b7 ' + (w.completion_rate || 0) + '%',
-        preview: (w.annotation || '').substring(0, 80),
-        onclick: "navigateToWeek('" + w.week_start + "')"
+        title: 'Semana de ' + formatDate(w.semana_inicio),
+        meta: (w.concluidas || 0) + '/' + (w.total_tarefas || 0) + ' tarefas \u00b7 ' + (w.taxa_conclusao || 0) + '%',
+        preview: (w.anotacao || '').substring(0, 80),
+        onclick: "navigateToWeek('" + w.semana_inicio + "')"
       }));
     }
   } catch(e) { console.warn('Search annotations error:', e); }
