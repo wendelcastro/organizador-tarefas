@@ -3632,6 +3632,8 @@ sb.auth.onAuthStateChange((event, session) => {
   if (event === 'SIGNED_IN' && session) {
     currentUser = session.user;
     showApp();
+  } else if (event === 'TOKEN_REFRESHED' && session) {
+    currentUser = session.user;
   } else if (event === 'SIGNED_OUT') {
     currentUser = null;
     showAuthScreen();
@@ -3708,12 +3710,18 @@ async function handleRegister(e) {
   btn.disabled = true;
   btn.textContent = 'Criando conta...';
 
-  const { error } = await sb.auth.signUp({ email, password });
+  const { data, error } = await sb.auth.signUp({ email, password });
   btn.disabled = false;
   btn.textContent = 'Criar conta';
 
   if (error) {
-    errEl.textContent = error.message;
+    if (error.message.includes('already registered') || error.message.includes('already been registered')) {
+      errEl.textContent = 'Este email já está cadastrado. Faça login.';
+    } else {
+      errEl.textContent = error.message;
+    }
+  } else if (data?.user?.identities?.length === 0) {
+    errEl.textContent = 'Este email já está cadastrado. Faça login.';
   } else {
     document.getElementById('authLogin').style.display = 'none';
     document.getElementById('authRegister').style.display = 'none';
@@ -3734,11 +3742,11 @@ async function handleLogout() {
 // Helper: get auth headers for direct fetch calls
 async function getAuthHeaders() {
   const { data: { session } } = await sb.auth.getSession();
-  const token = session?.access_token || SUPABASE_KEY;
-  return {
-    'apikey': SUPABASE_KEY,
-    'Authorization': 'Bearer ' + token
-  };
+  const headers = { 'apikey': SUPABASE_KEY };
+  if (session?.access_token) {
+    headers['Authorization'] = 'Bearer ' + session.access_token;
+  }
+  return headers;
 }
 
 // ========== CONFIG ==========
@@ -8213,18 +8221,19 @@ switchView = function(view) {
   setTimeout(() => showViewHint(view), 200);
 };
 
-// --- Init on load ---
+// --- Init on load (only if authenticated) ---
 document.addEventListener('DOMContentLoaded', () => {
-  // Init tooltips
-  setTimeout(initHelpTooltips, 1500);
+  // Wait for auth — only init help/onboarding after app is loaded
+  const waitForApp = setInterval(() => {
+    if (!appInitialized) return;
+    clearInterval(waitForApp);
 
-  // Auto-start onboarding on first visit
-  if (!localStorage.getItem('onboarding_done')) {
-    setTimeout(startOnboarding, 2000);
-  }
-
-  // Show hint for default view
-  setTimeout(() => showViewHint('tasks'), 1800);
+    setTimeout(initHelpTooltips, 1500);
+    if (!localStorage.getItem('onboarding_done')) {
+      setTimeout(startOnboarding, 2000);
+    }
+    setTimeout(() => showViewHint('tasks'), 1800);
+  }, 500);
 });
 </script>
 </body>
