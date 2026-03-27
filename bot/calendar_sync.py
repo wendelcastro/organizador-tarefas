@@ -44,6 +44,7 @@ MICROSOFT_SCOPES = "Calendars.Read offline_access"
 
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_KEY") or os.getenv("SUPABASE_ANON_KEY", "")
+BOT_USER_ID = os.getenv("BOT_USER_ID", "")
 BOT_PUBLIC_URL = os.getenv("BOT_PUBLIC_URL", "")
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "")
@@ -77,6 +78,11 @@ def _supabase_request(method, endpoint, data=None, params=None, extra_headers=No
     }
     if extra_headers:
         headers.update(extra_headers)
+
+    # Injetar user_id em inserts e updates
+    if data and BOT_USER_ID and method in ("POST", "PATCH"):
+        if isinstance(data, dict) and "user_id" not in data:
+            data["user_id"] = BOT_USER_ID
 
     try:
         with httpx.Client(timeout=HTTP_TIMEOUT) as client:

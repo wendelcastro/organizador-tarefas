@@ -7525,23 +7525,8 @@ if (localStorage.getItem('theme') === 'light') {
   if (themeIcon) themeIcon.textContent = '🌙';
 }
 
-// Migrate orphan data (user_id IS NULL) to the current logged-in user
-async function claimOrphanData() {
-  if (!currentUser) return;
-  const uid = currentUser.id;
-  const tables = ['tarefas', 'historico', 'configuracoes', 'contexto_ia',
-    'gamificacao', 'historico_semanal', 'xp_log', 'reflexoes',
-    'energia_diaria', 'subtarefas', 'eventos_calendario', 'anexos'];
-  for (const table of tables) {
-    try {
-      await sb.from(table).update({ user_id: uid }).is('user_id', null);
-    } catch (e) { /* table might not exist yet, skip */ }
-  }
-}
-
 // App initialization — called only after successful auth
-async function initApp() {
-  await claimOrphanData();
+function initApp() {
   updateHeaderDate();
   loadEnergyData();
   loadTasks().then(() => {

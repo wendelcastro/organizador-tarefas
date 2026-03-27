@@ -89,8 +89,12 @@ if not all([TELEGRAM_TOKEN, SUPABASE_URL, SUPABASE_KEY]):
     print("ERRO: Preencha TELEGRAM_BOT_TOKEN, SUPABASE_URL e SUPABASE_SERVICE_KEY no .env")
     sys.exit(1)
 
+BOT_USER_ID = os.getenv("BOT_USER_ID")  # UUID do dono no Supabase Auth
+
 if os.getenv("SUPABASE_SERVICE_KEY"):
     print("Usando service_role key (ignora RLS)")
+    if not BOT_USER_ID:
+        print("AVISO: BOT_USER_ID não configurado. Registros criados pelo bot ficarão sem dono.")
 elif os.getenv("SUPABASE_ANON_KEY"):
     print("AVISO: Usando anon key. Com RLS ativo, o bot pode não ter acesso. Configure SUPABASE_SERVICE_KEY.")
 
@@ -181,6 +185,11 @@ def supabase_request(method, endpoint, data=None, params=None, extra_headers=Non
     }
     if extra_headers:
         headers.update(extra_headers)
+
+    # Injetar user_id em inserts e updates (service_role não tem auth.uid())
+    if data and BOT_USER_ID and method in ("POST", "PATCH"):
+        if isinstance(data, dict) and "user_id" not in data:
+            data["user_id"] = BOT_USER_ID
 
     body = json.dumps(data).encode("utf-8") if data else None
     req = Request(url, data=body, headers=headers, method=method)
