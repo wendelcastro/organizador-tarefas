@@ -2998,6 +2998,83 @@ body::after {
 }
 .cleanup-btn-secondary:hover { border-color: var(--border-hover); color: var(--text-primary); }
 
+/* ========== AUTH SCREEN ========== */
+.auth-screen {
+  position: fixed; inset: 0; z-index: 200;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--bg-deep);
+  padding: 1rem;
+}
+.auth-screen.hidden { display: none; }
+.auth-card {
+  width: 100%; max-width: 400px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
+  padding: 2rem 1.5rem;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+.auth-logo {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.8rem; font-weight: 600;
+  color: var(--text-primary); text-align: center;
+  margin-bottom: 0.3rem;
+}
+.auth-subtitle {
+  font-size: 0.75rem; color: var(--text-muted);
+  text-align: center; margin-bottom: 1.5rem;
+}
+.auth-form { display: flex; flex-direction: column; gap: 0.75rem; }
+.auth-input {
+  width: 100%; padding: 0.65rem 0.85rem;
+  background: var(--bg-glass); border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm); color: var(--text-primary);
+  font-family: inherit; font-size: 0.85rem;
+  transition: var(--transition); outline: none;
+}
+.auth-input:focus { border-color: var(--amber); }
+.auth-input::placeholder { color: var(--text-muted); }
+.auth-btn {
+  width: 100%; padding: 0.7rem;
+  background: var(--amber); border: none; border-radius: var(--radius-sm);
+  color: var(--navy); font-family: inherit; font-size: 0.85rem;
+  font-weight: 600; cursor: pointer; transition: var(--transition);
+}
+.auth-btn:hover { background: var(--amber-light); }
+.auth-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.auth-toggle {
+  font-size: 0.75rem; color: var(--text-secondary);
+  text-align: center; margin-top: 1rem;
+}
+.auth-toggle a {
+  color: var(--amber); cursor: pointer; text-decoration: none;
+}
+.auth-toggle a:hover { text-decoration: underline; }
+.auth-error {
+  font-size: 0.72rem; color: var(--pri-alta);
+  text-align: center; min-height: 1.2rem;
+}
+.auth-success {
+  font-size: 0.72rem; color: var(--cat-pessoal);
+  text-align: center; padding: 0.75rem;
+  background: rgba(72,187,120,0.1); border-radius: var(--radius-sm);
+  line-height: 1.5;
+}
+.auth-user-info {
+  display: flex; align-items: center; gap: 0.4rem;
+  font-size: 0.65rem; color: var(--text-muted);
+  max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.btn-logout {
+  background: none; border: 1px solid var(--border-subtle);
+  border-radius: 50%; width: 28px; height: 28px;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--text-muted); cursor: pointer; transition: var(--transition);
+  flex-shrink: 0;
+}
+.btn-logout:hover { border-color: var(--pri-alta); color: var(--pri-alta); }
+
 </style>
 </head>
 <body>
@@ -3005,7 +3082,54 @@ body::after {
 <div class="noise"></div>
 <div class="beam-container"><div class="beam"></div><div class="beam"></div><div class="beam"></div><div class="beam"></div><div class="beam"></div></div>
 
-<div class="app">
+<!-- AUTH SCREEN -->
+<div class="auth-screen" id="authScreen">
+  <div class="auth-card">
+    <div class="auth-logo">Organizador</div>
+    <div class="auth-subtitle">Faça login para acessar suas tarefas</div>
+
+    <!-- LOGIN FORM -->
+    <div id="authLogin">
+      <form class="auth-form" onsubmit="handleLogin(event)">
+        <input type="email" class="auth-input" id="loginEmail" placeholder="Email" required autocomplete="email">
+        <input type="password" class="auth-input" id="loginPassword" placeholder="Senha" required autocomplete="current-password">
+        <div class="auth-error" id="loginError"></div>
+        <button type="submit" class="auth-btn" id="loginBtn">Entrar</button>
+      </form>
+      <div class="auth-toggle">
+        Ainda não tem conta? <a onclick="showAuthRegister()">Criar conta</a>
+      </div>
+    </div>
+
+    <!-- REGISTER FORM -->
+    <div id="authRegister" style="display:none">
+      <form class="auth-form" onsubmit="handleRegister(event)">
+        <input type="email" class="auth-input" id="registerEmail" placeholder="Email" required autocomplete="email">
+        <input type="password" class="auth-input" id="registerPassword" placeholder="Senha (mín. 6 caracteres)" required minlength="6" autocomplete="new-password">
+        <input type="password" class="auth-input" id="registerPasswordConfirm" placeholder="Confirmar senha" required minlength="6" autocomplete="new-password">
+        <div class="auth-error" id="registerError"></div>
+        <button type="submit" class="auth-btn" id="registerBtn">Criar conta</button>
+      </form>
+      <div class="auth-toggle">
+        Já tem conta? <a onclick="showAuthLogin()">Fazer login</a>
+      </div>
+    </div>
+
+    <!-- CONFIRM EMAIL -->
+    <div id="authConfirm" style="display:none">
+      <div class="auth-success">
+        Conta criada com sucesso!<br>
+        Verifique seu email para confirmar o cadastro.<br>
+        Após confirmar, volte aqui e faça login.
+      </div>
+      <div class="auth-toggle" style="margin-top:1.5rem">
+        <a onclick="showAuthLogin()">Voltar para o login</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="app" style="display:none" id="mainApp">
   <!-- HEADER -->
   <header class="header">
     <div class="header-left">
@@ -3035,6 +3159,9 @@ body::after {
       <button class="btn-add" onclick="openModal()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         <span class="btn-add-text">Nova tarefa</span>
+      </button>
+      <button class="btn-logout" onclick="handleLogout()" title="Sair">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
       </button>
     </div>
   </header>
@@ -3487,6 +3614,133 @@ const SUPABASE_URL = 'https://vhfuthaqonzuasgpbcrg.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZoZnV0aGFxb256dWFzZ3BiY3JnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2ODk4OTgsImV4cCI6MjA4OTI2NTg5OH0.uJgJL-qrJtPqGUCWMO3e1a1JwudGvfUab4FxNC8SsBM';
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
+// ========== AUTH SYSTEM ==========
+let currentUser = null;
+let appInitialized = false;
+
+async function checkAuth() {
+  const { data: { session } } = await sb.auth.getSession();
+  if (session) {
+    currentUser = session.user;
+    showApp();
+  } else {
+    showAuthScreen();
+  }
+}
+
+sb.auth.onAuthStateChange((event, session) => {
+  if (event === 'SIGNED_IN' && session) {
+    currentUser = session.user;
+    showApp();
+  } else if (event === 'SIGNED_OUT') {
+    currentUser = null;
+    showAuthScreen();
+  }
+});
+
+function showApp() {
+  document.getElementById('authScreen').style.display = 'none';
+  document.getElementById('mainApp').style.display = 'flex';
+  if (!appInitialized) {
+    appInitialized = true;
+    initApp();
+  }
+}
+
+function showAuthScreen() {
+  document.getElementById('mainApp').style.display = 'none';
+  document.getElementById('authScreen').style.display = 'flex';
+}
+
+function showAuthLogin() {
+  document.getElementById('authLogin').style.display = 'block';
+  document.getElementById('authRegister').style.display = 'none';
+  document.getElementById('authConfirm').style.display = 'none';
+  document.getElementById('loginError').textContent = '';
+}
+
+function showAuthRegister() {
+  document.getElementById('authLogin').style.display = 'none';
+  document.getElementById('authRegister').style.display = 'block';
+  document.getElementById('authConfirm').style.display = 'none';
+  document.getElementById('registerError').textContent = '';
+}
+
+async function handleLogin(e) {
+  e.preventDefault();
+  const email = document.getElementById('loginEmail').value;
+  const password = document.getElementById('loginPassword').value;
+  const errEl = document.getElementById('loginError');
+  const btn = document.getElementById('loginBtn');
+  errEl.textContent = '';
+  btn.disabled = true;
+  btn.textContent = 'Entrando...';
+
+  const { error } = await sb.auth.signInWithPassword({ email, password });
+  btn.disabled = false;
+  btn.textContent = 'Entrar';
+
+  if (error) {
+    if (error.message.includes('Email not confirmed')) {
+      errEl.textContent = 'Email ainda não confirmado. Verifique sua caixa de entrada.';
+    } else if (error.message.includes('Invalid login')) {
+      errEl.textContent = 'Email ou senha incorretos.';
+    } else {
+      errEl.textContent = error.message;
+    }
+  }
+}
+
+async function handleRegister(e) {
+  e.preventDefault();
+  const email = document.getElementById('registerEmail').value;
+  const password = document.getElementById('registerPassword').value;
+  const confirm = document.getElementById('registerPasswordConfirm').value;
+  const errEl = document.getElementById('registerError');
+  const btn = document.getElementById('registerBtn');
+
+  if (password !== confirm) {
+    errEl.textContent = 'As senhas não coincidem.';
+    return;
+  }
+
+  errEl.textContent = '';
+  btn.disabled = true;
+  btn.textContent = 'Criando conta...';
+
+  const { error } = await sb.auth.signUp({ email, password });
+  btn.disabled = false;
+  btn.textContent = 'Criar conta';
+
+  if (error) {
+    errEl.textContent = error.message;
+  } else {
+    document.getElementById('authLogin').style.display = 'none';
+    document.getElementById('authRegister').style.display = 'none';
+    document.getElementById('authConfirm').style.display = 'block';
+  }
+}
+
+async function handleLogout() {
+  if (!confirm('Deseja sair da sua conta?')) return;
+  await sb.auth.signOut();
+  currentUser = null;
+  appInitialized = false;
+  tasks = [];
+  calendarEvents = [];
+  showAuthScreen();
+}
+
+// Helper: get auth headers for direct fetch calls
+async function getAuthHeaders() {
+  const { data: { session } } = await sb.auth.getSession();
+  const token = session?.access_token || SUPABASE_KEY;
+  return {
+    'apikey': SUPABASE_KEY,
+    'Authorization': 'Bearer ' + token
+  };
+}
+
 // ========== CONFIG ==========
 const CATEGORY_COLORS = {
   'Trabalho': 'var(--cat-trabalho)',
@@ -3538,9 +3792,10 @@ async function loadCalendarEvents() {
     const startStr = start.toISOString().split('T')[0];
     const endStr = end.toISOString().split('T')[0];
 
+    const headers = await getAuthHeaders();
     const res = await fetch(
       `${SUPABASE_URL}/rest/v1/eventos_calendario?dia=gte.${startStr}&dia=lte.${endStr}&order=data_inicio.asc`,
-      { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` } }
+      { headers }
     );
     if (res.ok) {
       calendarEvents = await res.json();
@@ -3554,9 +3809,10 @@ async function loadCalendarEvents() {
 
 async function checkCalendarConnections() {
   try {
+    const headers = await getAuthHeaders();
     const res = await fetch(
       `${SUPABASE_URL}/rest/v1/configuracoes?chave=in.(google_calendar_tokens,microsoft_calendar_tokens)`,
-      { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` } }
+      { headers }
     );
     if (res.ok) {
       const data = await res.json();
@@ -5844,9 +6100,12 @@ function getTaskQuadrant(t) {
 
 async function saveQuadrant(taskId, quadrant) {
   try {
+    const headers = await getAuthHeaders();
+    headers['Content-Type'] = 'application/json';
+    headers['Prefer'] = 'return=minimal';
     await fetch(`${SUPABASE_URL}/rest/v1/tarefas?id=eq.${taskId}`, {
       method: 'PATCH',
-      headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+      headers,
       body: JSON.stringify({ quadrante_eisenhower: quadrant })
     });
     // Update local cache
@@ -6077,13 +6336,13 @@ function initEnergyLogger() {
       // Save to Supabase (one row per period)
       const today = new Date().toISOString().split('T')[0];
       try {
+        const authHdrs = await getAuthHeaders();
         if (newLevel > 0) {
           await fetch(SUPABASE_URL + '/rest/v1/energia_diaria', {
             method: 'POST',
             headers: {
+              ...authHdrs,
               'Content-Type': 'application/json',
-              'apikey': SUPABASE_KEY,
-              'Authorization': 'Bearer ' + SUPABASE_KEY,
               'Prefer': 'resolution=merge-duplicates'
             },
             body: JSON.stringify({
@@ -6093,13 +6352,9 @@ function initEnergyLogger() {
             })
           });
         } else {
-          // Level 0 means reset — delete the row
           await fetch(SUPABASE_URL + '/rest/v1/energia_diaria?data=eq.' + today + '&periodo=eq.' + periodKey, {
             method: 'DELETE',
-            headers: {
-              'apikey': SUPABASE_KEY,
-              'Authorization': 'Bearer ' + SUPABASE_KEY
-            }
+            headers: authHdrs
           });
         }
       } catch (e) {
@@ -6113,11 +6368,9 @@ function initEnergyLogger() {
 async function loadEnergyData() {
   const today = new Date().toISOString().split('T')[0];
   try {
+    const headers = await getAuthHeaders();
     const res = await fetch(SUPABASE_URL + '/rest/v1/energia_diaria?data=eq.' + today + '&select=periodo,nivel', {
-      headers: {
-        'apikey': SUPABASE_KEY,
-        'Authorization': 'Bearer ' + SUPABASE_KEY
-      }
+      headers
     });
     const data = await res.json();
     if (data && data.length > 0) {
@@ -7256,34 +7509,26 @@ async function expandAttachment(attachmentId) {
 }
 
 // ========== INIT ==========
-// Restore theme from localStorage
+// Restore theme from localStorage (before auth check — visual only)
 if (localStorage.getItem('theme') === 'light') {
   document.body.classList.add('light-mode');
-  document.getElementById('themeIcon').textContent = '🌙';
+  const themeIcon = document.getElementById('themeIcon');
+  if (themeIcon) themeIcon.textContent = '🌙';
 }
 
-updateHeaderDate();
-loadEnergyData();
-loadTasks().then(() => {
-  loadGamification();
-  renderProgressRing();
-  loadSubtaskCounts().then(() => {
-    renderTasks();
-    renderToday();
+// App initialization — called only after successful auth
+function initApp() {
+  updateHeaderDate();
+  loadEnergyData();
+  loadTasks().then(() => {
+    loadGamification();
+    renderProgressRing();
+    loadSubtaskCounts().then(() => {
+      renderTasks();
+      renderToday();
+    });
   });
-});
-// Load calendar events and integration status
-checkCalendarConnections();
-loadCalendarEvents().then(() => {
-  const currentView = document.querySelector('.view-toggle button.active');
-  if (currentView) {
-    const view = currentView.dataset.view;
-    if (view === 'today') renderToday();
-    else if (view === 'calendar') renderCalendar();
-  }
-});
-// Auto-refresh calendar events every 5 minutes
-setInterval(() => {
+  checkCalendarConnections();
   loadCalendarEvents().then(() => {
     const currentView = document.querySelector('.view-toggle button.active');
     if (currentView) {
@@ -7292,11 +7537,24 @@ setInterval(() => {
       else if (view === 'calendar') renderCalendar();
     }
   });
-}, 300000);
-setupRealtime();
-setupDragAndDrop();
-setupSwipeGestures();
-initSearch();
+  setInterval(() => {
+    loadCalendarEvents().then(() => {
+      const currentView = document.querySelector('.view-toggle button.active');
+      if (currentView) {
+        const view = currentView.dataset.view;
+        if (view === 'today') renderToday();
+        else if (view === 'calendar') renderCalendar();
+      }
+    });
+  }, 300000);
+  setupRealtime();
+  setupDragAndDrop();
+  setupSwipeGestures();
+  initSearch();
+}
+
+// Start: check auth first, then load app if authenticated
+checkAuth();
 
 // ========== PWA: Service Worker + Install Prompt ==========
 if ('serviceWorker' in navigator) {
