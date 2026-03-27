@@ -80,14 +80,19 @@ load_dotenv(env_path)
 # Configuracao
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_ANON_KEY")
+SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_KEY") or os.getenv("SUPABASE_ANON_KEY")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 if not all([TELEGRAM_TOKEN, SUPABASE_URL, SUPABASE_KEY]):
-    print("ERRO: Preencha TELEGRAM_BOT_TOKEN, SUPABASE_URL e SUPABASE_ANON_KEY no .env")
+    print("ERRO: Preencha TELEGRAM_BOT_TOKEN, SUPABASE_URL e SUPABASE_SERVICE_KEY no .env")
     sys.exit(1)
+
+if os.getenv("SUPABASE_SERVICE_KEY"):
+    print("Usando service_role key (ignora RLS)")
+elif os.getenv("SUPABASE_ANON_KEY"):
+    print("AVISO: Usando anon key. Com RLS ativo, o bot pode não ter acesso. Configure SUPABASE_SERVICE_KEY.")
 
 if not GROQ_API_KEY:
     print("AVISO: GROQ_API_KEY nao configurada. Transcricao de audio desabilitada.")

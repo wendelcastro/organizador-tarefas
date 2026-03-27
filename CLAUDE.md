@@ -110,10 +110,11 @@ sistema de ajuda in-app e PWA com Service Worker.
 - `resumo_semanal` — Numeros agregados da semana
 - `carga_por_dia` — Ocupacao por dia para analise de sobrecarga
 
-## Chaves API (.env) — 12 variáveis
+## Chaves API (.env) — 13 variáveis
 - `TELEGRAM_BOT_TOKEN` — @BotFather (obrigatório)
 - `SUPABASE_URL` — supabase.com > Settings > API (obrigatório)
-- `SUPABASE_ANON_KEY` — supabase.com > Settings > API (obrigatório)
+- `SUPABASE_ANON_KEY` — supabase.com > Settings > API (obrigatório, usado pelo dashboard)
+- `SUPABASE_SERVICE_KEY` — supabase.com > Settings > API > service_role (obrigatório para o bot com RLS)
 - `GEMINI_API_KEY` — aistudio.google.com (IA principal, gratuita)
 - `ANTHROPIC_API_KEY` — console.anthropic.com (fallback, opcional)
 - `GROQ_API_KEY` — console.groq.com (opcional, para áudio)
