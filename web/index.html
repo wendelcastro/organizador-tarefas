@@ -3006,6 +3006,7 @@ body::after {
   padding: 1rem;
 }
 .auth-screen.hidden { display: none; }
+.app.auth-hidden { display: none !important; }
 .auth-card {
   width: 100%; max-width: 400px;
   background: var(--bg-card);
@@ -3129,7 +3130,7 @@ body::after {
   </div>
 </div>
 
-<div class="app" style="display:none" id="mainApp">
+<div class="app auth-hidden" id="mainApp">
   <!-- HEADER -->
   <header class="header">
     <div class="header-left">
@@ -3641,8 +3642,8 @@ sb.auth.onAuthStateChange((event, session) => {
 });
 
 function showApp() {
-  document.getElementById('authScreen').style.display = 'none';
-  document.getElementById('mainApp').style.display = 'flex';
+  document.getElementById('authScreen').classList.add('hidden');
+  document.getElementById('mainApp').classList.remove('auth-hidden');
   if (!appInitialized) {
     appInitialized = true;
     initApp();
@@ -3650,8 +3651,8 @@ function showApp() {
 }
 
 function showAuthScreen() {
-  document.getElementById('mainApp').style.display = 'none';
-  document.getElementById('authScreen').style.display = 'flex';
+  document.getElementById('mainApp').classList.add('auth-hidden');
+  document.getElementById('authScreen').classList.remove('hidden');
 }
 
 function showAuthLogin() {
@@ -7524,8 +7525,23 @@ if (localStorage.getItem('theme') === 'light') {
   if (themeIcon) themeIcon.textContent = '🌙';
 }
 
+// Migrate orphan data (user_id IS NULL) to the current logged-in user
+async function claimOrphanData() {
+  if (!currentUser) return;
+  const uid = currentUser.id;
+  const tables = ['tarefas', 'historico', 'configuracoes', 'contexto_ia',
+    'gamificacao', 'historico_semanal', 'xp_log', 'reflexoes',
+    'energia_diaria', 'subtarefas', 'eventos_calendario', 'anexos'];
+  for (const table of tables) {
+    try {
+      await sb.from(table).update({ user_id: uid }).is('user_id', null);
+    } catch (e) { /* table might not exist yet, skip */ }
+  }
+}
+
 // App initialization — called only after successful auth
-function initApp() {
+async function initApp() {
+  await claimOrphanData();
   updateHeaderDate();
   loadEnergyData();
   loadTasks().then(() => {

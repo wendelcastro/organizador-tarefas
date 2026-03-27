@@ -93,66 +93,81 @@ END $$;
 -- 4. SUBSTITUIR RLS POLICIES
 -- ==========================================
 -- Remove policies antigas (acesso total) e cria novas (por usuário)
+-- USING permite ver dados do próprio user OU dados órfãos (user_id IS NULL)
+-- WITH CHECK garante que só pode escrever com seu próprio user_id
+-- Dados órfãos serão reclamados automaticamente pelo primeiro login (claimOrphanData)
 
 -- === tarefas ===
 DROP POLICY IF EXISTS "Acesso total tarefas" ON tarefas;
+DROP POLICY IF EXISTS "Tarefas do usuario" ON tarefas;
 CREATE POLICY "Tarefas do usuario" ON tarefas
-  FOR ALL USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+  FOR ALL USING (user_id = auth.uid() OR user_id IS NULL) WITH CHECK (user_id = auth.uid());
 
 -- === historico ===
 DROP POLICY IF EXISTS "Acesso total historico" ON historico;
+DROP POLICY IF EXISTS "Historico do usuario" ON historico;
 CREATE POLICY "Historico do usuario" ON historico
-  FOR ALL USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+  FOR ALL USING (user_id = auth.uid() OR user_id IS NULL) WITH CHECK (user_id = auth.uid());
 
 -- === configuracoes ===
 DROP POLICY IF EXISTS "Acesso total configuracoes" ON configuracoes;
+DROP POLICY IF EXISTS "Configuracoes do usuario" ON configuracoes;
 CREATE POLICY "Configuracoes do usuario" ON configuracoes
-  FOR ALL USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+  FOR ALL USING (user_id = auth.uid() OR user_id IS NULL) WITH CHECK (user_id = auth.uid());
 
 -- === contexto_ia ===
 DROP POLICY IF EXISTS "Acesso total contexto_ia" ON contexto_ia;
+DROP POLICY IF EXISTS "Contexto do usuario" ON contexto_ia;
 CREATE POLICY "Contexto do usuario" ON contexto_ia
-  FOR ALL USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+  FOR ALL USING (user_id = auth.uid() OR user_id IS NULL) WITH CHECK (user_id = auth.uid());
 
 -- === gamificacao ===
 DROP POLICY IF EXISTS "Acesso total gamificacao" ON gamificacao;
+DROP POLICY IF EXISTS "Gamificacao do usuario" ON gamificacao;
 CREATE POLICY "Gamificacao do usuario" ON gamificacao
-  FOR ALL USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+  FOR ALL USING (user_id = auth.uid() OR user_id IS NULL) WITH CHECK (user_id = auth.uid());
 
 -- === historico_semanal ===
 DROP POLICY IF EXISTS "Acesso total historico_semanal" ON historico_semanal;
+DROP POLICY IF EXISTS "Historico semanal do usuario" ON historico_semanal;
 CREATE POLICY "Historico semanal do usuario" ON historico_semanal
-  FOR ALL USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+  FOR ALL USING (user_id = auth.uid() OR user_id IS NULL) WITH CHECK (user_id = auth.uid());
 
 -- === xp_log ===
 DROP POLICY IF EXISTS "Acesso total xp_log" ON xp_log;
+DROP POLICY IF EXISTS "XP do usuario" ON xp_log;
 CREATE POLICY "XP do usuario" ON xp_log
-  FOR ALL USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+  FOR ALL USING (user_id = auth.uid() OR user_id IS NULL) WITH CHECK (user_id = auth.uid());
 
 -- === reflexoes ===
 DROP POLICY IF EXISTS "Acesso total reflexoes" ON reflexoes;
+DROP POLICY IF EXISTS "Reflexoes do usuario" ON reflexoes;
 CREATE POLICY "Reflexoes do usuario" ON reflexoes
-  FOR ALL USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+  FOR ALL USING (user_id = auth.uid() OR user_id IS NULL) WITH CHECK (user_id = auth.uid());
 
 -- === energia_diaria ===
 DROP POLICY IF EXISTS "Acesso total energia" ON energia_diaria;
+DROP POLICY IF EXISTS "Energia do usuario" ON energia_diaria;
 CREATE POLICY "Energia do usuario" ON energia_diaria
-  FOR ALL USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+  FOR ALL USING (user_id = auth.uid() OR user_id IS NULL) WITH CHECK (user_id = auth.uid());
 
 -- === subtarefas ===
 DROP POLICY IF EXISTS "Acesso total subtarefas" ON subtarefas;
+DROP POLICY IF EXISTS "Subtarefas do usuario" ON subtarefas;
 CREATE POLICY "Subtarefas do usuario" ON subtarefas
-  FOR ALL USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+  FOR ALL USING (user_id = auth.uid() OR user_id IS NULL) WITH CHECK (user_id = auth.uid());
 
 -- === eventos_calendario ===
 DROP POLICY IF EXISTS "Acesso total eventos_calendario" ON eventos_calendario;
+DROP POLICY IF EXISTS "Eventos do usuario" ON eventos_calendario;
 CREATE POLICY "Eventos do usuario" ON eventos_calendario
-  FOR ALL USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+  FOR ALL USING (user_id = auth.uid() OR user_id IS NULL) WITH CHECK (user_id = auth.uid());
 
 -- === anexos ===
 DROP POLICY IF EXISTS "Acesso total anexos" ON anexos;
+DROP POLICY IF EXISTS "Anexos do usuario" ON anexos;
 CREATE POLICY "Anexos do usuario" ON anexos
-  FOR ALL USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+  FOR ALL USING (user_id = auth.uid() OR user_id IS NULL) WITH CHECK (user_id = auth.uid());
 
 -- === categorias (compartilhada — leitura para autenticados) ===
 DROP POLICY IF EXISTS "Acesso total categorias" ON categorias;
