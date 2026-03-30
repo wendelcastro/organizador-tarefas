@@ -1553,6 +1553,19 @@ body::after {
 .bulk-toggle-btn { display: inline-flex; align-items: center; justify-content: center; gap: 0.3rem; padding: 0.35rem 0.7rem; background: var(--bg-glass); border: 1px solid var(--border-subtle); border-radius: 50px; color: var(--text-muted); font-family: inherit; font-size: 0.7rem; cursor: pointer; transition: var(--transition); flex-shrink: 0; white-space: nowrap; }
 .bulk-toggle-btn:hover { border-color: var(--border-hover); color: var(--text-secondary); }
 .bulk-toggle-btn.active { background: hsla(43,52%,54%,0.15); border-color: var(--amber); color: var(--amber); }
+
+/* ========== SORT DROPDOWN ========== */
+.sort-dropdown { position: relative; flex-shrink: 0; }
+.sort-btn { display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.35rem 0.7rem; background: var(--bg-glass); border: 1px solid var(--border-subtle); border-radius: 50px; color: var(--text-muted); font-family: inherit; font-size: 0.7rem; cursor: pointer; transition: var(--transition); white-space: nowrap; }
+.sort-btn:hover { border-color: var(--border-hover); color: var(--text-secondary); }
+.sort-btn svg { flex-shrink: 0; }
+.sort-menu { display: none; position: absolute; top: calc(100% + 0.4rem); right: 0; min-width: 11rem; background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 0.75rem; padding: 0.35rem; z-index: 100; box-shadow: 0 8px 32px rgba(0,0,0,0.35); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); }
+.sort-menu.open { display: block; animation: fadeSlideDown 0.15s ease; }
+@keyframes fadeSlideDown { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+.sort-option { padding: 0.5rem 0.65rem; border-radius: 0.5rem; font-size: 0.78rem; color: var(--text-secondary); cursor: pointer; transition: var(--transition); }
+.sort-option:hover { background: var(--bg-glass); color: var(--text-primary); }
+.sort-option.active { background: hsla(43,52%,54%,0.12); color: var(--amber); font-weight: 500; }
+@media (max-width: 480px) { .sort-btn #sortLabel { display: none; } .sort-btn { padding: 0.35rem 0.5rem; } }
 .task-card.selected { background: hsla(43,52%,54%,0.08); border-color: hsla(43,52%,54%,0.3); }
 .task-card .bulk-check { display: none; width: 18px; height: 18px; border: 2px solid var(--border-subtle); border-radius: 4px; margin-right: 0.5rem; flex-shrink: 0; cursor: pointer; align-items: center; justify-content: center; }
 .bulk-mode .task-card .bulk-check { display: flex; }
@@ -3257,6 +3270,20 @@ body::after {
           <button class="status-tab" data-status="em_andamento" onclick="filterStatus('em_andamento')">Em andamento</button>
           <button class="status-tab" data-status="concluida" onclick="filterStatus('concluida')">Concluídas</button>
         </div>
+        <div class="sort-dropdown" id="sortDropdown">
+          <button class="sort-btn" onclick="toggleSortMenu()" title="Ordenar tarefas">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M6 12h12M9 18h6"/></svg>
+            <span id="sortLabel">Inteligente</span>
+          </button>
+          <div class="sort-menu" id="sortMenu">
+            <div class="sort-option active" data-sort="smart" onclick="changeSort('smart')">✦ Inteligente</div>
+            <div class="sort-option" data-sort="newest" onclick="changeSort('newest')">↓ Mais recentes</div>
+            <div class="sort-option" data-sort="oldest" onclick="changeSort('oldest')">↑ Mais antigas</div>
+            <div class="sort-option" data-sort="deadline_asc" onclick="changeSort('deadline_asc')">📅 Prazo mais próximo</div>
+            <div class="sort-option" data-sort="deadline_desc" onclick="changeSort('deadline_desc')">📅 Prazo mais distante</div>
+            <div class="sort-option" data-sort="priority" onclick="changeSort('priority')">🔴 Prioridade</div>
+          </div>
+        </div>
         <button class="bulk-toggle-btn" id="bulkToggleBtn" onclick="toggleBulkMode()" title="Selecionar várias tarefas">☑ Selecionar</button>
       </div>
       <div class="task-list" id="taskList"></div>
@@ -3788,6 +3815,7 @@ let tasks = [];
 let calendarEvents = [];
 let calendarConnections = { google: false, microsoft: false };
 let currentFilters = { category: 'all', priority: 'all', status: 'all', _special: null };
+let currentSort = 'smart'; // smart | newest | oldest | deadline_asc | deadline_desc | priority
 
 // ========== SUPABASE: CARREGAR EVENTOS DO CALENDARIO ==========
 async function loadCalendarEvents() {
@@ -4068,6 +4096,29 @@ function filterPriority(pri) {
   renderTasks();
 }
 
+// ========== SORT ==========
+const SORT_LABELS = { smart: 'Inteligente', newest: 'Mais recentes', oldest: 'Mais antigas', deadline_asc: 'Prazo próximo', deadline_desc: 'Prazo distante', priority: 'Prioridade' };
+
+function toggleSortMenu() {
+  document.getElementById('sortMenu').classList.toggle('open');
+}
+
+function changeSort(sortKey) {
+  currentSort = sortKey;
+  document.getElementById('sortLabel').textContent = SORT_LABELS[sortKey];
+  document.querySelectorAll('.sort-option').forEach(el => el.classList.toggle('active', el.dataset.sort === sortKey));
+  document.getElementById('sortMenu').classList.remove('open');
+  renderTasks();
+}
+
+// Fechar menu ao clicar fora
+document.addEventListener('click', function(e) {
+  const dd = document.getElementById('sortDropdown');
+  if (dd && !dd.contains(e.target)) {
+    document.getElementById('sortMenu').classList.remove('open');
+  }
+});
+
 function filterStatus(status) {
   currentFilters.status = status;
   currentFilters._special = null;
@@ -4143,11 +4194,26 @@ function renderTasks() {
   const statusOrder = { 'em_andamento': 0, 'pendente': 1, 'concluida': 2 };
 
   filtered.sort((a, b) => {
-    if (statusOrder[a.status] !== statusOrder[b.status]) return statusOrder[a.status] - statusOrder[b.status];
-    const ao = isOverdue(a) ? 0 : 1, bo = isOverdue(b) ? 0 : 1;
-    if (ao !== bo) return ao - bo;
-    if (priorityOrder[a.prioridade] !== priorityOrder[b.prioridade]) return priorityOrder[a.prioridade] - priorityOrder[b.prioridade];
-    return (a.prazo || 'z').localeCompare(b.prazo || 'z');
+    switch (currentSort) {
+      case 'newest':
+        return (b.created_at || b.criado_em || '').localeCompare(a.created_at || a.criado_em || '');
+      case 'oldest':
+        return (a.created_at || a.criado_em || '').localeCompare(b.created_at || b.criado_em || '');
+      case 'deadline_asc':
+        return (a.prazo || '9999').localeCompare(b.prazo || '9999');
+      case 'deadline_desc':
+        return (b.prazo || '').localeCompare(a.prazo || '');
+      case 'priority': {
+        if (priorityOrder[a.prioridade] !== priorityOrder[b.prioridade]) return priorityOrder[a.prioridade] - priorityOrder[b.prioridade];
+        return (a.prazo || 'z').localeCompare(b.prazo || 'z');
+      }
+      default: // smart
+        if (statusOrder[a.status] !== statusOrder[b.status]) return statusOrder[a.status] - statusOrder[b.status];
+        const ao = isOverdue(a) ? 0 : 1, bo = isOverdue(b) ? 0 : 1;
+        if (ao !== bo) return ao - bo;
+        if (priorityOrder[a.prioridade] !== priorityOrder[b.prioridade]) return priorityOrder[a.prioridade] - priorityOrder[b.prioridade];
+        return (a.prazo || 'z').localeCompare(b.prazo || 'z');
+    }
   });
 
   if (filtered.length === 0) {
