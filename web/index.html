@@ -1402,6 +1402,7 @@ body::after {
 
   /* Hide mobile-only bars on desktop */
   .stats-bar { display: none; }
+  #scopeToggleMobile { display: none; }
   .gamification-bar { grid-area: gamif; }
   .filter-bar { display: none; }
 
@@ -1566,6 +1567,12 @@ body::after {
 .sort-option:hover { background: var(--bg-glass); color: var(--text-primary); }
 .sort-option.active { background: hsla(43,52%,54%,0.12); color: var(--amber); font-weight: 500; }
 @media (max-width: 480px) { .sort-btn #sortLabel { display: none; } .sort-btn { padding: 0.35rem 0.5rem; } }
+
+/* ========== SCOPE TOGGLE (semana/tudo) ========== */
+.scope-toggle { display: flex; gap: 0.2rem; background: var(--bg-deep); border: 1px solid var(--border-subtle); border-radius: 50px; padding: 3px; margin-bottom: 0.5rem; }
+.scope-btn { flex: 1; padding: 0.35rem 0.6rem; background: none; border: none; border-radius: 50px; color: var(--text-muted); font-family: inherit; font-size: 0.72rem; font-weight: 500; cursor: pointer; transition: var(--transition); white-space: nowrap; text-align: center; }
+.scope-btn:hover { color: var(--text-secondary); }
+.scope-btn.active { background: var(--amber); color: var(--bg-deep); }
 .task-card.selected { background: hsla(43,52%,54%,0.08); border-color: hsla(43,52%,54%,0.3); }
 .task-card .bulk-check { display: none; width: 18px; height: 18px; border: 2px solid var(--border-subtle); border-radius: 4px; margin-right: 0.5rem; flex-shrink: 0; cursor: pointer; align-items: center; justify-content: center; }
 .bulk-mode .task-card .bulk-check { display: flex; }
@@ -3180,7 +3187,11 @@ body::after {
     </div>
   </header>
 
-  <!-- STATS BAR (mobile) -->
+  <!-- SCOPE TOGGLE + STATS BAR (mobile) -->
+  <div class="scope-toggle" id="scopeToggleMobile">
+    <button class="scope-btn active" data-scope="week" onclick="changeScope('week')">Esta semana</button>
+    <button class="scope-btn" data-scope="all" onclick="changeScope('all')">Tudo</button>
+  </div>
   <div class="stats-bar" id="statsBar">
     <div class="stat-card total" onclick="filterByStatCard('all')"><div class="stat-number" id="mStatTotal">0</div><div class="stat-label">Total</div></div>
     <div class="stat-card pending" onclick="filterByStatCard('pendente')"><div class="stat-number" id="mStatPending">0</div><div class="stat-label">Pendentes</div></div>
@@ -3229,6 +3240,10 @@ body::after {
 
   <!-- SIDEBAR (desktop) -->
   <aside class="sidebar">
+    <div class="scope-toggle" id="scopeToggleDesktop">
+      <button class="scope-btn active" data-scope="week" onclick="changeScope('week')">Esta semana</button>
+      <button class="scope-btn" data-scope="all" onclick="changeScope('all')">Tudo</button>
+    </div>
     <div class="stats-grid">
       <div class="stat-card total" onclick="filterByStatCard('all')"><div class="stat-number" id="statTotal">0</div><div class="stat-label">Total</div></div>
       <div class="stat-card pending" onclick="filterByStatCard('pendente')"><div class="stat-number" id="statPending">0</div><div class="stat-label">Pendentes</div></div>
@@ -3816,6 +3831,7 @@ let calendarEvents = [];
 let calendarConnections = { google: false, microsoft: false };
 let currentFilters = { category: 'all', priority: 'all', status: 'all', _special: null };
 let currentSort = 'smart'; // smart | newest | oldest | deadline_asc | deadline_desc | priority
+let statsScope = 'week'; // week | all
 
 // ========== SUPABASE: CARREGAR EVENTOS DO CALENDARIO ==========
 async function loadCalendarEvents() {
@@ -4024,12 +4040,48 @@ function updateHeaderDate() {
 }
 
 // ========== STATS ==========
+// ========== SCOPE (semana/tudo) ==========
+function getWeekRange() {
+  const today = new Date(); today.setHours(0,0,0,0);
+  const dow = today.getDay();
+  const monday = new Date(today);
+  monday.setDate(today.getDate() - (dow === 0 ? 6 : dow - 1));
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  return { start: monday.toISOString().split('T')[0], end: sunday.toISOString().split('T')[0] };
+}
+
+function isTaskInWeek(t) {
+  const week = getWeekRange();
+  // Tarefa com prazo na semana
+  if (t.prazo && t.prazo >= week.start && t.prazo <= week.end) return true;
+  // Tarefa criada na semana (sem prazo)
+  if (!t.prazo && t.created_at) {
+    const criada = t.created_at.split('T')[0];
+    return criada >= week.start && criada <= week.end;
+  }
+  return false;
+}
+
+function getScopedTasks() {
+  if (statsScope === 'all') return tasks;
+  return tasks.filter(t => isTaskInWeek(t) || isOverdue(t));
+}
+
+function changeScope(scope) {
+  statsScope = scope;
+  document.querySelectorAll('.scope-btn').forEach(el => el.classList.toggle('active', el.dataset.scope === scope));
+  updateStats();
+  renderTasks();
+}
+
 function updateStats() {
-  const total = tasks.length;
-  const pending = tasks.filter(t => t.status !== 'concluida').length;
-  const done = tasks.filter(t => t.status === 'concluida').length;
-  const overdue = tasks.filter(t => isOverdue(t)).length;
-  const meetings = tasks.filter(t => t.meeting_link && t.status !== 'concluida').length;
+  const scoped = getScopedTasks();
+  const total = scoped.length;
+  const pending = scoped.filter(t => t.status !== 'concluida').length;
+  const done = scoped.filter(t => t.status === 'concluida').length;
+  const overdue = scoped.filter(t => isOverdue(t)).length;
+  const meetings = scoped.filter(t => t.meeting_link && t.status !== 'concluida').length;
 
   document.getElementById('statTotal').textContent = total;
   document.getElementById('statPending').textContent = pending;
@@ -4043,10 +4095,10 @@ function updateStats() {
   document.getElementById('mStatMeetings').textContent = meetings;
 
   document.getElementById('countAll').textContent = total;
-  document.getElementById('countTrabalho').textContent = tasks.filter(t => t.categoria === 'Trabalho').length;
-  document.getElementById('countConsultoria').textContent = tasks.filter(t => t.categoria === 'Consultoria').length;
-  document.getElementById('countGrupoSer').textContent = tasks.filter(t => t.categoria === 'Grupo Ser').length;
-  document.getElementById('countPessoal').textContent = tasks.filter(t => t.categoria === 'Pessoal').length;
+  document.getElementById('countTrabalho').textContent = scoped.filter(t => t.categoria === 'Trabalho').length;
+  document.getElementById('countConsultoria').textContent = scoped.filter(t => t.categoria === 'Consultoria').length;
+  document.getElementById('countGrupoSer').textContent = scoped.filter(t => t.categoria === 'Grupo Ser').length;
+  document.getElementById('countPessoal').textContent = scoped.filter(t => t.categoria === 'Pessoal').length;
 
   // Banner de atrasadas
   const banner = document.getElementById('overdueBanner');
@@ -4175,7 +4227,8 @@ function filterByStatCard(type) {
 }
 
 function getFilteredTasks() {
-  return tasks.filter(t => {
+  const scoped = getScopedTasks();
+  return scoped.filter(t => {
     if (currentFilters.category !== 'all' && t.categoria !== currentFilters.category) return false;
     if (currentFilters.priority !== 'all' && t.prioridade !== currentFilters.priority) return false;
     if (currentFilters.status !== 'all' && t.status !== currentFilters.status) return false;
@@ -4381,20 +4434,12 @@ function renderCalendar() {
   container.innerHTML = weekDays.map(day => {
     const dayTasks = tasks.filter(t => {
       if (t.status === 'concluida') return false;
-      // Exact date match
+      // Exact date match (cópias diárias já existem no banco, não expandir aqui)
       if (t.prazo === day.date) return true;
-      // Daily recurring tasks should appear on all days
-      if (t.recorrencia === 'diaria') {
-        const dayOfWeek = new Date(day.date + 'T12:00:00').getDay(); // 0=Sun
-        if (['Trabalho','Consultoria','Grupo Ser'].includes(t.categoria)) {
-          return dayOfWeek >= 1 && dayOfWeek <= 5; // Mon-Fri
-        }
-        return true; // All days for personal
-      }
       // Weekly recurring: show on the matching day of week
       if (t.recorrencia === 'semanal' && t.recorrencia_dia != null) {
         const dayOfWeek = new Date(day.date + 'T12:00:00').getDay();
-        const mappedDay = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Convert JS (0=Sun) to Python (0=Mon)
+        const mappedDay = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
         return mappedDay === t.recorrencia_dia;
       }
       return false;
