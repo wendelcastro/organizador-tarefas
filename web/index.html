@@ -1573,6 +1573,22 @@ body::after {
 .scope-btn { flex: 1; padding: 0.35rem 0.6rem; background: none; border: none; border-radius: 50px; color: var(--text-muted); font-family: inherit; font-size: 0.72rem; font-weight: 500; cursor: pointer; transition: var(--transition); white-space: nowrap; text-align: center; }
 .scope-btn:hover { color: var(--text-secondary); }
 .scope-btn.active { background: var(--amber); color: var(--bg-deep); }
+
+/* ========== CONFIRM DIALOG (data diferente) ========== */
+.confirm-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); z-index: 200; display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: var(--transition); }
+.confirm-overlay.active { opacity: 1; pointer-events: all; }
+.confirm-dialog { background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius); padding: 1.5rem; width: 90%; max-width: 380px; text-align: center; transform: scale(0.9); transition: var(--transition); }
+.confirm-overlay.active .confirm-dialog { transform: scale(1); }
+.confirm-icon { font-size: 2.2rem; margin-bottom: 0.6rem; }
+.confirm-title { font-family: 'Cormorant Garamond', serif; font-size: 1.15rem; color: var(--text-primary); margin-bottom: 0.4rem; }
+.confirm-msg { font-size: 0.82rem; color: var(--text-secondary); line-height: 1.5; margin-bottom: 1.2rem; }
+.confirm-msg strong { color: var(--amber); }
+.confirm-actions { display: flex; gap: 0.6rem; }
+.confirm-actions button { flex: 1; padding: 0.6rem; border-radius: 0.6rem; font-family: inherit; font-size: 0.82rem; font-weight: 600; cursor: pointer; transition: var(--transition); border: 1px solid var(--border-subtle); }
+.confirm-btn-cancel { background: var(--bg-glass); color: var(--text-secondary); }
+.confirm-btn-cancel:hover { border-color: var(--border-hover); }
+.confirm-btn-ok { background: var(--amber); color: var(--bg-deep); border-color: var(--amber); }
+.confirm-btn-ok:hover { filter: brightness(1.1); }
 .task-card.selected { background: hsla(43,52%,54%,0.08); border-color: hsla(43,52%,54%,0.3); }
 .task-card .bulk-check { display: none; width: 18px; height: 18px; border: 2px solid var(--border-subtle); border-radius: 4px; margin-right: 0.5rem; flex-shrink: 0; cursor: pointer; align-items: center; justify-content: center; }
 .bulk-mode .task-card .bulk-check { display: flex; }
@@ -3388,6 +3404,19 @@ body::after {
 </div>
 
 <!-- MODAL -->
+<!-- CONFIRM DIALOG (data diferente) -->
+<div class="confirm-overlay" id="confirmOverlay" onclick="cancelConfirmDialog()">
+  <div class="confirm-dialog" onclick="event.stopPropagation()">
+    <div class="confirm-icon" id="confirmIcon">⚠️</div>
+    <div class="confirm-title" id="confirmTitle">Atenção</div>
+    <div class="confirm-msg" id="confirmMsg"></div>
+    <div class="confirm-actions">
+      <button class="confirm-btn-cancel" onclick="cancelConfirmDialog()">Cancelar</button>
+      <button class="confirm-btn-ok" id="confirmOkBtn" onclick="acceptConfirmDialog()">Sim, concluir</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
   <div class="modal" onclick="event.stopPropagation()">
     <div class="modal-handle"></div>
@@ -4362,12 +4391,59 @@ document.getElementById('taskList').addEventListener('click', function(e) {
 // ========== ACTIONS (agora salvam no Supabase!) ==========
 let editingTaskId = null; // ID da tarefa sendo editada (null = criando nova)
 
+// ========== CONFIRM DIALOG (data diferente) ==========
+let _confirmResolve = null;
+
+function showConfirmDialog(icon, title, msg) {
+  document.getElementById('confirmIcon').textContent = icon;
+  document.getElementById('confirmTitle').textContent = title;
+  document.getElementById('confirmMsg').innerHTML = msg;
+  document.getElementById('confirmOverlay').classList.add('active');
+  return new Promise(resolve => { _confirmResolve = resolve; });
+}
+
+function acceptConfirmDialog() {
+  document.getElementById('confirmOverlay').classList.remove('active');
+  if (_confirmResolve) { _confirmResolve(true); _confirmResolve = null; }
+}
+
+function cancelConfirmDialog() {
+  document.getElementById('confirmOverlay').classList.remove('active');
+  if (_confirmResolve) { _confirmResolve(false); _confirmResolve = null; }
+}
+
+function getDateLabel(dateStr) {
+  const today = new Date(); today.setHours(0,0,0,0);
+  const d = new Date(dateStr + 'T12:00:00'); d.setHours(0,0,0,0);
+  const diff = Math.round((d - today) / 86400000);
+  const formatted = d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+  if (diff === -1) return `ontem (${formatted})`;
+  if (diff === 1) return `amanhã (${formatted})`;
+  if (diff < -1) return `${Math.abs(diff)} dias atrás (${formatted})`;
+  if (diff > 1) return `daqui a ${diff} dias (${formatted})`;
+  return `hoje (${formatted})`;
+}
+
 async function toggleTask(id) {
   const task = tasks.find(t => String(t.id) === String(id));
   if (!task) return;
   const cycle = { 'pendente': 'em_andamento', 'em_andamento': 'concluida', 'concluida': 'pendente' };
   const oldStatus = task.status;
   const newStatus = cycle[oldStatus] || 'pendente';
+
+  // Confirmar se vai concluir tarefa de outra data
+  if (newStatus === 'concluida' && task.prazo) {
+    const today = new Date().toISOString().split('T')[0];
+    if (task.prazo !== today) {
+      const label = getDateLabel(task.prazo);
+      const confirmed = await showConfirmDialog(
+        '📅',
+        'Tarefa de outra data',
+        `<strong>"${task.titulo}"</strong> está agendada para <strong>${label}</strong>.<br><br>Tem certeza que quer concluí-la agora?`
+      );
+      if (!confirmed) return;
+    }
+  }
 
   task.status = newStatus;
   renderTasks();
