@@ -2322,6 +2322,35 @@ body::after {
   .metas-progress-summary { grid-template-columns: repeat(2, 1fr); }
 }
 
+/* ========== METAS AI COACHING ========== */
+.metas-ai-section { margin-bottom: 1rem; }
+.metas-ai-btn { display: flex; align-items: center; justify-content: center; gap: 0.5rem; width: 100%; padding: 0.7rem; background: linear-gradient(135deg, hsla(43,52%,54%,0.15), hsla(43,52%,54%,0.05)); border: 1px solid hsla(43,52%,54%,0.3); border-radius: 0.75rem; color: var(--amber); font-family: inherit; font-size: 0.85rem; font-weight: 600; cursor: pointer; transition: var(--transition); }
+.metas-ai-btn:hover { background: linear-gradient(135deg, hsla(43,52%,54%,0.25), hsla(43,52%,54%,0.1)); transform: translateY(-1px); }
+.metas-ai-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+.metas-ai-btn .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid hsla(43,52%,54%,0.3); border-top-color: var(--amber); border-radius: 50%; animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.metas-ai-result { background: linear-gradient(135deg, hsla(210,40%,18%,0.8), hsla(210,55%,14%,0.8)); border: 1px solid hsla(43,52%,54%,0.25); border-radius: var(--radius); padding: 1rem 1.1rem; margin-top: 0.6rem; animation: fadeUp 0.5s ease; }
+.metas-ai-result-header { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.7rem; }
+.metas-ai-result-header span:first-child { font-size: 1.2rem; }
+.metas-ai-result-header .ai-label { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.12em; color: var(--amber); font-weight: 600; }
+.metas-ai-result-header .ai-date { margin-left: auto; font-size: 0.65rem; color: var(--text-muted); }
+.metas-ai-body { font-size: 0.82rem; color: var(--text-secondary); line-height: 1.7; }
+.metas-ai-body strong { color: var(--amber); }
+.metas-ai-body h4 { color: var(--text-primary); font-size: 0.88rem; margin: 0.8rem 0 0.3rem; font-family: 'Cormorant Garamond', serif; }
+.metas-ai-body ul { padding-left: 1.2rem; margin: 0.3rem 0; }
+.metas-ai-body li { margin-bottom: 0.2rem; }
+.metas-ai-body p { margin: 0.4rem 0; }
+
+.metas-ai-key-setup { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 0.75rem; padding: 0.8rem; margin-top: 0.5rem; }
+.metas-ai-key-setup label { font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.3rem; }
+.metas-ai-key-setup input { width: 100%; padding: 0.45rem 0.6rem; background: var(--bg-glass); border: 1px solid var(--border-subtle); border-radius: 0.5rem; color: var(--text-primary); font-family: inherit; font-size: 0.78rem; box-sizing: border-box; }
+.metas-ai-key-setup input:focus { outline: none; border-color: var(--amber); }
+.metas-ai-key-setup .key-actions { display: flex; gap: 0.4rem; margin-top: 0.4rem; }
+.metas-ai-key-setup .key-actions button { padding: 0.35rem 0.7rem; border-radius: 0.5rem; font-family: inherit; font-size: 0.72rem; cursor: pointer; border: 1px solid var(--border-subtle); transition: var(--transition); }
+.metas-ai-key-save { background: var(--amber); color: var(--bg-deep); border-color: var(--amber) !important; }
+.metas-ai-key-cancel { background: var(--bg-glass); color: var(--text-secondary); }
+
 .kpis-grid {
   display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem;
   margin-bottom: 0.75rem;
@@ -7329,6 +7358,11 @@ function renderMetas() {
       ${insights.map(i => `<div class="metas-insight-item">${i}</div>`).join('')}
     </div>
 
+    <div class="metas-ai-section">
+      <button class="metas-ai-btn" id="metasAiBtn" onclick="callGeminiForMetas()">🧠 Análise IA das Metas</button>
+      <div id="metasAiResult"></div>
+    </div>
+
     ${pilarStats.map(p => {
       const pct = p.stats.total > 0 ? Math.round(p.stats.done / p.stats.total * 100) : 0;
       const metas = getMetasForQuarter(p.pilar);
@@ -7369,6 +7403,200 @@ function renderMetas() {
       ).join('')}
     </div>` : ''}
   `;
+
+  // Auto-carregar análise IA cacheada do dia
+  setTimeout(() => {
+    const hoje = new Date().toISOString().split('T')[0];
+    const cached = localStorage.getItem('metas_ai_' + hoje);
+    const resultDiv = document.getElementById('metasAiResult');
+    if (cached && resultDiv) {
+      resultDiv.innerHTML = renderAiResult(cached, hoje);
+    }
+  }, 100);
+}
+
+// ========== METAS AI COACHING (Gemini 2.5 Flash) ==========
+
+function getGeminiKey() {
+  return localStorage.getItem('gemini_api_key') || '';
+}
+
+function buildMetasPrompt() {
+  const hoje = new Date().toISOString().split('T')[0];
+  const week = getWeekRange();
+
+  // Coletar dados de cada pilar
+  const pilarData = METAS_CONFIG.pilares.map(p => {
+    const stats = getPilarStats(p);
+    const recentDone = stats.related.filter(t => t.status === 'concluida').slice(0, 10).map(t => t.titulo);
+    const topPending = stats.pending.slice(0, 10).map(t => `${t.titulo}${t.prazo ? ' (prazo: ' + t.prazo + ')' : ''}`);
+    return {
+      pilar: p.nome,
+      metas: p.metas.map(m => m.titulo + ': ' + m.descricao).join('; '),
+      concluidas: recentDone,
+      pendentes: topPending,
+      total: stats.total,
+      done: stats.done,
+      diasSemAtividade: stats.daysSince,
+      progressoSemana: stats.thisWeek
+    };
+  });
+
+  // Stats gerais
+  const totalTasks = tasks.length;
+  const totalDone = tasks.filter(t => t.status === 'concluida').length;
+  const totalOverdue = tasks.filter(t => isOverdue(t)).length;
+  const weekDone = tasks.filter(t => {
+    if (t.status !== 'concluida') return false;
+    const d = (t.updated_at || t.created_at || '').split('T')[0];
+    return d >= week.start && d <= week.end;
+  }).length;
+
+  const system = `Você é um coach de alta performance e estrategista pessoal. Seu cliente é Wendel Castro, professor de IA e Banco de Dados, que tem um Planejamento Estratégico Pessoal para 2026 com a narrativa: ${METAS_CONFIG.narrativa}
+
+Seu papel é analisar o progresso real das tarefas vs as metas planejadas e dar um parecer HONESTO, DIRETO e MOTIVADOR. Fale em português do Brasil, tom de coach experiente — nem bajulador nem duro demais. Use dados concretos.
+
+IMPORTANTE:
+- Destaque conquistas que ele pode não ter percebido
+- Aponte pilares negligenciados com urgência proporcional
+- Sugira 2-3 ações concretas para a próxima semana
+- Se algum pilar está sem atividade há mais de 7 dias, alerte com firmeza
+- Conecte as tarefas do dia a dia com as metas maiores do ano
+- Seja conciso mas completo (máximo 400 palavras)
+- Use formatação HTML: <h4>, <strong>, <ul><li>, <p>. NÃO use markdown.`;
+
+  const userMsg = `Data de hoje: ${hoje}
+Semana: ${week.start} a ${week.end}
+
+RESUMO GERAL:
+- Total de tarefas: ${totalTasks} | Concluídas: ${totalDone} | Atrasadas: ${totalOverdue}
+- Concluídas esta semana: ${weekDone}
+
+DADOS POR PILAR:
+${pilarData.map(p => `
+### ${p.pilar}
+- Metas: ${p.metas}
+- Tarefas totais: ${p.total} | Concluídas: ${p.done} | Esta semana: ${p.progressoSemana}
+- Dias sem atividade concluída: ${p.diasSemAtividade === 999 ? 'NUNCA teve atividade' : p.diasSemAtividade}
+- Últimas concluídas: ${p.concluidas.length > 0 ? p.concluidas.join(', ') : 'Nenhuma'}
+- Pendentes: ${p.pendentes.length > 0 ? p.pendentes.join(', ') : 'Nenhuma'}
+`).join('\n')}
+
+Faça sua análise.`;
+
+  return { system, userMsg };
+}
+
+async function callGeminiForMetas() {
+  const key = getGeminiKey();
+  if (!key) {
+    showGeminiKeySetup();
+    return;
+  }
+
+  const btn = document.getElementById('metasAiBtn');
+  const resultDiv = document.getElementById('metasAiResult');
+
+  // Check cache (1 analysis per day)
+  const hoje = new Date().toISOString().split('T')[0];
+  const cacheKey = 'metas_ai_' + hoje;
+  const cached = localStorage.getItem(cacheKey);
+  if (cached && !btn.dataset.force) {
+    resultDiv.innerHTML = renderAiResult(cached, hoje);
+    return;
+  }
+
+  // Show loading
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Gemini analisando suas metas...';
+  resultDiv.innerHTML = '';
+
+  try {
+    const { system, userMsg } = buildMetasPrompt();
+
+    const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        system_instruction: { parts: [{ text: system }] },
+        contents: [{ role: 'user', parts: [{ text: userMsg }] }],
+        generationConfig: { maxOutputTokens: 2048, temperature: 0.4 }
+      })
+    });
+
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      throw new Error(err.error?.message || `Erro ${resp.status}`);
+    }
+
+    const data = await resp.json();
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+
+    if (!text) throw new Error('Resposta vazia do Gemini');
+
+    // Cache for today
+    localStorage.setItem(cacheKey, text);
+    resultDiv.innerHTML = renderAiResult(text, hoje);
+  } catch (e) {
+    console.error('Gemini error:', e);
+    resultDiv.innerHTML = `<div style="color:var(--pri-alta);font-size:0.8rem;padding:0.5rem">Erro ao consultar Gemini: ${e.message}</div>`;
+  } finally {
+    btn.disabled = false;
+    btn.dataset.force = '';
+    btn.innerHTML = '🧠 Análise IA das Metas';
+  }
+}
+
+function renderAiResult(text, date) {
+  // Clean markdown artifacts if any
+  let html = text
+    .replace(/```html?\n?/g, '').replace(/```/g, '')
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/^### (.*$)/gm, '<h4>$1</h4>')
+    .replace(/^## (.*$)/gm, '<h4>$1</h4>')
+    .replace(/^- (.*$)/gm, '<li>$1</li>');
+
+  // Wrap consecutive <li> in <ul>
+  html = html.replace(/((?:<li>.*<\/li>\n?)+)/g, '<ul>$1</ul>');
+
+  const formatted = new Date(date + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' });
+
+  return `<div class="metas-ai-result">
+    <div class="metas-ai-result-header">
+      <span>🧠</span>
+      <span class="ai-label">Coaching IA — Gemini</span>
+      <span class="ai-date">${formatted}</span>
+      <button onclick="forceRefreshAi()" style="margin-left:0.3rem;background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:0.75rem" title="Atualizar análise">↻</button>
+    </div>
+    <div class="metas-ai-body">${html}</div>
+  </div>`;
+}
+
+function forceRefreshAi() {
+  const hoje = new Date().toISOString().split('T')[0];
+  localStorage.removeItem('metas_ai_' + hoje);
+  const btn = document.getElementById('metasAiBtn');
+  if (btn) { btn.dataset.force = '1'; }
+  callGeminiForMetas();
+}
+
+function showGeminiKeySetup() {
+  const resultDiv = document.getElementById('metasAiResult');
+  resultDiv.innerHTML = `<div class="metas-ai-key-setup">
+    <label>Chave API do Gemini (gratuita — <a href="https://aistudio.google.com/apikey" target="_blank" style="color:var(--amber)">obter aqui</a>)</label>
+    <input type="password" id="geminiKeyInput" placeholder="AIzaSy..." value="${getGeminiKey()}">
+    <div class="key-actions">
+      <button class="metas-ai-key-save" onclick="saveGeminiKey()">Salvar</button>
+      <button class="metas-ai-key-cancel" onclick="document.getElementById('metasAiResult').innerHTML=''">Cancelar</button>
+    </div>
+  </div>`;
+}
+
+function saveGeminiKey() {
+  const key = document.getElementById('geminiKeyInput').value.trim();
+  if (!key) return;
+  localStorage.setItem('gemini_api_key', key);
+  document.getElementById('metasAiResult').innerHTML = '<div style="color:var(--amber);font-size:0.8rem;padding:0.3rem">Chave salva! Clique em "Análise IA" para gerar.</div>';
 }
 
 // ========== PATCH: renderReview to call renderHeatmap365 ==========
