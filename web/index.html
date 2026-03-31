@@ -2264,6 +2264,64 @@ body::after {
 .kpis-view { display: none; animation: fadeIn 0.4s ease; }
 .kpis-view.active { display: block; }
 
+/* ========== METAS 2026 VIEW ========== */
+.metas-view { display: none; animation: fadeIn 0.4s ease; }
+.metas-view.active { display: block; }
+
+.metas-header { text-align: center; margin-bottom: 1.2rem; }
+.metas-header h2 { font-family: 'Cormorant Garamond', serif; font-size: 1.4rem; color: var(--text-primary); margin-bottom: 0.2rem; }
+.metas-narrative { font-size: 0.8rem; color: var(--amber); font-style: italic; margin-bottom: 0.6rem; }
+.metas-quarter-nav { display: flex; align-items: center; justify-content: center; gap: 0.6rem; margin-bottom: 0.3rem; }
+.metas-quarter-nav button { background: var(--bg-glass); border: 1px solid var(--border-subtle); border-radius: 50px; padding: 0.3rem 0.8rem; color: var(--text-muted); font-family: inherit; font-size: 0.72rem; cursor: pointer; transition: var(--transition); }
+.metas-quarter-nav button.active { background: var(--amber); color: var(--bg-deep); border-color: var(--amber); }
+.metas-quarter-nav button:hover:not(.active) { border-color: var(--border-hover); color: var(--text-secondary); }
+
+.metas-progress-summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem; margin-bottom: 1rem; }
+.metas-pilar-mini { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 0.75rem; padding: 0.6rem; text-align: center; cursor: pointer; transition: var(--transition); }
+.metas-pilar-mini:hover { border-color: var(--border-hover); transform: translateY(-2px); }
+.metas-pilar-mini .pilar-icon { font-size: 1.3rem; margin-bottom: 0.2rem; }
+.metas-pilar-mini .pilar-name { font-size: 0.65rem; color: var(--text-muted); margin-bottom: 0.35rem; display: block; }
+.metas-pilar-mini .pilar-pct { font-family: 'Cormorant Garamond', serif; font-size: 1.2rem; font-weight: 700; }
+.metas-pilar-mini .pilar-bar { height: 4px; border-radius: 2px; background: var(--bg-glass); margin-top: 0.35rem; overflow: hidden; }
+.metas-pilar-mini .pilar-bar-fill { height: 100%; border-radius: 2px; transition: width 0.6s ease; }
+
+.metas-insights { background: linear-gradient(135deg, hsla(43,52%,54%,0.08), hsla(43,52%,54%,0.02)); border: 1px solid hsla(43,52%,54%,0.2); border-radius: 0.75rem; padding: 0.8rem 1rem; margin-bottom: 1rem; }
+.metas-insights h3 { font-family: 'Cormorant Garamond', serif; font-size: 0.95rem; color: var(--amber); margin-bottom: 0.4rem; }
+.metas-insight-item { font-size: 0.78rem; color: var(--text-secondary); line-height: 1.6; padding: 0.15rem 0; }
+
+.metas-pilar-card { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius); padding: 1rem; margin-bottom: 0.8rem; transition: var(--transition); }
+.metas-pilar-card:hover { border-color: var(--border-hover); }
+.metas-pilar-card-header { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.6rem; }
+.metas-pilar-card-header .pilar-icon { font-size: 1.5rem; }
+.metas-pilar-card-header .pilar-title { font-family: 'Cormorant Garamond', serif; font-size: 1.1rem; color: var(--text-primary); flex: 1; }
+.metas-pilar-card-header .pilar-pct-big { font-family: 'Cormorant Garamond', serif; font-size: 1.3rem; font-weight: 700; }
+.metas-bar-full { height: 6px; border-radius: 3px; background: var(--bg-glass); margin-bottom: 0.8rem; overflow: hidden; }
+.metas-bar-full .bar-fill { height: 100%; border-radius: 3px; transition: width 0.8s ease; }
+
+.metas-goal { padding: 0.6rem 0; border-bottom: 1px solid var(--border-subtle); }
+.metas-goal:last-child { border-bottom: none; }
+.metas-goal-title { font-size: 0.85rem; font-weight: 600; color: var(--text-primary); margin-bottom: 0.25rem; }
+.metas-goal-desc { font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.4rem; }
+.metas-actions-list { list-style: none; padding: 0; margin: 0; }
+.metas-actions-list li { font-size: 0.75rem; color: var(--text-secondary); padding: 0.2rem 0; padding-left: 1.2rem; position: relative; }
+.metas-actions-list li::before { content: ''; position: absolute; left: 0; top: 0.55rem; width: 10px; height: 10px; border: 1.5px solid var(--text-muted); border-radius: 3px; }
+.metas-actions-list li.done { color: var(--text-muted); text-decoration: line-through; }
+.metas-actions-list li.done::before { background: var(--amber); border-color: var(--amber); }
+
+.metas-related { margin-top: 0.5rem; padding: 0.5rem 0.6rem; background: var(--bg-glass); border-radius: 0.5rem; }
+.metas-related-title { font-size: 0.68rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.3rem; }
+.metas-related-item { font-size: 0.72rem; color: var(--text-secondary); padding: 0.15rem 0; }
+.metas-related-item .done-badge { color: var(--amber); font-weight: 600; }
+.metas-related-item .pending-badge { color: var(--text-muted); }
+
+.metas-dormant { background: hsla(0,70%,50%,0.08); border: 1px solid hsla(0,70%,50%,0.2); border-radius: 0.75rem; padding: 0.6rem 0.8rem; margin-top: 0.8rem; }
+.metas-dormant h4 { font-size: 0.8rem; color: var(--pri-alta); margin-bottom: 0.3rem; }
+.metas-dormant p { font-size: 0.75rem; color: var(--text-secondary); }
+
+@media (max-width: 480px) {
+  .metas-progress-summary { grid-template-columns: repeat(2, 1fr); }
+}
+
 .kpis-grid {
   display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem;
   margin-bottom: 0.75rem;
@@ -3187,6 +3245,7 @@ body::after {
         <button data-view="matrix" onclick="switchView('matrix')">Matriz</button>
         <button data-view="timeblock" onclick="switchView('timeblock')">Blocos</button>
         <button data-view="kpis" onclick="switchView('kpis')">KPIs</button>
+        <button data-view="metas" onclick="switchView('metas')">Metas</button>
       </div>
       <button class="btn-cleanup" onclick="openCleanupPanel()" title="Análise de duplicatas">🧹</button>
       <button class="btn-help-center" onclick="openHelpCenter()" title="Central de Ajuda">?</button>
@@ -3346,6 +3405,7 @@ body::after {
     <div class="matrix-view" id="matrixView"></div>
     <div class="timeblock-view" id="timeblockView"></div>
     <div class="kpis-view" id="kpisView"></div>
+    <div class="metas-view" id="metasView"></div>
   </main>
 </div>
 
@@ -3381,6 +3441,10 @@ body::after {
   <button class="nav-item" data-view="matrix" onclick="switchView('matrix')">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="8" rx="1"/><rect x="3" y="13" width="8" height="8" rx="1"/><rect x="13" y="13" width="8" height="8" rx="1"/></svg>
     Matriz
+  </button>
+  <button class="nav-item" data-view="metas" onclick="switchView('metas')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+    Metas
   </button>
 </nav>
 
@@ -6949,19 +7013,21 @@ function renderKPIs() {
   container.innerHTML = html;
 }
 
-// ========== PATCH: switchView to handle 'matrix', 'timeblock', 'kpis' ==========
+// ========== PATCH: switchView to handle 'matrix', 'timeblock', 'kpis', 'metas' ==========
 const _originalSwitchView = switchView;
 switchView = function(view) {
   const mv = document.getElementById('matrixView');
   const tbv = document.getElementById('timeblockView');
   const kv = document.getElementById('kpisView');
+  const metv = document.getElementById('metasView');
 
   // Always hide extra views
   mv.classList.remove('active'); mv.style.display = 'none';
   tbv.classList.remove('active'); tbv.style.display = 'none';
   kv.classList.remove('active'); kv.style.display = 'none';
+  metv.classList.remove('active'); metv.style.display = 'none';
 
-  if (view === 'matrix' || view === 'timeblock' || view === 'kpis') {
+  if (view === 'matrix' || view === 'timeblock' || view === 'kpis' || view === 'metas') {
     // Hide all standard views
     document.getElementById('tasksView').classList.add('hidden');
     document.getElementById('todayView').classList.remove('active');
@@ -6978,6 +7044,9 @@ switchView = function(view) {
     } else if (view === 'kpis') {
       kv.style.display = 'block'; kv.classList.add('active');
       renderKPIs();
+    } else if (view === 'metas') {
+      metv.style.display = 'block'; metv.classList.add('active');
+      renderMetas();
     }
 
     document.querySelectorAll('.view-toggle button').forEach(b => b.classList.toggle('active', b.dataset.view === view));
@@ -6986,6 +7055,321 @@ switchView = function(view) {
     _originalSwitchView(view);
   }
 };
+
+// ========== METAS 2026 ==========
+const METAS_CONFIG = {
+  narrativa: '"De Executor Talentoso a Empresário da Própria Carreira."',
+  pilares: [
+    {
+      id: 'carreira',
+      icon: '🚀',
+      nome: 'Carreira & Inovação',
+      cor: 'var(--cat-trabalho)',
+      categorias: ['Trabalho', 'Grupo Ser'],
+      palavras: ['ai lab', 'ativa', 'servidor', 'mvp', 'piloto', 'mindset', 'inovação', 'lab', 'ferramenta', 'startup', 'saas', 'white label', 'dev', 'desenvolvedor'],
+      metas: [
+        {
+          trimestre: 'Q1',
+          titulo: 'AI Lab e Conquista de Território',
+          descricao: 'Estruturar e oficializar o Laboratório de IA dentro do Grupo Ser, usando o Ativa AI como projeto piloto.',
+          acoes: [
+            'Oficialização: Apresentar o AI Lab para a diretoria',
+            'Infraestrutura: Liberação dos 2 servidores + contrato do dev',
+            'Expansão: Rodar piloto do Mindset em segunda IES'
+          ],
+          indicadores: ['Servidores instalados e rodando', 'Ativa AI usado por professores pilotos']
+        },
+        {
+          trimestre: 'Q2',
+          titulo: 'Validação do Negócio (Startup)',
+          descricao: 'Produto pronto para fora do Grupo Ser (White label ou SaaS). Fechar 1 consultoria externa 6k+.',
+          acoes: [
+            'Ativa AI ou Mindset prontos para oferecer externamente',
+            'Fechar 1 consultoria externa de IA (ticket 6k+)'
+          ],
+          indicadores: ['Produto oferecido externamente', 'Receita de consultoria externa']
+        },
+        {
+          trimestre: 'anual',
+          titulo: 'Reconhecimento Nacional & Equity',
+          descricao: 'Grupo Ser reconhecido como case de inovação em IA no ensino. Promoção ou contrato de sociedade.',
+          acoes: [
+            'Grupo Ser como case nacional de IA na educação',
+            'Promoção ou equity na ferramenta'
+          ],
+          indicadores: ['Reconhecimento público do case', 'Contrato formalizado']
+        }
+      ]
+    },
+    {
+      id: 'financas',
+      icon: '💰',
+      nome: 'Finanças',
+      cor: 'var(--cat-consultoria)',
+      categorias: ['Pessoal', 'Consultoria'],
+      palavras: ['financeiro', 'investimento', 'banco', 'conta', 'dinheiro', 'salário', 'dívida', 'pagar', 'optativa', 'consultoria', 'renegociar', 'assinatura', 'extrato', 'orçamento', 'reserva', 'caixa'],
+      metas: [
+        {
+          trimestre: 'Q1',
+          titulo: 'Saneamento Financeiro & Caixa Rápido',
+          descricao: 'Organizar a casa financeira, cortar R$500 em custos fixos e blindar renda extra.',
+          acoes: [
+            'Renegociar plano de celular (baixar de 320 para <150)',
+            'Auditar e cortar assinaturas desnecessárias',
+            'Abrir conta separada para aulas optativas e consultorias',
+            'Realizar reparo elétrico do AP'
+          ],
+          indicadores: ['Redução de R$500+ em custos fixos', 'Dívidas mapeadas com plano de pagamento']
+        },
+        {
+          trimestre: 'Q2',
+          titulo: 'Viajar Leve',
+          descricao: 'Viagem nacional em família paga à vista. Dívidas de curto prazo quitadas.',
+          acoes: [
+            'Viagem nacional realizada (paga à vista)',
+            'Dívidas curtas quitadas com renda das optativas'
+          ],
+          indicadores: ['Viagem realizada', 'Dívidas curtas zeradas']
+        },
+        {
+          trimestre: 'anual',
+          titulo: 'Caixa Robusto',
+          descricao: 'Viagem internacional de 2027 garantida no caixa.',
+          acoes: ['Reserva financeira para viagem internacional 2027'],
+          indicadores: ['Valor reservado para 2027']
+        }
+      ]
+    },
+    {
+      id: 'marca',
+      icon: '📱',
+      nome: 'Marca Pessoal',
+      cor: 'var(--cat-pessoal)',
+      categorias: ['Consultoria', 'Pessoal'],
+      palavras: ['instagram', 'conteúdo', 'post', 'stories', 'reels', 'gravar', 'filmar', 'edição', 'corte', 'nugget', 'seguidor', 'palestra', 'notável', 'marca', 'autoridade', 'digital', 'direct', 'orçamento'],
+      metas: [
+        {
+          trimestre: 'Q1',
+          titulo: 'Autoridade Digital (Notável Mestre)',
+          descricao: 'Transformar aulas em conteúdo de alto valor. 2-3 posts estratégicos por semana.',
+          acoes: [
+            'Gravar/filmar trechos das aulas',
+            'Extrair 1 nugget (corte de insight) por semana',
+            'Mostrar bastidores do AI Lab nos stories'
+          ],
+          indicadores: ['Crescimento consistente de seguidores', 'Pedidos de orçamento via direct']
+        },
+        {
+          trimestre: 'anual',
+          titulo: '10k+ e Agenda de Palestras',
+          descricao: 'Instagram com 10k+ seguidores e agenda de palestras aberta.',
+          acoes: [
+            'Alcançar 10k seguidores',
+            'Abrir agenda de palestras pagas'
+          ],
+          indicadores: ['10k+ seguidores', 'Palestras agendadas']
+        }
+      ]
+    },
+    {
+      id: 'saude',
+      icon: '🏃',
+      nome: 'Saúde & Esporte',
+      cor: 'var(--pri-alta)',
+      categorias: ['Pessoal'],
+      palavras: ['academia', 'treino', 'corrida', 'correr', 'beach', 'tennis', 'dieta', 'peso', 'kg', 'álcool', 'exercício', 'saúde', 'musculação', 'cardio', 'alongamento', 'físico'],
+      metas: [
+        {
+          trimestre: 'Q1',
+          titulo: 'Máquina Física (10k e 78kg)',
+          descricao: 'Recuperar peso de performance (78kg) e correr 10km.',
+          acoes: [
+            'Correr 10km',
+            'Treino específico de Beach Tennis',
+            'Dieta: cortar álcool seg-qui, alimentação limpa'
+          ],
+          indicadores: ['10km corridos', 'Peso 78kg', 'Torneio do trimestre']
+        },
+        {
+          trimestre: 'anual',
+          titulo: 'Seleção Paraense de Beach Tennis',
+          descricao: 'Classificar para a Seleção Paraense e competir no Brasileiro em Novembro.',
+          acoes: [
+            'Classificar para Seleção Paraense',
+            'Competir no Brasileiro (Nov)'
+          ],
+          indicadores: ['Convocação para Seleção', 'Participação no Brasileiro']
+        }
+      ]
+    }
+  ]
+};
+
+let metasQuarterFilter = 'current'; // current | Q1 | Q2 | anual | all
+
+function getCurrentQuarter() {
+  const m = new Date().getMonth();
+  if (m < 3) return 'Q1';
+  if (m < 6) return 'Q2';
+  if (m < 9) return 'Q3';
+  return 'Q4';
+}
+
+function matchTaskToPilar(task, pilar) {
+  // Categoria match
+  const catMatch = pilar.categorias.includes(task.categoria);
+  // Keyword match
+  const titulo = (task.titulo || '').toLowerCase();
+  const notas = (task.notas || '').toLowerCase();
+  const texto = titulo + ' ' + notas;
+  const kwMatch = pilar.palavras.some(kw => texto.includes(kw));
+  return catMatch && kwMatch;
+}
+
+function getPilarStats(pilar) {
+  const related = tasks.filter(t => matchTaskToPilar(t, pilar));
+  const done = related.filter(t => t.status === 'concluida').length;
+  const total = related.length;
+  const pending = related.filter(t => t.status !== 'concluida');
+  const thisWeek = (() => {
+    const week = getWeekRange();
+    return related.filter(t => {
+      if (t.status !== 'concluida') return false;
+      const d = (t.updated_at || t.created_at || '').split('T')[0];
+      return d >= week.start && d <= week.end;
+    }).length;
+  })();
+  // Dias sem atividade
+  const lastActivity = related
+    .filter(t => t.status === 'concluida')
+    .map(t => t.updated_at || t.created_at || '')
+    .sort().reverse()[0];
+  const daysSince = lastActivity
+    ? Math.floor((Date.now() - new Date(lastActivity).getTime()) / 86400000)
+    : 999;
+  return { related, done, total, pending, thisWeek, daysSince };
+}
+
+function getMetasForQuarter(pilar) {
+  const q = metasQuarterFilter === 'current' ? getCurrentQuarter() : metasQuarterFilter;
+  if (q === 'all') return pilar.metas;
+  return pilar.metas.filter(m => m.trimestre === q || m.trimestre === 'anual');
+}
+
+function renderMetas() {
+  const container = document.getElementById('metasView');
+  const currentQ = getCurrentQuarter();
+
+  // Calcular stats de todos os pilares
+  const pilarStats = METAS_CONFIG.pilares.map(p => ({
+    pilar: p,
+    stats: getPilarStats(p)
+  }));
+
+  // Progresso geral
+  const totalDone = pilarStats.reduce((s, p) => s + p.stats.done, 0);
+  const totalAll = pilarStats.reduce((s, p) => s + p.stats.total, 0);
+  const totalWeek = pilarStats.reduce((s, p) => s + p.stats.thisWeek, 0);
+
+  // Insights
+  const insights = [];
+  if (totalWeek > 0) {
+    const pilarsAtivos = pilarStats.filter(p => p.stats.thisWeek > 0).map(p => p.pilar.nome);
+    insights.push(`Esta semana você avançou em <strong>${pilarsAtivos.length}</strong> de 4 pilares: ${pilarsAtivos.join(', ')}`);
+  }
+  pilarStats.forEach(p => {
+    if (p.stats.thisWeek > 0) {
+      insights.push(`<strong>${p.pilar.icon} ${p.pilar.nome}:</strong> ${p.stats.thisWeek} tarefa(s) concluída(s) esta semana`);
+    }
+  });
+  const dormentes = pilarStats.filter(p => p.stats.daysSince > 7 && p.stats.daysSince < 999);
+  dormentes.forEach(p => {
+    insights.push(`⚠️ <strong>${p.pilar.nome}</strong> está há ${p.stats.daysSince} dias sem atividade concluída`);
+  });
+  const semAtividade = pilarStats.filter(p => p.stats.total === 0);
+  semAtividade.forEach(p => {
+    insights.push(`🔴 <strong>${p.pilar.nome}</strong> não tem nenhuma tarefa vinculada ainda`);
+  });
+  if (insights.length === 0) {
+    insights.push('Comece a criar tarefas ligadas aos seus pilares para ver o progresso aqui!');
+  }
+
+  // Quarter filter buttons
+  const quarters = [
+    { key: 'current', label: currentQ + ' (atual)' },
+    { key: 'Q1', label: 'Q1' },
+    { key: 'Q2', label: 'Q2' },
+    { key: 'anual', label: 'Anual' },
+    { key: 'all', label: 'Todas' }
+  ];
+
+  container.innerHTML = `
+    <div class="metas-header">
+      <h2>Metas 2026</h2>
+      <div class="metas-narrative">${METAS_CONFIG.narrativa}</div>
+      <div class="metas-quarter-nav">
+        ${quarters.map(q => `<button class="${metasQuarterFilter === q.key ? 'active' : ''}" onclick="metasQuarterFilter='${q.key}';renderMetas()">${q.label}</button>`).join('')}
+      </div>
+    </div>
+
+    <div class="metas-progress-summary">
+      ${pilarStats.map(p => {
+        const pct = p.stats.total > 0 ? Math.round(p.stats.done / p.stats.total * 100) : 0;
+        return `<div class="metas-pilar-mini" onclick="document.getElementById('pilar-${p.pilar.id}').scrollIntoView({behavior:'smooth',block:'start'})">
+          <div class="pilar-icon">${p.pilar.icon}</div>
+          <span class="pilar-name">${p.pilar.nome}</span>
+          <div class="pilar-pct" style="color:${p.pilar.cor}">${pct}%</div>
+          <div class="pilar-bar"><div class="pilar-bar-fill" style="width:${pct}%;background:${p.pilar.cor}"></div></div>
+        </div>`;
+      }).join('')}
+    </div>
+
+    <div class="metas-insights">
+      <h3>Insights da semana</h3>
+      ${insights.map(i => `<div class="metas-insight-item">${i}</div>`).join('')}
+    </div>
+
+    ${pilarStats.map(p => {
+      const pct = p.stats.total > 0 ? Math.round(p.stats.done / p.stats.total * 100) : 0;
+      const metas = getMetasForQuarter(p.pilar);
+      const recentDone = p.stats.related.filter(t => t.status === 'concluida').slice(0, 5);
+      const recentPending = p.stats.pending.slice(0, 5);
+
+      return `<div class="metas-pilar-card" id="pilar-${p.pilar.id}">
+        <div class="metas-pilar-card-header">
+          <span class="pilar-icon">${p.pilar.icon}</span>
+          <span class="pilar-title">${p.pilar.nome}</span>
+          <span class="pilar-pct-big" style="color:${p.pilar.cor}">${pct}%</span>
+        </div>
+        <div class="metas-bar-full"><div class="bar-fill" style="width:${pct}%;background:${p.pilar.cor}"></div></div>
+        <div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:0.6rem">
+          ${p.stats.done} concluída(s) · ${p.stats.pending.length} pendente(s) · ${p.stats.thisWeek} esta semana
+        </div>
+
+        ${metas.map(m => `<div class="metas-goal">
+          <div class="metas-goal-title">${m.titulo} <span style="font-size:0.65rem;color:var(--text-muted);font-weight:400">${m.trimestre}</span></div>
+          <div class="metas-goal-desc">${m.descricao}</div>
+          <ul class="metas-actions-list">
+            ${m.acoes.map(a => `<li>${a}</li>`).join('')}
+          </ul>
+        </div>`).join('')}
+
+        ${(recentDone.length > 0 || recentPending.length > 0) ? `<div class="metas-related">
+          <div class="metas-related-title">Tarefas vinculadas</div>
+          ${recentDone.map(t => `<div class="metas-related-item"><span class="done-badge">✓</span> ${t.titulo}</div>`).join('')}
+          ${recentPending.map(t => `<div class="metas-related-item"><span class="pending-badge">○</span> ${t.titulo}</div>`).join('')}
+        </div>` : '<div style="font-size:0.72rem;color:var(--text-muted);font-style:italic;margin-top:0.4rem">Nenhuma tarefa vinculada a este pilar ainda</div>'}
+      </div>`;
+    }).join('')}
+
+    ${pilarStats.some(p => p.stats.daysSince > 7 && p.stats.daysSince < 999) ? `<div class="metas-dormant">
+      <h4>Pilares que precisam de atenção</h4>
+      ${pilarStats.filter(p => p.stats.daysSince > 7 && p.stats.daysSince < 999).map(p =>
+        `<p>${p.pilar.icon} <strong>${p.pilar.nome}</strong> — ${p.stats.daysSince} dias sem atividade concluída</p>`
+      ).join('')}
+    </div>` : ''}
+  `;
+}
 
 // ========== PATCH: renderReview to call renderHeatmap365 ==========
 const _originalRenderReview = renderReview;
