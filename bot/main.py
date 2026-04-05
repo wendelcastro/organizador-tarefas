@@ -2097,6 +2097,32 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif data.startswith("cancelar_excluir_"):
         await query.edit_message_text("👍 Tarefa mantida.")
 
+    # RECEBIDO (marcar receita como paga)
+    elif data.startswith("received:"):
+        trans_id = data.split(":", 1)[1]
+        if trans_id == "cancel":
+            await query.edit_message_text("Cancelado.")
+            return
+
+        hoje = datetime.now(TZ_RECIFE).strftime("%Y-%m-%d")
+        result = supabase_request("PATCH", f"transacoes?id=eq.{trans_id}", {
+            "status": "pago",
+            "data": hoje,
+        })
+        if result:
+            t = result[0]
+            await query.edit_message_text(
+                f"✅ *Receita recebida!*\n\n"
+                f"💰 *{t.get('descricao', '')}* — {formatar_valor(t.get('valor', 0))}\n"
+                f"📁 {t.get('categoria', '')} · 📅 {hoje}\n"
+                f"{'🏢 PJ' if t.get('pessoa') == 'pj' else '👤 PF'}"
+                f"{' · 💼 ' + t['pagador'] if t.get('pagador') else ''}\n\n"
+                f"Valor contabilizado na receita do mês!",
+                parse_mode="Markdown",
+            )
+        else:
+            await query.edit_message_text("❌ Erro ao atualizar transação.")
+
     # EDITAR tarefa
     elif data.startswith("edit:"):
         task_id = data.split(":", 1)[1]
@@ -2623,6 +2649,40 @@ async def processar_confirmacao_transacao(update, context, texto):
         await update.message.reply_text("🚫 Transações canceladas.")
     else:
         await update.message.reply_text("Confirmar? Responda *sim* ou *não*.", parse_mode="Markdown")
+
+
+async def cmd_recebido(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Marcar receita pendente como recebida."""
+    # Buscar receitas pendentes/planejadas
+    pendentes = supabase_request("GET", "transacoes", params={
+        "tipo": "eq.receita",
+        "status": "in.(pendente,planejado)",
+        "order": "data.asc",
+        "select": "id,descricao,valor,categoria,pagador,data_prevista,pessoa,status",
+    })
+
+    if not pendentes:
+        await update.message.reply_text("✅ Nenhuma receita pendente!")
+        return
+
+    keyboard = []
+    for t in pendentes:
+        pessoa_icon = "🏢" if t.get("pessoa") == "pj" else "👤"
+        status_icon = "⏳" if t.get("status") == "pendente" else "📋"
+        desc = t["descricao"][:30]
+        valor = formatar_valor(t["valor"])
+        label = f"{status_icon}{pessoa_icon} {desc} — {valor}"
+        if t.get("pagador"):
+            label = f"{status_icon}{pessoa_icon} {desc} ({t['pagador'][:15]}) — {valor}"
+        keyboard.append([InlineKeyboardButton(label, callback_data=f"received:{t['id']}")])
+    keyboard.append([InlineKeyboardButton("❌ Cancelar", callback_data="received:cancel")])
+
+    await update.message.reply_text(
+        f"💰 *Qual receita você recebeu?*\n\n"
+        f"Selecione para marcar como recebida ({len(pendentes)} pendente{'s' if len(pendentes) > 1 else ''}):",
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode="Markdown",
+    )
 
 
 async def alerta_vencimentos_job(context):
@@ -3256,6 +3316,7 @@ async def setup_commands(app):
         BotCommand("extrato", "Últimas transações"),
         BotCommand("orcamento", "Orçamento mensal"),
         BotCommand("financeiro", "Resumo financeiro com IA"),
+        BotCommand("recebido", "Marcar receita como recebida"),
         BotCommand("agenda", "Ver agenda do dia (todos os calendários)"),
         BotCommand("sync", "Sincronizar calendarios agora"),
         BotCommand("conectar_google", "Conectar Google Calendar"),
@@ -3465,6 +3526,7 @@ def main():
     app.add_handler(CommandHandler("extrato", cmd_extrato))
     app.add_handler(CommandHandler("orcamento", cmd_orcamento))
     app.add_handler(CommandHandler("financeiro", cmd_financeiro))
+    app.add_handler(CommandHandler("recebido", cmd_recebido))
     app.add_handler(CommandHandler("agenda", cmd_agenda))
     app.add_handler(CommandHandler("sync", cmd_sync))
     app.add_handler(CallbackQueryHandler(handle_callback))

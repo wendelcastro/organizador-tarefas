@@ -7586,7 +7586,10 @@ async function renderFinancas() {
             <div class="fin-transacao-desc">${t.descricao}</div>
             <div class="fin-transacao-meta">${pessoa} ${t.categoria}${t.pagador ? ' · 💼 ' + t.pagador : ''}${t.data_prevista ? ' · Previsto: ' + new Date(t.data_prevista+'T12:00:00').toLocaleDateString('pt-BR') : ''}</div>
           </div>
-          <div class="fin-transacao-valor receita">+ ${formatMoney(t.valor)}</div>
+          <div style="display:flex;align-items:center;gap:0.4rem">
+            <div class="fin-transacao-valor receita">+ ${formatMoney(t.valor)}</div>
+            <button onclick="marcarRecebido('${t.id}')" style="background:var(--amber);color:var(--bg-deep);border:none;border-radius:0.4rem;padding:0.25rem 0.5rem;font-size:0.65rem;font-weight:600;cursor:pointer;white-space:nowrap" title="Marcar como recebido">Recebido</button>
+          </div>
         </div>`;
       }).join('')}
       ${planejadas.filter(t=>t.tipo==='receita').map(t => {
@@ -7674,6 +7677,25 @@ async function renderFinancas() {
       }).join('')}
     </div>
   `;
+}
+
+async function marcarRecebido(id) {
+  const hoje = new Date().toISOString().split('T')[0];
+  const headers = await getAuthHeaders();
+  headers['Content-Type'] = 'application/json';
+  headers['Prefer'] = 'return=representation';
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/transacoes?id=eq.${id}`, {
+      method: 'PATCH',
+      headers,
+      body: JSON.stringify({ status: 'pago', data: hoje })
+    });
+    if (res.ok) {
+      renderFinancas();
+    } else {
+      alert('Erro ao marcar como recebido');
+    }
+  } catch(e) { console.error(e); alert('Erro de conexão'); }
 }
 
 // ========== METAS AI COACHING (Gemini 2.5 Flash) ==========
