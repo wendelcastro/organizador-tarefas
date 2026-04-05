@@ -2167,6 +2167,456 @@ def _recriar_recorrente(tarefa):
     )
 
 
+# ========== MÓDULO FINANCEIRO ==========
+
+STATE_CONFIRMING_TRANSACAO = "confirming_transacao"
+
+def criar_transacao(tipo, valor, descricao, categoria, data=None, recorrente=False,
+                    recorrencia=None, dia_vencimento=None, notas=""):
+    """Cria uma transação financeira no Supabase."""
+    from datetime import date as date_type
+    transacao = {
+        "tipo": tipo,
+        "valor": float(valor),
+        "descricao": descricao,
+        "categoria": categoria,
+        "data": data or datetime.now(TZ_RECIFE).strftime("%Y-%m-%d"),
+        "recorrente": recorrente,
+        "recorrencia": recorrencia,
+        "dia_vencimento": dia_vencimento,
+        "notas": notas,
+        "origem": "telegram",
+    }
+    result = supabase_request("POST", "transacoes", transacao)
+    return result[0] if result else None
+
+
+def obter_transacoes_mes(mes=None, ano=None):
+    """Obtém todas as transações do mês."""
+    agora = datetime.now(TZ_RECIFE)
+    m = mes or agora.month
+    a = ano or agora.year
+    inicio = f"{a}-{m:02d}-01"
+    if m == 12:
+        fim = f"{a + 1}-01-01"
+    else:
+        fim = f"{a}-{m + 1:02d}-01"
+
+    result = supabase_request("GET", "transacoes", params={
+        "and": f"(data.gte.{inicio},data.lt.{fim})",
+        "order": "data.desc,created_at.desc",
+        "select": "*",
+    })
+    return result or []
+
+
+def obter_orcamentos_mes(mes=None, ano=None):
+    """Obtém orçamentos do mês."""
+    agora = datetime.now(TZ_RECIFE)
+    m = mes or agora.month
+    a = ano or agora.year
+    mes_str = f"{a}-{m:02d}-01"
+    result = supabase_request("GET", "orcamento_mensal", params={
+        "mes": f"eq.{mes_str}",
+        "select": "*",
+    })
+    return result or []
+
+
+def obter_metas_financeiras():
+    """Obtém metas financeiras ativas."""
+    result = supabase_request("GET", "metas_financeiras", params={
+        "status": "eq.ativa",
+        "select": "*",
+        "order": "created_at.asc",
+    })
+    return result or []
+
+
+def calcular_saldo_mes(transacoes):
+    """Calcula receitas, despesas e saldo de uma lista de transações."""
+    receitas = sum(float(t["valor"]) for t in transacoes if t["tipo"] == "receita")
+    despesas = sum(float(t["valor"]) for t in transacoes if t["tipo"] == "despesa")
+    return {"receitas": receitas, "despesas": despesas, "saldo": receitas - despesas}
+
+
+def gastos_por_categoria(transacoes):
+    """Agrupa despesas por categoria."""
+    cats = {}
+    for t in transacoes:
+        if t["tipo"] == "despesa":
+            cat = t["categoria"]
+            cats[cat] = cats.get(cat, 0) + float(t["valor"])
+    return dict(sorted(cats.items(), key=lambda x: x[1], reverse=True))
+
+
+def formatar_valor(v):
+    """Formata valor em reais."""
+    return f"R$ {float(v):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+
+def formatar_transacao_card(t):
+    """Formata uma transação para exibição."""
+    icon = "🟢" if t["tipo"] == "receita" else "🔴"
+    sinal = "+" if t["tipo"] == "receita" else "-"
+    return f"{icon} *{t['descricao']}* — {sinal} {formatar_valor(t['valor'])}\n   📁 {t['categoria']} · 📅 {t['data']}"
+
+
+async def cmd_gasto(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Registrar gasto: /gasto 50 almoço ou texto livre."""
+    texto = " ".join(context.args) if context.args else ""
+
+    if not texto:
+        await update.message.reply_text(
+            "💸 *Como registrar um gasto:*\n\n"
+            "`/gasto 50 almoço`\n"
+            "`/gasto 320 conta de celular`\n"
+            "ou envie como texto livre:\n"
+            "\"gastei 50 reais no uber\"",
+            parse_mode="Markdown"
+        )
+        return
+
+    if ai_brain:
+        resultado = ai_brain.classificar_transacao(texto)
+        if resultado:
+            resultado["tipo"] = "despesa"  # Forçar como despesa
+            context.user_data["state"] = STATE_CONFIRMING_TRANSACAO
+            context.user_data["pending_transacao"] = resultado
+
+            msg = (
+                f"💸 *Confirmar gasto:*\n\n"
+                f"📝 {resultado.get('descricao', texto)}\n"
+                f"💰 {formatar_valor(resultado.get('valor', 0))}\n"
+                f"📁 {resultado.get('categoria', 'Outros')}\n"
+                f"📅 {resultado.get('data', 'hoje')}\n"
+            )
+            if resultado.get("recorrente"):
+                msg += f"🔄 Recorrente ({resultado.get('recorrencia', 'mensal')})\n"
+            msg += "\n✅ Confirmar? (sim/não/editar)"
+            await update.message.reply_text(msg, parse_mode="Markdown")
+            return
+
+    # Fallback: tentar parsear manualmente
+    import re
+    match = re.search(r"(\d+[.,]?\d*)", texto)
+    if match:
+        valor = float(match.group(1).replace(",", "."))
+        desc = re.sub(r"\d+[.,]?\d*\s*(reais|r\$)?", "", texto, flags=re.IGNORECASE).strip()
+        desc = desc or "Gasto"
+        transacao = criar_transacao("despesa", valor, desc, "Outros")
+        if transacao:
+            await update.message.reply_text(
+                f"✅ *Gasto registrado!*\n\n{formatar_transacao_card(transacao)}",
+                parse_mode="Markdown"
+            )
+        else:
+            await update.message.reply_text("❌ Erro ao registrar gasto.")
+    else:
+        await update.message.reply_text("❌ Não encontrei um valor. Tente: `/gasto 50 almoço`", parse_mode="Markdown")
+
+
+async def cmd_receita(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Registrar receita: /receita 8000 aulas optativas."""
+    texto = " ".join(context.args) if context.args else ""
+
+    if not texto:
+        await update.message.reply_text(
+            "💰 *Como registrar uma receita:*\n\n"
+            "`/receita 8000 aulas optativas`\n"
+            "`/receita 6000 consultoria IA`\n",
+            parse_mode="Markdown"
+        )
+        return
+
+    if ai_brain:
+        resultado = ai_brain.classificar_transacao(texto)
+        if resultado:
+            resultado["tipo"] = "receita"  # Forçar como receita
+            context.user_data["state"] = STATE_CONFIRMING_TRANSACAO
+            context.user_data["pending_transacao"] = resultado
+
+            msg = (
+                f"💰 *Confirmar receita:*\n\n"
+                f"📝 {resultado.get('descricao', texto)}\n"
+                f"💵 {formatar_valor(resultado.get('valor', 0))}\n"
+                f"📁 {resultado.get('categoria', 'Outros Receita')}\n"
+                f"📅 {resultado.get('data', 'hoje')}\n"
+                f"\n✅ Confirmar? (sim/não)"
+            )
+            await update.message.reply_text(msg, parse_mode="Markdown")
+            return
+
+    # Fallback
+    import re
+    match = re.search(r"(\d+[.,]?\d*)", texto)
+    if match:
+        valor = float(match.group(1).replace(",", "."))
+        desc = re.sub(r"\d+[.,]?\d*\s*(reais|r\$)?", "", texto, flags=re.IGNORECASE).strip()
+        desc = desc or "Receita"
+        transacao = criar_transacao("receita", valor, desc, "Outros Receita")
+        if transacao:
+            await update.message.reply_text(
+                f"✅ *Receita registrada!*\n\n{formatar_transacao_card(transacao)}",
+                parse_mode="Markdown"
+            )
+        else:
+            await update.message.reply_text("❌ Erro ao registrar receita.")
+    else:
+        await update.message.reply_text("❌ Não encontrei um valor. Tente: `/receita 8000 salário`", parse_mode="Markdown")
+
+
+async def cmd_saldo(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Mostra saldo do mês atual."""
+    transacoes = obter_transacoes_mes()
+    saldo = calcular_saldo_mes(transacoes)
+
+    agora = datetime.now(TZ_RECIFE)
+    dias_restantes = (agora.replace(month=agora.month % 12 + 1, day=1) - agora).days if agora.month < 12 else (agora.replace(year=agora.year + 1, month=1, day=1) - agora).days
+    mes_nome = agora.strftime("%B/%Y").capitalize()
+
+    icon_saldo = "🟢" if saldo["saldo"] >= 0 else "🔴"
+
+    msg = (
+        f"💰 *Saldo — {mes_nome}*\n\n"
+        f"📈 Receitas: {formatar_valor(saldo['receitas'])}\n"
+        f"📉 Despesas: {formatar_valor(saldo['despesas'])}\n"
+        f"{'─' * 25}\n"
+        f"{icon_saldo} *Saldo: {formatar_valor(saldo['saldo'])}*\n\n"
+        f"📅 Faltam {dias_restantes} dias no mês"
+    )
+
+    # Quanto sobra por dia
+    if saldo["saldo"] > 0 and dias_restantes > 0:
+        por_dia = saldo["saldo"] / dias_restantes
+        msg += f"\n💡 Disponível: ~{formatar_valor(por_dia)}/dia"
+
+    # Alertas de orçamento
+    orcamentos = obter_orcamentos_mes()
+    if orcamentos:
+        gastos = gastos_por_categoria(transacoes)
+        alertas = []
+        for orc in orcamentos:
+            cat = orc["categoria"]
+            gasto = gastos.get(cat, 0)
+            limite = float(orc["limite"])
+            pct = (gasto / limite * 100) if limite > 0 else 0
+            if pct >= 80:
+                emoji = "🔴" if pct >= 100 else "🟡"
+                alertas.append(f"{emoji} {cat}: {formatar_valor(gasto)}/{formatar_valor(limite)} ({pct:.0f}%)")
+        if alertas:
+            msg += "\n\n⚠️ *Alertas de orçamento:*\n" + "\n".join(alertas)
+
+    await update.message.reply_text(msg, parse_mode="Markdown")
+
+
+async def cmd_extrato(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Lista últimas transações."""
+    transacoes = obter_transacoes_mes()
+
+    if not transacoes:
+        await update.message.reply_text("📋 Nenhuma transação este mês. Use /gasto ou /receita para começar!")
+        return
+
+    ultimas = transacoes[:15]
+    linhas = [formatar_transacao_card(t) for t in ultimas]
+
+    saldo = calcular_saldo_mes(transacoes)
+    agora = datetime.now(TZ_RECIFE)
+    mes_nome = agora.strftime("%B/%Y").capitalize()
+
+    msg = f"📋 *Extrato — {mes_nome}*\n({len(transacoes)} transações)\n\n"
+    msg += "\n\n".join(linhas)
+    msg += f"\n\n{'─' * 25}\n"
+    msg += f"📈 Receitas: {formatar_valor(saldo['receitas'])}\n"
+    msg += f"📉 Despesas: {formatar_valor(saldo['despesas'])}\n"
+    icon = "🟢" if saldo["saldo"] >= 0 else "🔴"
+    msg += f"{icon} *Saldo: {formatar_valor(saldo['saldo'])}*"
+
+    await update.message.reply_text(msg, parse_mode="Markdown")
+
+
+async def cmd_orcamento(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Define orçamento mensal: /orcamento Alimentação 800."""
+    args = context.args
+    if not args or len(args) < 2:
+        # Mostrar orçamentos atuais
+        orcamentos = obter_orcamentos_mes()
+        transacoes = obter_transacoes_mes()
+        gastos = gastos_por_categoria(transacoes)
+
+        if not orcamentos:
+            await update.message.reply_text(
+                "📊 *Orçamento Mensal*\n\n"
+                "Nenhum orçamento definido.\n\n"
+                "*Para criar:*\n"
+                "`/orcamento Alimentação 800`\n"
+                "`/orcamento Transporte 300`\n"
+                "`/orcamento Lazer 200`\n\n"
+                "*Categorias:* Alimentação, Transporte, Moradia, Assinaturas, Lazer, Saúde, Educação, Vestuário, Outros",
+                parse_mode="Markdown"
+            )
+            return
+
+        msg = "📊 *Orçamento Mensal*\n\n"
+        for orc in orcamentos:
+            cat = orc["categoria"]
+            limite = float(orc["limite"])
+            gasto = gastos.get(cat, 0)
+            pct = (gasto / limite * 100) if limite > 0 else 0
+            barra = "█" * int(min(pct, 100) / 10) + "░" * (10 - int(min(pct, 100) / 10))
+            emoji = "🟢" if pct < 60 else ("🟡" if pct < 80 else "🔴")
+            msg += f"{emoji} *{cat}*\n   {barra} {pct:.0f}%\n   {formatar_valor(gasto)} / {formatar_valor(limite)}\n\n"
+
+        await update.message.reply_text(msg, parse_mode="Markdown")
+        return
+
+    # Criar/atualizar orçamento
+    try:
+        valor = float(args[-1].replace(",", "."))
+        categoria = " ".join(args[:-1])
+    except ValueError:
+        await update.message.reply_text("❌ Use: `/orcamento Alimentação 800`", parse_mode="Markdown")
+        return
+
+    agora = datetime.now(TZ_RECIFE)
+    mes_str = f"{agora.year}-{agora.month:02d}-01"
+
+    # Upsert
+    existing = supabase_request("GET", "orcamento_mensal", params={
+        "categoria": f"eq.{categoria}",
+        "mes": f"eq.{mes_str}",
+    })
+    if existing:
+        supabase_request("PATCH", f"orcamento_mensal?id=eq.{existing[0]['id']}", {
+            "limite": valor,
+        })
+    else:
+        supabase_request("POST", "orcamento_mensal", {
+            "categoria": categoria,
+            "limite": valor,
+            "mes": mes_str,
+        })
+
+    await update.message.reply_text(
+        f"✅ Orçamento definido!\n\n📁 *{categoria}*: {formatar_valor(valor)}/mês",
+        parse_mode="Markdown"
+    )
+
+
+async def cmd_financeiro(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Resumo financeiro completo do mês com IA."""
+    transacoes = obter_transacoes_mes()
+    if not transacoes:
+        await update.message.reply_text("📊 Nenhuma transação este mês. Comece com /gasto ou /receita!")
+        return
+
+    saldo = calcular_saldo_mes(transacoes)
+    gastos = gastos_por_categoria(transacoes)
+    orcamentos = obter_orcamentos_mes()
+    metas = obter_metas_financeiras()
+    agora = datetime.now(TZ_RECIFE)
+    mes_nome = agora.strftime("%B/%Y").capitalize()
+
+    msg = f"📊 *Resumo Financeiro — {mes_nome}*\n\n"
+    icon = "🟢" if saldo["saldo"] >= 0 else "🔴"
+    msg += f"📈 Receitas: {formatar_valor(saldo['receitas'])}\n"
+    msg += f"📉 Despesas: {formatar_valor(saldo['despesas'])}\n"
+    msg += f"{icon} *Saldo: {formatar_valor(saldo['saldo'])}*\n\n"
+
+    if gastos:
+        msg += "📁 *Gastos por categoria:*\n"
+        total_desp = saldo["despesas"] or 1
+        for cat, val in list(gastos.items())[:6]:
+            pct = val / total_desp * 100
+            msg += f"  • {cat}: {formatar_valor(val)} ({pct:.0f}%)\n"
+        msg += "\n"
+
+    # IA coaching
+    if ai_brain:
+        await update.message.reply_text(msg + "🧠 _Gerando análise IA..._", parse_mode="Markdown")
+        try:
+            resumo_ia = ai_brain.gerar_resumo_financeiro(
+                transacoes[:30],
+                orcamentos,
+                metas
+            )
+            await update.message.reply_text(f"🧠 *Coaching Financeiro:*\n\n{resumo_ia}", parse_mode="Markdown")
+        except Exception as e:
+            logger.warning(f"Erro no resumo financeiro IA: {e}")
+    else:
+        await update.message.reply_text(msg, parse_mode="Markdown")
+
+
+async def processar_confirmacao_transacao(update, context, texto):
+    """Processa confirmação de transação financeira."""
+    pending = context.user_data.get("pending_transacao")
+    if not pending:
+        clear_state(context)
+        return
+
+    lower = texto.lower().strip()
+
+    if any(w in lower for w in ["sim", "ok", "confirma", "pode", "bora", "salva"]):
+        transacao = criar_transacao(
+            tipo=pending.get("tipo", "despesa"),
+            valor=pending.get("valor", 0),
+            descricao=pending.get("descricao", ""),
+            categoria=pending.get("categoria", "Outros"),
+            data=pending.get("data"),
+            recorrente=pending.get("recorrente", False),
+            recorrencia=pending.get("recorrencia"),
+            dia_vencimento=pending.get("dia_vencimento"),
+        )
+        clear_state(context)
+        if transacao:
+            await update.message.reply_text(
+                f"✅ *Transação salva!*\n\n{formatar_transacao_card(transacao)}\n\n"
+                f"[📊 Dashboard](https://wendelcastro.github.io/organizador-tarefas/web/)",
+                parse_mode="Markdown", disable_web_page_preview=True
+            )
+        else:
+            await update.message.reply_text("❌ Erro ao salvar transação.")
+
+    elif any(w in lower for w in ["não", "nao", "cancela", "cancelar"]):
+        clear_state(context)
+        await update.message.reply_text("🚫 Transação cancelada.")
+    else:
+        await update.message.reply_text("Confirmar? Responda *sim* ou *não*.", parse_mode="Markdown")
+
+
+async def alerta_vencimentos_job(context):
+    """Job diário que alerta sobre contas a vencer nos próximos 3 dias."""
+    if not CHAT_ID:
+        return
+    try:
+        agora = datetime.now(TZ_RECIFE)
+        hoje = agora.strftime("%Y-%m-%d")
+        em3dias = (agora + timedelta(days=3)).strftime("%Y-%m-%d")
+
+        # Buscar transações recorrentes com vencimento próximo
+        recorrentes = supabase_request("GET", "transacoes", params={
+            "recorrente": "eq.true",
+            "tipo": "eq.despesa",
+            "select": "descricao,valor,categoria,dia_vencimento",
+        })
+        if not recorrentes:
+            return
+
+        dia_hoje = agora.day
+        alertas = []
+        for t in recorrentes:
+            dia = t.get("dia_vencimento")
+            if dia and dia_hoje <= dia <= dia_hoje + 3:
+                alertas.append(f"📌 *{t['descricao']}* — {formatar_valor(t['valor'])} (dia {dia})")
+
+        if alertas:
+            msg = "⏰ *Contas a vencer nos próximos dias:*\n\n" + "\n".join(alertas)
+            await context.bot.send_message(chat_id=CHAT_ID, text=msg, parse_mode="Markdown")
+    except Exception as e:
+        logger.warning(f"Erro no alerta de vencimentos: {e}")
+
+
 # ========== HANDLER PRINCIPAL DE TEXTO ==========
 
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -2199,7 +2649,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     # Verificar timeout de confirmacao (30 minutos)
-    if state in (STATE_CONFIRMING, STATE_CONFIRMING_MULTI, STATE_CONFIRMING_DECOMP):
+    if state in (STATE_CONFIRMING, STATE_CONFIRMING_MULTI, STATE_CONFIRMING_DECOMP, STATE_CONFIRMING_TRANSACAO):
         ts = context.user_data.get("state_timestamp")
         if ts:
             try:
@@ -2214,7 +2664,10 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             except (ValueError, TypeError):
                 pass
 
-    if state == STATE_CONFIRMING and ai_brain:
+    if state == STATE_CONFIRMING_TRANSACAO:
+        await processar_confirmacao_transacao(update, context, texto)
+
+    elif state == STATE_CONFIRMING and ai_brain:
         await processar_confirmacao(update, context, texto)
 
     elif state == STATE_CONFIRMING_MULTI and ai_brain:
@@ -2751,6 +3204,12 @@ async def setup_commands(app):
         BotCommand("limpar", "Encontrar tarefas duplicadas"),
         BotCommand("foco", "Modo foco (silenciar)"),
         BotCommand("cancelar", "Cancelar operação"),
+        BotCommand("gasto", "Registrar gasto"),
+        BotCommand("receita", "Registrar receita"),
+        BotCommand("saldo", "Ver saldo do mês"),
+        BotCommand("extrato", "Últimas transações"),
+        BotCommand("orcamento", "Orçamento mensal"),
+        BotCommand("financeiro", "Resumo financeiro com IA"),
         BotCommand("agenda", "Ver agenda do dia (todos os calendários)"),
         BotCommand("sync", "Sincronizar calendarios agora"),
         BotCommand("conectar_google", "Conectar Google Calendar"),
@@ -2804,6 +3263,13 @@ async def post_init(app):
         verificar_recorrentes,
         time=dt_time(6, 0, tzinfo=TZ_RECIFE),
         name="recurring_check",
+    )
+
+    # Alerta de vencimentos financeiros as 8:00
+    jq.run_daily(
+        alerta_vencimentos_job,
+        time=dt_time(8, 0, tzinfo=TZ_RECIFE),
+        name="finance_due_alert",
     )
 
     # Carregar lembretes do dia (apos 5s para dar tempo de conectar)
@@ -2947,6 +3413,12 @@ def main():
     app.add_handler(CommandHandler("conectar_google", cmd_conectar_google))
     app.add_handler(CommandHandler("conectar_microsoft", cmd_conectar_microsoft))
     app.add_handler(CommandHandler("desconectar", cmd_desconectar))
+    app.add_handler(CommandHandler("gasto", cmd_gasto))
+    app.add_handler(CommandHandler("receita", cmd_receita))
+    app.add_handler(CommandHandler("saldo", cmd_saldo))
+    app.add_handler(CommandHandler("extrato", cmd_extrato))
+    app.add_handler(CommandHandler("orcamento", cmd_orcamento))
+    app.add_handler(CommandHandler("financeiro", cmd_financeiro))
     app.add_handler(CommandHandler("agenda", cmd_agenda))
     app.add_handler(CommandHandler("sync", cmd_sync))
     app.add_handler(CallbackQueryHandler(handle_callback))

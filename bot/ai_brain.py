@@ -1619,3 +1619,92 @@ Responda APENAS com a dica em texto puro, sem formatacao markdown."""
 
         result = self._call_llm(system, messages, max_tokens=200)
         return result.strip() if result else "Continue focando nas prioridades do dia. Voce esta no caminho certo!"
+
+    # ========== MODULO FINANCEIRO ==========
+
+    def classificar_transacao(self, texto: str, categorias_disponiveis: list = None) -> dict:
+        """
+        Classifica uma transacao financeira a partir de texto livre.
+        Retorna: tipo, valor, descricao, categoria, data, recorrente, dia_vencimento
+        """
+        hoje = datetime.now().strftime("%Y-%m-%d")
+        dia_semana = datetime.now().strftime("%A")
+
+        cats_despesa = ["Alimentação", "Transporte", "Moradia", "Assinaturas", "Lazer", "Saúde", "Educação", "Vestuário", "Outros"]
+        cats_receita = ["Salário", "Aulas Optativas", "Consultoria", "Freelance", "Outros Receita"]
+
+        if categorias_disponiveis:
+            cats_all = categorias_disponiveis
+        else:
+            cats_all = cats_despesa + cats_receita
+
+        system = f"""Voce e o assistente financeiro do Professor Wendel Castro.
+Extraia os dados de uma transacao financeira a partir do texto do usuario.
+
+Data de hoje: {hoje} ({dia_semana})
+
+Categorias de DESPESA: {', '.join(cats_despesa)}
+Categorias de RECEITA: {', '.join(cats_receita)}
+
+Regras:
+- Se o usuario diz "gastei", "paguei", "comprei", "assinatura" = despesa
+- Se o usuario diz "recebi", "ganhei", "entrou", "salario", "pagamento" = receita
+- Extraia o valor numerico (aceite R$, reais, etc)
+- Se nao tem data explicita, use hoje ({hoje})
+- Detecte se e recorrente: "todo mes", "mensal", "assinatura" = recorrente
+- Classifique na categoria mais adequada
+- Gere uma descricao limpa e curta
+
+SEMPRE responda em JSON valido, sem markdown:
+{{
+  "tipo": "despesa|receita",
+  "valor": 50.00,
+  "descricao": "descricao limpa",
+  "categoria": "uma das categorias acima",
+  "data": "YYYY-MM-DD",
+  "recorrente": false,
+  "recorrencia": "mensal|semanal|anual|null",
+  "dia_vencimento": null,
+  "mensagem": "confirmacao curta para o usuario"
+}}"""
+
+        messages = [{"role": "user", "content": texto}]
+        result = self._call_llm(system, messages, max_tokens=500)
+
+        if not result:
+            return None
+
+        try:
+            clean = result.strip()
+            if clean.startswith("```"):
+                clean = clean.split("\n", 1)[1] if "\n" in clean else clean[3:]
+                clean = clean.rsplit("```", 1)[0]
+            return json.loads(clean)
+        except (json.JSONDecodeError, ValueError) as e:
+            logger.error(f"Erro ao parsear transacao: {e}\nResposta: {result}")
+            return None
+
+    def gerar_resumo_financeiro(self, transacoes: list, orcamentos: list = None, metas: list = None) -> str:
+        """
+        Gera um resumo financeiro inteligente com insights e coaching.
+        """
+        system = """Voce e o coach financeiro do Professor Wendel Castro.
+Analise as transacoes do mes e gere um resumo com:
+1. Balanco geral (receitas - despesas)
+2. Top 3 categorias de gasto
+3. Se tem orcamento, compare gasto vs limite (alerte se >80%)
+4. Dica personalizada baseada nos padroes
+5. Conexao com as metas financeiras (se houver)
+
+Tom: direto, motivacional, sem rodeios. Maximo 300 palavras.
+Use emojis com moderacao. Formate com markdown simples (* para negrito)."""
+
+        dados = json.dumps({
+            "transacoes": transacoes[:50],
+            "orcamentos": orcamentos or [],
+            "metas": metas or [],
+        }, ensure_ascii=False, default=str)
+
+        messages = [{"role": "user", "content": f"Dados financeiros:\n{dados}\n\nGere o resumo."}]
+        result = self._call_llm(system, messages, max_tokens=1000)
+        return result.strip() if result else "Sem dados suficientes para gerar resumo."
