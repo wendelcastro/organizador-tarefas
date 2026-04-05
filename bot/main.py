@@ -2172,9 +2172,9 @@ def _recriar_recorrente(tarefa):
 STATE_CONFIRMING_TRANSACAO = "confirming_transacao"
 
 def criar_transacao(tipo, valor, descricao, categoria, data=None, recorrente=False,
-                    recorrencia=None, dia_vencimento=None, notas=""):
+                    recorrencia=None, dia_vencimento=None, notas="",
+                    pessoa="pf", status="pago", pagador=None, data_prevista=None):
     """Cria uma transação financeira no Supabase."""
-    from datetime import date as date_type
     transacao = {
         "tipo": tipo,
         "valor": float(valor),
@@ -2185,9 +2185,20 @@ def criar_transacao(tipo, valor, descricao, categoria, data=None, recorrente=Fal
         "recorrencia": recorrencia,
         "dia_vencimento": dia_vencimento,
         "notas": notas,
+        "pessoa": pessoa or "pf",
+        "status": status or "pago",
         "origem": "telegram",
     }
+    if pagador:
+        transacao["pagador"] = pagador
+    if data_prevista:
+        transacao["data_prevista"] = data_prevista
     result = supabase_request("POST", "transacoes", transacao)
+    if not result:
+        # Fallback: tentar sem campos novos (caso migration 013 não tenha rodado)
+        for campo in ["pessoa", "status", "pagador", "data_prevista"]:
+            transacao.pop(campo, None)
+        result = supabase_request("POST", "transacoes", transacao)
     return result[0] if result else None
 
 
@@ -2259,7 +2270,14 @@ def formatar_transacao_card(t):
     """Formata uma transação para exibição."""
     icon = "🟢" if t["tipo"] == "receita" else "🔴"
     sinal = "+" if t["tipo"] == "receita" else "-"
-    return f"{icon} *{t['descricao']}* — {sinal} {formatar_valor(t['valor'])}\n   📁 {t['categoria']} · 📅 {t['data']}"
+    pessoa = "🏢 PJ" if t.get("pessoa") == "pj" else "👤 PF"
+    status_icon = {"pago": "✅", "pendente": "⏳", "planejado": "📋"}.get(t.get("status", "pago"), "")
+    card = f"{icon} *{t['descricao']}* — {sinal} {formatar_valor(t['valor'])}\n   📁 {t['categoria']} · {pessoa} · {status_icon} {t.get('status', 'pago')} · 📅 {t['data']}"
+    if t.get("pagador"):
+        card += f"\n   💼 {t['pagador']}"
+    if t.get("data_prevista"):
+        card += f" · Previsto: {t['data_prevista']}"
+    return card
 
 
 async def _processar_texto_financeiro(update, context, texto, forcar_tipo=None):
@@ -2290,13 +2308,19 @@ async def _processar_texto_financeiro(update, context, texto, forcar_tipo=None):
             if len(transacoes) == 1:
                 t = transacoes[0]
                 tipo_icon = "💰" if t.get("tipo") == "receita" else "💸"
+                pessoa_label = "🏢 PJ" if t.get("pessoa") == "pj" else "👤 PF"
+                status_label = {"pago": "✅ Pago", "pendente": "⏳ Pendente", "planejado": "📋 Planejado"}.get(t.get("status", "pago"), "")
                 msg = (
                     f"{tipo_icon} *Detectei 1 transação:*\n\n"
                     f"📝 {t.get('descricao', texto)}\n"
                     f"💵 {formatar_valor(t.get('valor', 0))}\n"
-                    f"📁 {t.get('categoria', 'Outros')}\n"
-                    f"📅 {t.get('data', 'hoje')}\n"
+                    f"📁 {t.get('categoria', 'Outros')} · {pessoa_label}\n"
+                    f"📅 {t.get('data', 'hoje')} · {status_label}\n"
                 )
+                if t.get("pagador"):
+                    msg += f"💼 {t['pagador']}\n"
+                if t.get("data_prevista"):
+                    msg += f"🗓 Previsto: {t['data_prevista']}\n"
                 if t.get("recorrente"):
                     msg += f"🔄 Recorrente ({t.get('recorrencia', 'mensal')})\n"
             else:
@@ -2306,8 +2330,13 @@ async def _processar_texto_financeiro(update, context, texto, forcar_tipo=None):
                 for i, t in enumerate(transacoes, 1):
                     icon = "🟢" if t["tipo"] == "receita" else "🔴"
                     sinal = "+" if t["tipo"] == "receita" else "-"
-                    msg += f"*{i}.* {icon} {t.get('descricao', '?')} — {sinal} {formatar_valor(t.get('valor', 0))}\n"
-                    msg += f"     📁 {t.get('categoria', 'Outros')} · 📅 {t.get('data', 'hoje')}\n"
+                    pessoa_tag = " PJ" if t.get("pessoa") == "pj" else ""
+                    status_tag = {"pendente": " ⏳", "planejado": " 📋"}.get(t.get("status"), "")
+                    msg += f"*{i}.* {icon} {t.get('descricao', '?')} — {sinal} {formatar_valor(t.get('valor', 0))}{status_tag}{pessoa_tag}\n"
+                    msg += f"     📁 {t.get('categoria', 'Outros')} · 📅 {t.get('data', 'hoje')}"
+                    if t.get("pagador"):
+                        msg += f" · 💼 {t['pagador']}"
+                    msg += "\n"
                     if t.get("recorrente"):
                         msg += f"     🔄 {t.get('recorrencia', 'mensal')}\n"
                     msg += "\n"
@@ -2567,6 +2596,10 @@ async def processar_confirmacao_transacao(update, context, texto):
                 recorrente=t.get("recorrente", False),
                 recorrencia=t.get("recorrencia"),
                 dia_vencimento=t.get("dia_vencimento"),
+                pessoa=t.get("pessoa", "pf"),
+                status=t.get("status", "pago"),
+                pagador=t.get("pagador"),
+                data_prevista=t.get("data_prevista"),
             )
             if transacao:
                 salvas += 1

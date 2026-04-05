@@ -7466,6 +7466,7 @@ function renderMetas() {
 let finTransacoes = [];
 let finOrcamentos = [];
 let finMetas = [];
+let finScope = 'month'; // month | week
 
 async function loadFinancas() {
   const now = new Date();
@@ -7489,6 +7490,22 @@ function formatMoney(v) {
   return 'R$ ' + Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+function getFinWeekRange() {
+  const today = new Date(); today.setHours(0,0,0,0);
+  const dow = today.getDay();
+  const mon = new Date(today); mon.setDate(today.getDate() - (dow === 0 ? 6 : dow - 1));
+  const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
+  return { start: mon.toISOString().split('T')[0], end: sun.toISOString().split('T')[0] };
+}
+
+function getFinScopedTransacoes() {
+  if (finScope === 'week') {
+    const w = getFinWeekRange();
+    return finTransacoes.filter(t => t.data >= w.start && t.data <= w.end);
+  }
+  return finTransacoes;
+}
+
 async function renderFinancas() {
   const container = document.getElementById('financasView');
   await loadFinancas();
@@ -7497,21 +7514,31 @@ async function renderFinancas() {
   const mesNome = now.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
   const daysInMonth = new Date(now.getFullYear(), now.getMonth()+1, 0).getDate();
   const daysLeft = daysInMonth - now.getDate();
+  const scopeLabel = finScope === 'week' ? 'esta semana' : mesNome;
 
-  const receitas = finTransacoes.filter(t => t.tipo === 'receita').reduce((s,t) => s + Number(t.valor), 0);
-  const despesas = finTransacoes.filter(t => t.tipo === 'despesa').reduce((s,t) => s + Number(t.valor), 0);
-  const saldo = receitas - despesas;
+  const scoped = getFinScopedTransacoes();
+  const pagas = scoped.filter(t => t.status === 'pago' || !t.status);
+  const pendentes = finTransacoes.filter(t => t.status === 'pendente');
+  const planejadas = finTransacoes.filter(t => t.status === 'planejado');
+
+  const receitasPagas = pagas.filter(t => t.tipo === 'receita').reduce((s,t) => s + Number(t.valor), 0);
+  const despesasPagas = pagas.filter(t => t.tipo === 'despesa').reduce((s,t) => s + Number(t.valor), 0);
+  const saldo = receitasPagas - despesasPagas;
   const perDay = daysLeft > 0 && saldo > 0 ? saldo / daysLeft : 0;
+
+  // PF vs PJ
+  const recPF = pagas.filter(t => t.tipo === 'receita' && t.pessoa !== 'pj').reduce((s,t) => s + Number(t.valor), 0);
+  const recPJ = pagas.filter(t => t.tipo === 'receita' && t.pessoa === 'pj').reduce((s,t) => s + Number(t.valor), 0);
+
+  // Receitas pendentes
+  const totalPendente = pendentes.filter(t => t.tipo === 'receita').reduce((s,t) => s + Number(t.valor), 0);
+  const totalPlanejado = planejadas.filter(t => t.tipo === 'receita').reduce((s,t) => s + Number(t.valor), 0);
 
   // Gastos por categoria
   const catGastos = {};
-  finTransacoes.filter(t => t.tipo === 'despesa').forEach(t => {
-    catGastos[t.categoria] = (catGastos[t.categoria] || 0) + Number(t.valor);
-  });
+  pagas.filter(t => t.tipo === 'despesa').forEach(t => { catGastos[t.categoria] = (catGastos[t.categoria] || 0) + Number(t.valor); });
   const catSorted = Object.entries(catGastos).sort((a,b) => b[1] - a[1]);
   const maxCatVal = catSorted.length > 0 ? catSorted[0][1] : 1;
-
-  // Cores por categoria
   const catCores = { 'Alimentação':'#FF6B6B', 'Transporte':'#4ECDC4', 'Moradia':'#45B7D1', 'Assinaturas':'#96CEB4', 'Lazer':'#DDA0DD', 'Saúde':'#98D8C8', 'Educação':'#F7DC6F', 'Vestuário':'#BB8FCE', 'Outros':'#AEB6BF' };
 
   if (finTransacoes.length === 0) {
@@ -7526,17 +7553,58 @@ async function renderFinancas() {
   }
 
   container.innerHTML = `
-    <div class="fin-header"><h2>Finanças</h2><div class="fin-month">${mesNome}</div></div>
+    <div class="fin-header">
+      <h2>Finanças</h2>
+      <div class="fin-month">${mesNome}</div>
+      <div class="scope-toggle" style="margin-top:0.5rem;max-width:220px;margin-left:auto;margin-right:auto">
+        <button class="scope-btn ${finScope==='week'?'active':''}" onclick="finScope='week';renderFinancas()">Semana</button>
+        <button class="scope-btn ${finScope==='month'?'active':''}" onclick="finScope='month';renderFinancas()">Mês</button>
+      </div>
+    </div>
 
     <div class="fin-saldo-card">
-      <div class="fin-saldo-label">Saldo do mês</div>
+      <div class="fin-saldo-label">Saldo ${scopeLabel}</div>
       <div class="fin-saldo-valor ${saldo >= 0 ? 'positive' : 'negative'}">${formatMoney(saldo)}</div>
       <div class="fin-saldo-detail">
-        <span class="receita">▲ ${formatMoney(receitas)}</span>
-        <span class="despesa">▼ ${formatMoney(despesas)}</span>
+        <span class="receita">▲ ${formatMoney(receitasPagas)}</span>
+        <span class="despesa">▼ ${formatMoney(despesasPagas)}</span>
       </div>
-      ${perDay > 0 ? `<div class="fin-disponivel">~${formatMoney(perDay)}/dia disponível (${daysLeft} dias restantes)</div>` : ''}
+      ${perDay > 0 && finScope === 'month' ? `<div class="fin-disponivel">~${formatMoney(perDay)}/dia disponível (${daysLeft} dias restantes)</div>` : ''}
+      ${recPF > 0 || recPJ > 0 ? `<div style="display:flex;justify-content:center;gap:1.5rem;margin-top:0.4rem;font-size:0.72rem">
+        <span style="color:var(--text-secondary)">👤 PF: ${formatMoney(recPF)}</span>
+        <span style="color:var(--text-secondary)">🏢 PJ: ${formatMoney(recPJ)}</span>
+      </div>` : ''}
     </div>
+
+    ${(pendentes.length > 0 || planejadas.length > 0) ? `<div class="fin-card" style="margin-bottom:0.8rem;border-color:hsla(43,52%,54%,0.3)">
+      <h3 style="color:var(--amber)">⏳ Receitas a receber</h3>
+      ${pendentes.filter(t=>t.tipo==='receita').map(t => {
+        const pessoa = t.pessoa === 'pj' ? '🏢' : '👤';
+        return `<div class="fin-transacao" style="border-color:hsla(43,52%,54%,0.15)">
+          <div class="fin-transacao-icon">⏳</div>
+          <div class="fin-transacao-info">
+            <div class="fin-transacao-desc">${t.descricao}</div>
+            <div class="fin-transacao-meta">${pessoa} ${t.categoria}${t.pagador ? ' · 💼 ' + t.pagador : ''}${t.data_prevista ? ' · Previsto: ' + new Date(t.data_prevista+'T12:00:00').toLocaleDateString('pt-BR') : ''}</div>
+          </div>
+          <div class="fin-transacao-valor receita">+ ${formatMoney(t.valor)}</div>
+        </div>`;
+      }).join('')}
+      ${planejadas.filter(t=>t.tipo==='receita').map(t => {
+        const pessoa = t.pessoa === 'pj' ? '🏢' : '👤';
+        return `<div class="fin-transacao" style="border-color:hsla(43,52%,54%,0.15);opacity:0.7">
+          <div class="fin-transacao-icon">📋</div>
+          <div class="fin-transacao-info">
+            <div class="fin-transacao-desc">${t.descricao}</div>
+            <div class="fin-transacao-meta">${pessoa} ${t.categoria}${t.pagador ? ' · 💼 ' + t.pagador : ''}</div>
+          </div>
+          <div class="fin-transacao-valor receita" style="opacity:0.6">+ ${formatMoney(t.valor)}</div>
+        </div>`;
+      }).join('')}
+      <div style="display:flex;justify-content:space-between;padding-top:0.5rem;border-top:1px solid var(--border-subtle);margin-top:0.3rem;font-size:0.78rem">
+        <span style="color:var(--text-muted)">Total a receber</span>
+        <span style="color:var(--amber);font-weight:600">${formatMoney(totalPendente + totalPlanejado)}</span>
+      </div>
+    </div>` : ''}
 
     <div class="fin-grid">
       <div class="fin-card">
@@ -7545,7 +7613,7 @@ async function renderFinancas() {
           catSorted.map(([cat, val]) => {
             const pct = (val / maxCatVal * 100);
             const cor = catCores[cat] || '#AEB6BF';
-            const pctTotal = despesas > 0 ? (val/despesas*100).toFixed(0) : 0;
+            const pctTotal = despesasPagas > 0 ? (val/despesasPagas*100).toFixed(0) : 0;
             return `<div class="fin-cat-item">
               <span class="fin-cat-name">${cat}</span>
               <div class="fin-cat-bar"><div class="fin-cat-bar-fill" style="width:${pct}%;background:${cor}"></div></div>
@@ -7557,7 +7625,7 @@ async function renderFinancas() {
       <div class="fin-card">
         <h3>Orçamento</h3>
         ${finOrcamentos.length === 0 ?
-          '<div style="font-size:0.75rem;color:var(--text-muted)">Nenhum orçamento definido.<br>Use <code>/orcamento</code> no Telegram.</div>' :
+          '<div style="font-size:0.75rem;color:var(--text-muted)">Use <code>/orcamento</code> no Telegram</div>' :
           finOrcamentos.map(orc => {
             const gasto = catGastos[orc.categoria] || 0;
             const limite = Number(orc.limite);
@@ -7566,7 +7634,7 @@ async function renderFinancas() {
             return `<div class="fin-orc-item">
               <div class="fin-orc-header">
                 <span class="fin-orc-cat">${orc.categoria}</span>
-                <span class="fin-orc-val" style="color:${cor}">${formatMoney(gasto)} / ${formatMoney(limite)}</span>
+                <span class="fin-orc-val" style="color:${cor}">${formatMoney(gasto)} / ${formatMoney(limite)} (${pct.toFixed(0)}%)</span>
               </div>
               <div class="fin-orc-bar"><div class="fin-orc-bar-fill" style="width:${Math.min(pct,100)}%;background:${cor}"></div></div>
             </div>`;
@@ -7574,13 +7642,13 @@ async function renderFinancas() {
       </div>
     </div>
 
-    ${finMetas.length > 0 ? `<div class="fin-card" style="margin-bottom:1rem">
+    ${finMetas.length > 0 ? `<div class="fin-card" style="margin-bottom:0.8rem">
       <h3>Metas Financeiras</h3>
       ${finMetas.map(m => {
         const pct = Number(m.valor_alvo) > 0 ? (Number(m.valor_atual)/Number(m.valor_alvo)*100) : 0;
         return `<div class="fin-orc-item">
           <div class="fin-orc-header">
-            <span class="fin-orc-cat">${m.icone || '🎯'} ${m.titulo}</span>
+            <span class="fin-orc-cat">${m.icone || '🎯'} ${m.titulo}${m.prazo ? ' · até ' + new Date(m.prazo+'T12:00:00').toLocaleDateString('pt-BR') : ''}</span>
             <span class="fin-orc-val" style="color:var(--amber)">${formatMoney(m.valor_atual)} / ${formatMoney(m.valor_alvo)}</span>
           </div>
           <div class="fin-orc-bar"><div class="fin-orc-bar-fill" style="width:${Math.min(pct,100)}%;background:var(--amber)"></div></div>
@@ -7589,14 +7657,17 @@ async function renderFinancas() {
     </div>` : ''}
 
     <div class="fin-card fin-transacoes">
-      <h3>Últimas transações</h3>
-      ${finTransacoes.slice(0, 20).map(t => {
+      <h3>Transações ${scopeLabel}</h3>
+      ${scoped.length === 0 ? '<div style="font-size:0.75rem;color:var(--text-muted);padding:0.5rem 0">Sem transações neste período</div>' :
+      scoped.slice(0, 30).map(t => {
         const isReceita = t.tipo === 'receita';
+        const statusIcon = t.status === 'pendente' ? '⏳ ' : (t.status === 'planejado' ? '📋 ' : '');
+        const pessoaTag = t.pessoa === 'pj' ? ' · 🏢 PJ' : '';
         return `<div class="fin-transacao">
-          <div class="fin-transacao-icon">${isReceita ? '🟢' : '🔴'}</div>
+          <div class="fin-transacao-icon">${statusIcon || (isReceita ? '🟢' : '🔴')}</div>
           <div class="fin-transacao-info">
             <div class="fin-transacao-desc">${t.descricao}</div>
-            <div class="fin-transacao-meta">${t.categoria} · ${new Date(t.data+'T12:00:00').toLocaleDateString('pt-BR')}</div>
+            <div class="fin-transacao-meta">${t.categoria} · ${new Date(t.data+'T12:00:00').toLocaleDateString('pt-BR')}${pessoaTag}${t.pagador ? ' · ' + t.pagador : ''}</div>
           </div>
           <div class="fin-transacao-valor ${isReceita ? 'receita' : 'despesa'}">${isReceita ? '+' : '-'} ${formatMoney(t.valor)}</div>
         </div>`;

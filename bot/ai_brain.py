@@ -1689,10 +1689,11 @@ Responda APENAS: tarefa ou financa"""
         dia_semana = datetime.now().strftime("%A")
 
         cats_despesa = ["Alimentação", "Transporte", "Moradia", "Assinaturas", "Lazer", "Saúde", "Educação", "Vestuário", "Outros"]
-        cats_receita = ["Salário", "Aulas Optativas", "Consultoria", "Freelance", "Outros Receita"]
+        cats_receita = ["Salário", "Salário PJ", "Aulas Optativas", "Consultoria", "Freelance", "Rendimento", "Reembolso", "Outros Receita"]
 
         system = f"""Voce e o assistente financeiro do Professor Wendel Castro.
-Extraia TODAS as transacoes financeiras do texto do usuario. Pode haver UMA ou VARIAS.
+Ele e professor CLT no Grupo Ser Educacional (PF) e tambem tem CNPJ pessoal para consultorias (PJ).
+Extraia TODAS as transacoes financeiras do texto. Pode haver UMA ou VARIAS.
 
 Data de hoje: {hoje} ({dia_semana})
 
@@ -1706,8 +1707,13 @@ Regras:
 - Se nao tem data explicita, use hoje ({hoje})
 - Detecte se e recorrente: "todo mes", "mensal", "assinatura" = recorrente
 - Classifique cada transacao na categoria mais adequada
-- Gere uma descricao limpa e curta para cada uma
-- Se o usuario menciona VARIAS transacoes numa mensagem, extraia TODAS
+- "pessoa": "pf" = salario CLT, Ser Educacional, gastos pessoais. "pj" = consultoria, cliente externo, CNPJ
+- "status": "pago" = ja aconteceu. "pendente" = alguem vai pagar/cobrar. "planejado" = futuro previsto
+- Se o usuario diz "vou receber", "falta receber", "me devem", "vai cair" = status "pendente"
+- Se diz "planejei", "previsto", "estimado" = status "planejado"
+- Se menciona quem vai pagar ou de quem recebeu, extraia no campo "pagador"
+- Se menciona data futura, use em "data_prevista"
+- Se o usuario menciona VARIAS transacoes, extraia TODAS
 
 SEMPRE responda em JSON valido, sem markdown:
 {{
@@ -1718,15 +1724,16 @@ SEMPRE responda em JSON valido, sem markdown:
       "descricao": "descricao limpa",
       "categoria": "categoria adequada",
       "data": "YYYY-MM-DD",
+      "pessoa": "pf|pj",
+      "status": "pago|pendente|planejado",
+      "pagador": "nome ou null",
+      "data_prevista": "YYYY-MM-DD ou null",
       "recorrente": false,
       "recorrencia": "mensal|semanal|anual|null",
       "dia_vencimento": null
     }}
   ]
-}}
-
-Se for apenas UMA transacao, retorne o array com 1 item.
-Se forem VARIAS, retorne todas no array."""
+}}"""
 
         messages = [{"role": "user", "content": texto}]
         result = self._call_llm(system, messages, max_tokens=2048)
