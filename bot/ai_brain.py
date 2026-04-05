@@ -1620,6 +1620,34 @@ Responda APENAS com a dica em texto puro, sem formatacao markdown."""
         result = self._call_llm(system, messages, max_tokens=200)
         return result.strip() if result else "Continue focando nas prioridades do dia. Voce esta no caminho certo!"
 
+    # ========== TRIAGEM: TAREFA vs FINANÇA ==========
+
+    def detectar_intencao(self, texto: str) -> str:
+        """
+        Detecta se o texto do usuário é uma TAREFA ou uma TRANSAÇÃO FINANCEIRA.
+        Retorna: 'tarefa' ou 'financa'
+        """
+        system = """Voce e um classificador rapido. O usuario enviou uma mensagem no Telegram.
+Determine se a mensagem e sobre:
+- "tarefa" = algo que ele precisa FAZER (atividade, compromisso, lembrete, estudo, reuniao)
+- "financa" = algo sobre DINHEIRO (gasto, receita, salario, pagamento, conta, valor recebido, compra, investimento, divida)
+
+Regras:
+- Se menciona valores em reais (R$, reais, mil), receita, gasto, salario, pagamento = "financa"
+- Se menciona "receita liquida", "ganhei", "recebi", "gastei", "paguei", "comprei" = "financa"
+- Se menciona "guarde nas financas", "registrar gasto", "minha receita" = "financa"
+- Se e sobre fazer algo, estudar, ir a algum lugar, preparar, criar = "tarefa"
+
+Responda APENAS com a palavra: tarefa ou financa (sem acentos, sem pontuacao, sem explicacao)."""
+
+        messages = [{"role": "user", "content": texto}]
+        result = self._call_llm(system, messages, max_tokens=10)
+        if result:
+            clean = result.strip().lower().replace("ç", "c")
+            if "financa" in clean or "financ" in clean:
+                return "financa"
+        return "tarefa"
+
     # ========== MODULO FINANCEIRO ==========
 
     def classificar_transacao(self, texto: str, categorias_disponiveis: list = None) -> dict:

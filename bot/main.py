@@ -2761,6 +2761,30 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 # Expirou, limpar flag
                 _reflexao_pendente = False
                 _reflexao_timestamp = None
+        # Triagem inteligente: tarefa ou finança?
+        if ai_brain:
+            intencao = ai_brain.detectar_intencao(texto)
+            if intencao == "financa":
+                resultado = ai_brain.classificar_transacao(texto)
+                if resultado and resultado.get("valor"):
+                    context.user_data["state"] = STATE_CONFIRMING_TRANSACAO
+                    context.user_data["pending_transacao"] = resultado
+                    context.user_data["state_timestamp"] = datetime.now(TZ_RECIFE).isoformat()
+
+                    tipo_icon = "💰" if resultado.get("tipo") == "receita" else "💸"
+                    tipo_label = "receita" if resultado.get("tipo") == "receita" else "gasto"
+                    msg = (
+                        f"{tipo_icon} *Detectei uma {tipo_label}:*\n\n"
+                        f"📝 {resultado.get('descricao', texto)}\n"
+                        f"💵 {formatar_valor(resultado.get('valor', 0))}\n"
+                        f"📁 {resultado.get('categoria', 'Outros')}\n"
+                        f"📅 {resultado.get('data', 'hoje')}\n"
+                    )
+                    if resultado.get("recorrente"):
+                        msg += f"🔄 Recorrente ({resultado.get('recorrencia', 'mensal')})\n"
+                    msg += "\n✅ Confirmar? (sim/não)"
+                    await update.message.reply_text(msg, parse_mode="Markdown")
+                    return
         await processar_nova_tarefa(update, context, texto)
 
 
