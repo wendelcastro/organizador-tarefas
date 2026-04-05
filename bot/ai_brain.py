@@ -1681,8 +1681,9 @@ Responda APENAS: tarefa ou financa"""
 
     def classificar_transacao(self, texto: str, categorias_disponiveis: list = None) -> dict:
         """
-        Classifica uma transacao financeira a partir de texto livre.
-        Retorna: tipo, valor, descricao, categoria, data, recorrente, dia_vencimento
+        Classifica transacoes financeiras a partir de texto livre.
+        Suporta UMA ou MÚLTIPLAS transacoes na mesma mensagem.
+        Retorna dict com "multiplas": true/false e "transacoes": [...]
         """
         hoje = datetime.now().strftime("%Y-%m-%d")
         dia_semana = datetime.now().strftime("%A")
@@ -1690,13 +1691,8 @@ Responda APENAS: tarefa ou financa"""
         cats_despesa = ["Alimentação", "Transporte", "Moradia", "Assinaturas", "Lazer", "Saúde", "Educação", "Vestuário", "Outros"]
         cats_receita = ["Salário", "Aulas Optativas", "Consultoria", "Freelance", "Outros Receita"]
 
-        if categorias_disponiveis:
-            cats_all = categorias_disponiveis
-        else:
-            cats_all = cats_despesa + cats_receita
-
         system = f"""Voce e o assistente financeiro do Professor Wendel Castro.
-Extraia os dados de uma transacao financeira a partir do texto do usuario.
+Extraia TODAS as transacoes financeiras do texto do usuario. Pode haver UMA ou VARIAS.
 
 Data de hoje: {hoje} ({dia_semana})
 
@@ -1704,29 +1700,36 @@ Categorias de DESPESA: {', '.join(cats_despesa)}
 Categorias de RECEITA: {', '.join(cats_receita)}
 
 Regras:
-- Se o usuario diz "gastei", "paguei", "comprei", "assinatura" = despesa
-- Se o usuario diz "recebi", "ganhei", "entrou", "salario", "pagamento" = receita
-- Extraia o valor numerico (aceite R$, reais, etc)
+- "gastei", "paguei", "comprei", "assinatura", "conta de" = despesa
+- "recebi", "ganhei", "entrou", "salario", "receita" = receita
+- Extraia o valor numerico (aceite R$, reais, mil, etc)
 - Se nao tem data explicita, use hoje ({hoje})
 - Detecte se e recorrente: "todo mes", "mensal", "assinatura" = recorrente
-- Classifique na categoria mais adequada
-- Gere uma descricao limpa e curta
+- Classifique cada transacao na categoria mais adequada
+- Gere uma descricao limpa e curta para cada uma
+- Se o usuario menciona VARIAS transacoes numa mensagem, extraia TODAS
 
 SEMPRE responda em JSON valido, sem markdown:
 {{
-  "tipo": "despesa|receita",
-  "valor": 50.00,
-  "descricao": "descricao limpa",
-  "categoria": "uma das categorias acima",
-  "data": "YYYY-MM-DD",
-  "recorrente": false,
-  "recorrencia": "mensal|semanal|anual|null",
-  "dia_vencimento": null,
-  "mensagem": "confirmacao curta para o usuario"
-}}"""
+  "transacoes": [
+    {{
+      "tipo": "despesa|receita",
+      "valor": 50.00,
+      "descricao": "descricao limpa",
+      "categoria": "categoria adequada",
+      "data": "YYYY-MM-DD",
+      "recorrente": false,
+      "recorrencia": "mensal|semanal|anual|null",
+      "dia_vencimento": null
+    }}
+  ]
+}}
+
+Se for apenas UMA transacao, retorne o array com 1 item.
+Se forem VARIAS, retorne todas no array."""
 
         messages = [{"role": "user", "content": texto}]
-        result = self._call_llm(system, messages, max_tokens=1024)
+        result = self._call_llm(system, messages, max_tokens=2048)
 
         if not result:
             return None
@@ -1736,7 +1739,17 @@ SEMPRE responda em JSON valido, sem markdown:
             if clean.startswith("```"):
                 clean = clean.split("\n", 1)[1] if "\n" in clean else clean[3:]
                 clean = clean.rsplit("```", 1)[0]
-            return json.loads(clean)
+            parsed = json.loads(clean)
+
+            # Normalizar formato
+            if isinstance(parsed, list):
+                return {"transacoes": parsed}
+            if "transacoes" in parsed:
+                return parsed
+            # Se veio como transacao unica (formato antigo), converter
+            if "tipo" in parsed and "valor" in parsed:
+                return {"transacoes": [parsed]}
+            return parsed
         except (json.JSONDecodeError, ValueError) as e:
             logger.error(f"Erro ao parsear transacao: {e}\nResposta: {result}")
             return None

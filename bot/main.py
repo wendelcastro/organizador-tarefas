@@ -2262,108 +2262,99 @@ def formatar_transacao_card(t):
     return f"{icon} *{t['descricao']}* — {sinal} {formatar_valor(t['valor'])}\n   📁 {t['categoria']} · 📅 {t['data']}"
 
 
-async def cmd_gasto(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Registrar gasto: /gasto 50 almoço ou texto livre."""
-    texto = " ".join(context.args) if context.args else ""
+async def _processar_texto_financeiro(update, context, texto, forcar_tipo=None):
+    """Processa texto como transação(ões) financeira(s). Suporta múltiplas."""
+    if ai_brain:
+        msg_loading = await update.message.reply_text("💰 Analisando transações...")
+        resultado = ai_brain.classificar_transacao(texto)
 
+        if resultado and resultado.get("transacoes"):
+            transacoes = resultado["transacoes"]
+
+            # Forçar tipo se veio de /gasto ou /receita
+            if forcar_tipo:
+                for t in transacoes:
+                    t["tipo"] = forcar_tipo
+
+            # Filtrar transações válidas (com valor)
+            transacoes = [t for t in transacoes if t.get("valor") and float(t.get("valor", 0)) > 0]
+
+            if not transacoes:
+                await msg_loading.edit_text("❌ Não consegui identificar valores. Tente de novo.")
+                return
+
+            context.user_data["state"] = STATE_CONFIRMING_TRANSACAO
+            context.user_data["pending_transacoes"] = transacoes
+            context.user_data["state_timestamp"] = datetime.now(TZ_RECIFE).isoformat()
+
+            if len(transacoes) == 1:
+                t = transacoes[0]
+                tipo_icon = "💰" if t.get("tipo") == "receita" else "💸"
+                msg = (
+                    f"{tipo_icon} *Detectei 1 transação:*\n\n"
+                    f"📝 {t.get('descricao', texto)}\n"
+                    f"💵 {formatar_valor(t.get('valor', 0))}\n"
+                    f"📁 {t.get('categoria', 'Outros')}\n"
+                    f"📅 {t.get('data', 'hoje')}\n"
+                )
+                if t.get("recorrente"):
+                    msg += f"🔄 Recorrente ({t.get('recorrencia', 'mensal')})\n"
+            else:
+                total_desp = sum(float(t["valor"]) for t in transacoes if t["tipo"] == "despesa")
+                total_rec = sum(float(t["valor"]) for t in transacoes if t["tipo"] == "receita")
+                msg = f"💰 *Detectei {len(transacoes)} transações:*\n\n"
+                for i, t in enumerate(transacoes, 1):
+                    icon = "🟢" if t["tipo"] == "receita" else "🔴"
+                    sinal = "+" if t["tipo"] == "receita" else "-"
+                    msg += f"*{i}.* {icon} {t.get('descricao', '?')} — {sinal} {formatar_valor(t.get('valor', 0))}\n"
+                    msg += f"     📁 {t.get('categoria', 'Outros')} · 📅 {t.get('data', 'hoje')}\n"
+                    if t.get("recorrente"):
+                        msg += f"     🔄 {t.get('recorrencia', 'mensal')}\n"
+                    msg += "\n"
+                if total_desp > 0:
+                    msg += f"📉 Total despesas: {formatar_valor(total_desp)}\n"
+                if total_rec > 0:
+                    msg += f"📈 Total receitas: {formatar_valor(total_rec)}\n"
+
+            msg += "\n✅ *Confirmar?* (sim/não)"
+            await msg_loading.edit_text(msg, parse_mode="Markdown")
+            return
+
+    await update.message.reply_text("❌ Não consegui processar. Tente: `/gasto 50 almoço`", parse_mode="Markdown")
+
+
+async def cmd_gasto(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Registrar gasto(s): /gasto 50 almoço ou múltiplos."""
+    texto = " ".join(context.args) if context.args else ""
     if not texto:
         await update.message.reply_text(
-            "💸 *Como registrar um gasto:*\n\n"
-            "`/gasto 50 almoço`\n"
-            "`/gasto 320 conta de celular`\n"
-            "ou envie como texto livre:\n"
-            "\"gastei 50 reais no uber\"",
+            "💸 *Como registrar gastos:*\n\n"
+            "*Um gasto:*\n"
+            "`/gasto 50 almoço`\n\n"
+            "*Vários de uma vez:*\n"
+            "`/gasto 50 almoço, 30 uber, 15 café`\n\n"
+            "*Ou texto livre:*\n"
+            "\"gastei 50 no almoço e 30 no uber\"",
             parse_mode="Markdown"
         )
         return
-
-    if ai_brain:
-        resultado = ai_brain.classificar_transacao(texto)
-        if resultado:
-            resultado["tipo"] = "despesa"  # Forçar como despesa
-            context.user_data["state"] = STATE_CONFIRMING_TRANSACAO
-            context.user_data["pending_transacao"] = resultado
-
-            msg = (
-                f"💸 *Confirmar gasto:*\n\n"
-                f"📝 {resultado.get('descricao', texto)}\n"
-                f"💰 {formatar_valor(resultado.get('valor', 0))}\n"
-                f"📁 {resultado.get('categoria', 'Outros')}\n"
-                f"📅 {resultado.get('data', 'hoje')}\n"
-            )
-            if resultado.get("recorrente"):
-                msg += f"🔄 Recorrente ({resultado.get('recorrencia', 'mensal')})\n"
-            msg += "\n✅ Confirmar? (sim/não/editar)"
-            await update.message.reply_text(msg, parse_mode="Markdown")
-            return
-
-    # Fallback: tentar parsear manualmente
-    import re
-    match = re.search(r"(\d+[.,]?\d*)", texto)
-    if match:
-        valor = float(match.group(1).replace(",", "."))
-        desc = re.sub(r"\d+[.,]?\d*\s*(reais|r\$)?", "", texto, flags=re.IGNORECASE).strip()
-        desc = desc or "Gasto"
-        transacao = criar_transacao("despesa", valor, desc, "Outros")
-        if transacao:
-            await update.message.reply_text(
-                f"✅ *Gasto registrado!*\n\n{formatar_transacao_card(transacao)}",
-                parse_mode="Markdown"
-            )
-        else:
-            await update.message.reply_text("❌ Erro ao registrar gasto.")
-    else:
-        await update.message.reply_text("❌ Não encontrei um valor. Tente: `/gasto 50 almoço`", parse_mode="Markdown")
+    await _processar_texto_financeiro(update, context, texto, forcar_tipo="despesa")
 
 
 async def cmd_receita(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Registrar receita: /receita 8000 aulas optativas."""
+    """Registrar receita(s): /receita 8000 aulas optativas."""
     texto = " ".join(context.args) if context.args else ""
-
     if not texto:
         await update.message.reply_text(
-            "💰 *Como registrar uma receita:*\n\n"
-            "`/receita 8000 aulas optativas`\n"
-            "`/receita 6000 consultoria IA`\n",
+            "💰 *Como registrar receitas:*\n\n"
+            "*Uma receita:*\n"
+            "`/receita 8000 aulas optativas`\n\n"
+            "*Várias de uma vez:*\n"
+            "`/receita 8000 salário, 3000 optativas, 6000 consultoria`\n",
             parse_mode="Markdown"
         )
         return
-
-    if ai_brain:
-        resultado = ai_brain.classificar_transacao(texto)
-        if resultado:
-            resultado["tipo"] = "receita"  # Forçar como receita
-            context.user_data["state"] = STATE_CONFIRMING_TRANSACAO
-            context.user_data["pending_transacao"] = resultado
-
-            msg = (
-                f"💰 *Confirmar receita:*\n\n"
-                f"📝 {resultado.get('descricao', texto)}\n"
-                f"💵 {formatar_valor(resultado.get('valor', 0))}\n"
-                f"📁 {resultado.get('categoria', 'Outros Receita')}\n"
-                f"📅 {resultado.get('data', 'hoje')}\n"
-                f"\n✅ Confirmar? (sim/não)"
-            )
-            await update.message.reply_text(msg, parse_mode="Markdown")
-            return
-
-    # Fallback
-    import re
-    match = re.search(r"(\d+[.,]?\d*)", texto)
-    if match:
-        valor = float(match.group(1).replace(",", "."))
-        desc = re.sub(r"\d+[.,]?\d*\s*(reais|r\$)?", "", texto, flags=re.IGNORECASE).strip()
-        desc = desc or "Receita"
-        transacao = criar_transacao("receita", valor, desc, "Outros Receita")
-        if transacao:
-            await update.message.reply_text(
-                f"✅ *Receita registrada!*\n\n{formatar_transacao_card(transacao)}",
-                parse_mode="Markdown"
-            )
-        else:
-            await update.message.reply_text("❌ Erro ao registrar receita.")
-    else:
-        await update.message.reply_text("❌ Não encontrei um valor. Tente: `/receita 8000 salário`", parse_mode="Markdown")
+    await _processar_texto_financeiro(update, context, texto, forcar_tipo="receita")
 
 
 async def cmd_saldo(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -2549,38 +2540,54 @@ async def cmd_financeiro(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def processar_confirmacao_transacao(update, context, texto):
-    """Processa confirmação de transação financeira."""
-    pending = context.user_data.get("pending_transacao")
-    if not pending:
-        clear_state(context)
-        return
+    """Processa confirmação de transação(ões) financeira(s)."""
+    pending_list = context.user_data.get("pending_transacoes", [])
+    if not pending_list:
+        # Compatibilidade com formato antigo
+        pending = context.user_data.get("pending_transacao")
+        if pending:
+            pending_list = [pending]
+        else:
+            clear_state(context)
+            return
 
     lower = texto.lower().strip()
 
-    if any(w in lower for w in ["sim", "ok", "confirma", "pode", "bora", "salva"]):
-        transacao = criar_transacao(
-            tipo=pending.get("tipo", "despesa"),
-            valor=pending.get("valor", 0),
-            descricao=pending.get("descricao", ""),
-            categoria=pending.get("categoria", "Outros"),
-            data=pending.get("data"),
-            recorrente=pending.get("recorrente", False),
-            recorrencia=pending.get("recorrencia"),
-            dia_vencimento=pending.get("dia_vencimento"),
-        )
-        clear_state(context)
-        if transacao:
-            await update.message.reply_text(
-                f"✅ *Transação salva!*\n\n{formatar_transacao_card(transacao)}\n\n"
-                f"[📊 Dashboard](https://wendelcastro.github.io/organizador-tarefas/web/)",
-                parse_mode="Markdown", disable_web_page_preview=True
+    if any(w in lower for w in ["sim", "ok", "confirma", "pode", "bora", "salva", "todas"]):
+        salvas = 0
+        erros = 0
+        cards = []
+        for t in pending_list:
+            transacao = criar_transacao(
+                tipo=t.get("tipo", "despesa"),
+                valor=t.get("valor", 0),
+                descricao=t.get("descricao", ""),
+                categoria=t.get("categoria", "Outros"),
+                data=t.get("data"),
+                recorrente=t.get("recorrente", False),
+                recorrencia=t.get("recorrencia"),
+                dia_vencimento=t.get("dia_vencimento"),
             )
+            if transacao:
+                salvas += 1
+                cards.append(formatar_transacao_card(transacao))
+            else:
+                erros += 1
+        clear_state(context)
+
+        if salvas > 0:
+            msg = f"✅ *{salvas} transação(ões) salva(s)!*\n\n"
+            msg += "\n\n".join(cards)
+            if erros > 0:
+                msg += f"\n\n⚠️ {erros} erro(s) ao salvar."
+            msg += f"\n\n[📊 Dashboard](https://wendelcastro.github.io/organizador-tarefas/web/)"
+            await update.message.reply_text(msg, parse_mode="Markdown", disable_web_page_preview=True)
         else:
-            await update.message.reply_text("❌ Erro ao salvar transação.")
+            await update.message.reply_text("❌ Erro ao salvar transações.")
 
     elif any(w in lower for w in ["não", "nao", "cancela", "cancelar"]):
         clear_state(context)
-        await update.message.reply_text("🚫 Transação cancelada.")
+        await update.message.reply_text("🚫 Transações canceladas.")
     else:
         await update.message.reply_text("Confirmar? Responda *sim* ou *não*.", parse_mode="Markdown")
 
@@ -2765,26 +2772,8 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if ai_brain:
             intencao = ai_brain.detectar_intencao(texto)
             if intencao == "financa":
-                resultado = ai_brain.classificar_transacao(texto)
-                if resultado and resultado.get("valor"):
-                    context.user_data["state"] = STATE_CONFIRMING_TRANSACAO
-                    context.user_data["pending_transacao"] = resultado
-                    context.user_data["state_timestamp"] = datetime.now(TZ_RECIFE).isoformat()
-
-                    tipo_icon = "💰" if resultado.get("tipo") == "receita" else "💸"
-                    tipo_label = "receita" if resultado.get("tipo") == "receita" else "gasto"
-                    msg = (
-                        f"{tipo_icon} *Detectei uma {tipo_label}:*\n\n"
-                        f"📝 {resultado.get('descricao', texto)}\n"
-                        f"💵 {formatar_valor(resultado.get('valor', 0))}\n"
-                        f"📁 {resultado.get('categoria', 'Outros')}\n"
-                        f"📅 {resultado.get('data', 'hoje')}\n"
-                    )
-                    if resultado.get("recorrente"):
-                        msg += f"🔄 Recorrente ({resultado.get('recorrencia', 'mensal')})\n"
-                    msg += "\n✅ Confirmar? (sim/não)"
-                    await update.message.reply_text(msg, parse_mode="Markdown")
-                    return
+                await _processar_texto_financeiro(update, context, texto)
+                return
         await processar_nova_tarefa(update, context, texto)
 
 
