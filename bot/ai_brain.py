@@ -1625,27 +1625,56 @@ Responda APENAS com a dica em texto puro, sem formatacao markdown."""
     def detectar_intencao(self, texto: str) -> str:
         """
         Detecta se o texto do usuário é uma TAREFA ou uma TRANSAÇÃO FINANCEIRA.
+        Camada 1: palavras-chave (instantâneo, sem API).
+        Camada 2: IA (só para casos ambíguos).
         Retorna: 'tarefa' ou 'financa'
         """
-        system = """Voce e um classificador rapido. O usuario enviou uma mensagem no Telegram.
-Determine se a mensagem e sobre:
-- "tarefa" = algo que ele precisa FAZER (atividade, compromisso, lembrete, estudo, reuniao)
-- "financa" = algo sobre DINHEIRO (gasto, receita, salario, pagamento, conta, valor recebido, compra, investimento, divida)
+        lower = texto.lower()
 
-Regras:
-- Se menciona valores em reais (R$, reais, mil), receita, gasto, salario, pagamento = "financa"
-- Se menciona "receita liquida", "ganhei", "recebi", "gastei", "paguei", "comprei" = "financa"
-- Se menciona "guarde nas financas", "registrar gasto", "minha receita" = "financa"
-- Se e sobre fazer algo, estudar, ir a algum lugar, preparar, criar = "tarefa"
+        # Camada 1: detecção local por palavras-chave financeiras
+        palavras_financa = [
+            "gastei", "gasto", "paguei", "pagamento", "comprei", "compra",
+            "receita", "recebi", "salario", "salário", "ganhei",
+            "financ", "finanças", "financas", "dinheiro",
+            "conta de", "conta do", "assinatura", "mensalidade",
+            "investimento", "investir", "dividendo",
+            "divida", "dívida", "parcela", "fatura",
+            "reais", "r$", "saldo", "extrato",
+            "renda", "lucro", "prejuízo", "prejuizo",
+            "orçamento", "orcamento",
+            "receita líquida", "receita liquida",
+            "guarde nas", "registrar gasto", "registrar receita",
+        ]
 
-Responda APENAS com a palavra: tarefa ou financa (sem acentos, sem pontuacao, sem explicacao)."""
+        # Verificar se tem valor monetário no texto (ex: 50, 8000, 26.977,00)
+        import re
+        tem_valor = bool(re.search(r'\b\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{2})?\b', lower))
+        tem_palavra_financa = any(p in lower for p in palavras_financa)
 
-        messages = [{"role": "user", "content": texto}]
-        result = self._call_llm(system, messages, max_tokens=10)
-        if result:
-            clean = result.strip().lower().replace("ç", "c")
-            if "financa" in clean or "financ" in clean:
+        if tem_palavra_financa and tem_valor:
+            return "financa"
+        if tem_palavra_financa:
+            # Palavras fortes que sozinhas indicam finança
+            palavras_fortes = ["gastei", "paguei", "recebi", "ganhei", "comprei",
+                               "receita", "salario", "salário", "financ", "finanças",
+                               "financas", "guarde nas", "receita líquida", "receita liquida"]
+            if any(p in lower for p in palavras_fortes):
                 return "financa"
+
+        # Camada 2: IA para casos ambíguos (só se tem valor mas sem palavra-chave clara)
+        if tem_valor and not tem_palavra_financa:
+            system = """Classifique a mensagem como "tarefa" ou "financa".
+- tarefa = algo para FAZER (atividade, compromisso, lembrete)
+- financa = sobre DINHEIRO (gasto, receita, pagamento, compra)
+Responda APENAS: tarefa ou financa"""
+
+            messages = [{"role": "user", "content": texto}]
+            result = self._call_llm(system, messages, max_tokens=100)
+            if result:
+                clean = result.strip().lower().replace("ç", "c")
+                if "financa" in clean:
+                    return "financa"
+
         return "tarefa"
 
     # ========== MODULO FINANCEIRO ==========
@@ -1697,7 +1726,7 @@ SEMPRE responda em JSON valido, sem markdown:
 }}"""
 
         messages = [{"role": "user", "content": texto}]
-        result = self._call_llm(system, messages, max_tokens=500)
+        result = self._call_llm(system, messages, max_tokens=1024)
 
         if not result:
             return None
