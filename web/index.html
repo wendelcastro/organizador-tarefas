@@ -7406,14 +7406,33 @@ async function loadUserProfile() {
       .from('perfis_usuario')
       .select('role, nome')
       .eq('user_id', currentUser.id)
-      .single();
-    if (!error && data) {
+      .maybeSingle();
+
+    if (error) {
+      // Se a tabela não existe (migration 016 não rodou), loga mensagem clara
+      if (error.code === '42P01' || /does not exist/i.test(error.message || '')) {
+        console.warn('[perfil] Tabela perfis_usuario não existe. Rode a migration 016_perfis_usuario.sql no Supabase.');
+      } else {
+        console.warn('[perfil] Erro ao carregar:', error);
+      }
+      userProfile = { role: 'user' };
+      return;
+    }
+
+    if (data) {
       userProfile = data;
+      console.log('[perfil] Carregado:', userProfile);
     } else {
-      userProfile = { role: 'user' }; // fallback
+      // Perfil não existe ainda — tentar criar agora
+      console.warn('[perfil] Perfil ainda não existe. Criando...');
+      const { error: insertErr } = await sb
+        .from('perfis_usuario')
+        .insert({ user_id: currentUser.id, role: 'user' });
+      if (insertErr) console.warn('[perfil] Erro ao criar perfil:', insertErr);
+      userProfile = { role: 'user' };
     }
   } catch(e) {
-    console.warn('Erro ao carregar perfil:', e);
+    console.warn('[perfil] Exceção:', e);
     userProfile = { role: 'user' };
   }
 }
