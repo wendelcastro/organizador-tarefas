@@ -171,11 +171,28 @@ def clear_state(context):
 
 # ========== SUPABASE HELPERS ==========
 
-def supabase_request(method, endpoint, data=None, params=None, extra_headers=None):
-    """Faz requisicao HTTP para a API REST do Supabase."""
+def supabase_request(method, endpoint, data=None, params=None, extra_headers=None, user_id=None):
+    """Faz requisicao HTTP para a API REST do Supabase.
+
+    user_id: UUID do usuario Supabase Auth a ser usado no insert/update.
+             Se None, usa BOT_USER_ID (fallback para o dono original).
+
+    Para GET em tabelas multi-usuario, injeta filtro user_id=eq.{current_user_id()}
+    automaticamente se nao houver filtro ja definido.
+    """
+    # Extrair nome da tabela (antes de qualquer query string)
+    table_name = endpoint.split("?")[0].strip("/")
+    params = dict(params) if params else {}
+
+    # Injetar filtro user_id em queries GET para tabelas multi-usuario
+    if method == "GET" and table_name in _TABELAS_POR_USUARIO:
+        uid_filter = current_user_id()
+        if uid_filter and "user_id" not in params and "user_id=" not in endpoint:
+            params["user_id"] = f"eq.{uid_filter}"
+
     url = f"{SUPABASE_URL}/rest/v1/{endpoint}"
     if params:
-        url += "?" + "&".join(f"{k}={v}" for k, v in params.items())
+        url += ("&" if "?" in url else "?") + "&".join(f"{k}={v}" for k, v in params.items())
 
     headers = {
         "apikey": SUPABASE_KEY,
@@ -187,9 +204,10 @@ def supabase_request(method, endpoint, data=None, params=None, extra_headers=Non
         headers.update(extra_headers)
 
     # Injetar user_id em inserts e updates (service_role não tem auth.uid())
-    if data and BOT_USER_ID and method in ("POST", "PATCH"):
+    uid = user_id or BOT_USER_ID
+    if data and uid and method in ("POST", "PATCH"):
         if isinstance(data, dict) and "user_id" not in data:
-            data["user_id"] = BOT_USER_ID
+            data["user_id"] = uid
 
     body = json.dumps(data).encode("utf-8") if data else None
     req = Request(url, data=body, headers=headers, method=method)
@@ -202,10 +220,147 @@ def supabase_request(method, endpoint, data=None, params=None, extra_headers=Non
         return None
 
 
+# ========== MULTI-USUARIO: MAPEAMENTO CHAT ↔ USER ==========
+_user_cache = {}  # chat_id -> user_id (em memoria)
+
+# Contexto por request (setado no handle_text ou antes de cada comando)
+_current_user_id = {"uid": None}
+
+def set_current_user(uid):
+    """Define o usuario ativo para o request atual."""
+    _current_user_id["uid"] = uid
+
+def current_user_id():
+    """Retorna o user_id ativo do request atual (ou BOT_USER_ID como fallback)."""
+    return _current_user_id.get("uid") or BOT_USER_ID
+
+
+# Tabelas onde precisa injetar filtro user_id automaticamente em GETs
+_TABELAS_POR_USUARIO = {
+    "tarefas", "transacoes", "orcamento_mensal", "metas_financeiras",
+    "anexos", "subtarefas", "energia_diaria", "reflexoes",
+    "historico", "historico_semanal", "xp_log", "gamificacao",
+    "eventos_calendario", "contexto_ia",
+}
+
+
+def require_linked_user(handler):
+    """Decorator que resolve user_id do chat antes de chamar o handler.
+    Se o usuario nao tem vinculo, pede para vincular."""
+    async def wrapper(update, context):
+        chat_id = update.effective_chat.id if update.effective_chat else None
+        uid = get_user_id_from_chat(chat_id)
+        if not uid:
+            await update.message.reply_text(
+                "🔗 *Voce ainda nao vinculou sua conta.*\n\n"
+                "Crie conta no dashboard e use `/vincular <codigo>`.\n"
+                "https://wendelcastro.github.io/organizador-tarefas/web/",
+                parse_mode="Markdown", disable_web_page_preview=True,
+            )
+            return
+        set_current_user(uid)
+        context.user_data["_user_id"] = uid
+        try:
+            return await handler(update, context)
+        finally:
+            set_current_user(None)
+    return wrapper
+
+def get_user_id_from_chat(chat_id):
+    """Resolve um chat_id do Telegram para user_id do Supabase Auth.
+    Retorna None se o usuario ainda nao vinculou."""
+    if not chat_id:
+        return None
+    if chat_id in _user_cache:
+        return _user_cache[chat_id]
+
+    result = supabase_request("GET", "usuarios_bot", params={
+        "chat_id": f"eq.{chat_id}",
+        "select": "user_id,ativo",
+    })
+    if result and result[0].get("ativo") and result[0].get("user_id"):
+        uid = result[0]["user_id"]
+        _user_cache[chat_id] = uid
+        return uid
+
+    # Fallback: dono original (.env BOT_USER_ID) — so se for o chat_id original
+    if BOT_USER_ID and CHAT_ID and str(chat_id) == str(CHAT_ID):
+        _user_cache[chat_id] = BOT_USER_ID
+        return BOT_USER_ID
+    return None
+
+
+def get_user_from_update(update):
+    """Extrai user_id do Supabase a partir de um Update do Telegram."""
+    try:
+        if update.effective_chat:
+            return get_user_id_from_chat(update.effective_chat.id)
+    except Exception:
+        pass
+    return None
+
+
+def vincular_chat_a_usuario(chat_id, codigo, nome=None):
+    """Valida um codigo de vinculacao e liga chat_id ao user_id correspondente.
+    Retorna (sucesso, user_id ou mensagem_erro)."""
+    if not codigo or len(codigo.strip()) < 4:
+        return False, "Codigo invalido."
+
+    # Buscar codigo nao usado e nao expirado
+    result = supabase_request("GET", "codigos_vinculacao", params={
+        "codigo": f"eq.{codigo.strip()}",
+        "usado": "eq.false",
+        "select": "user_id,expira_em",
+    })
+    if not result:
+        return False, "Codigo nao encontrado ou ja usado."
+
+    entry = result[0]
+    # Verificar expiracao
+    try:
+        expira = datetime.fromisoformat(entry["expira_em"].replace("Z", "+00:00"))
+        if datetime.now(expira.tzinfo) > expira:
+            return False, "Codigo expirado. Gere outro no dashboard."
+    except Exception:
+        pass
+
+    user_id = entry["user_id"]
+
+    # Upsert no mapeamento (se chat_id ja existir, atualiza user_id)
+    existing = supabase_request("GET", "usuarios_bot", params={
+        "chat_id": f"eq.{chat_id}",
+        "select": "chat_id",
+    })
+    if existing:
+        supabase_request("PATCH", f"usuarios_bot?chat_id=eq.{chat_id}", {
+            "user_id": user_id,
+            "nome": nome or "",
+            "ativo": True,
+            "updated_at": datetime.now(TZ_RECIFE).isoformat(),
+        })
+    else:
+        supabase_request("POST", "usuarios_bot", {
+            "chat_id": chat_id,
+            "user_id": user_id,
+            "nome": nome or "",
+            "ativo": True,
+        })
+
+    # Marcar codigo como usado
+    supabase_request("PATCH", f"codigos_vinculacao?codigo=eq.{codigo.strip()}", {
+        "usado": True,
+    })
+
+    # Atualizar cache
+    _user_cache[chat_id] = user_id
+    return True, user_id
+
+
 def criar_tarefa(titulo, categoria="Pessoal", prioridade="media", prazo=None,
                  horario=None, meeting_link=None, meeting_platform=None,
                  notas="", tempo_estimado=None, delegado_para=None,
-                 recorrencia=None, recorrencia_dia=None, status="pendente"):
+                 recorrencia=None, recorrencia_dia=None, status="pendente",
+                 user_id=None):
     """Cria uma tarefa no Supabase."""
     tarefa = {
         "titulo": titulo,
@@ -239,12 +394,12 @@ def criar_tarefa(titulo, categoria="Pessoal", prioridade="media", prazo=None,
         elif "teams" in meeting_link:
             tarefa["meeting_platform"] = "teams"
 
-    result = supabase_request("POST", "tarefas", tarefa)
+    result = supabase_request("POST", "tarefas", tarefa, user_id=user_id)
     if not result:
         # Tentar sem campos novos (caso migration 003 nao tenha rodado)
         for campo in ["tempo_estimado_min", "delegado_para", "recorrencia", "recorrencia_dia"]:
             tarefa.pop(campo, None)
-        result = supabase_request("POST", "tarefas", tarefa)
+        result = supabase_request("POST", "tarefas", tarefa, user_id=user_id)
     return result[0] if result else None
 
 
@@ -781,7 +936,7 @@ async def processar_nova_tarefa(update, context, texto):
             await update.message.reply_text("❌ Erro ao criar tarefa.")
 
 
-def _salvar_tarefa_e_contexto(tarefa_data):
+def _salvar_tarefa_e_contexto(tarefa_data, user_id=None):
     """Salva tarefa no Supabase e extrai contexto para memoria.
 
     Retorna tupla (tarefa, google_calendar_ok) onde google_calendar_ok indica
@@ -809,6 +964,7 @@ def _salvar_tarefa_e_contexto(tarefa_data):
         recorrencia=tarefa_data.get("recorrencia"),
         recorrencia_dia=tarefa_data.get("recorrencia_dia"),
         status=tarefa_data.get("status", "pendente"),
+        user_id=user_id,
     )
 
     # Salvar contexto aprendido
@@ -886,7 +1042,8 @@ async def processar_confirmacao(update, context, texto):
     else:
         tarefa_data = pending
 
-    tarefa, gcal_ok = _salvar_tarefa_e_contexto(tarefa_data)
+    uid = context.user_data.get("_user_id")
+    tarefa, gcal_ok = _salvar_tarefa_e_contexto(tarefa_data, user_id=uid)
     # Criar cópias para a semana se for diária
     copias = _criar_copias_recorrencia_semanal(tarefa_data) if tarefa else []
     clear_state(context)
@@ -920,8 +1077,9 @@ async def processar_confirmacao_multi(update, context, texto):
         salvas = 0
         gcal_count = 0
         total_copias = 0
+        uid = context.user_data.get("_user_id")
         for t in pending_tasks:
-            tarefa, gcal_ok = _salvar_tarefa_e_contexto(t)
+            tarefa, gcal_ok = _salvar_tarefa_e_contexto(t, user_id=uid)
             if tarefa:
                 salvas += 1
                 if gcal_ok:
@@ -1344,6 +1502,56 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode="Markdown",
         disable_web_page_preview=True,
     )
+
+
+async def cmd_vincular(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Vincular chat do Telegram a uma conta do dashboard via codigo."""
+    chat_id = update.effective_chat.id
+    args = context.args
+    nome = update.effective_user.first_name if update.effective_user else ""
+
+    if not args:
+        # Verificar se ja esta vinculado
+        user_id = get_user_id_from_chat(chat_id)
+        if user_id:
+            await update.message.reply_text(
+                "✅ *Sua conta ja esta vinculada!*\n\n"
+                "Se precisar trocar de conta, gere um novo codigo no dashboard "
+                "e mande `/vincular <codigo>`.",
+                parse_mode="Markdown",
+            )
+            return
+
+        await update.message.reply_text(
+            "🔗 *Vincular sua conta*\n\n"
+            "1. Abra o dashboard: https://wendelcastro.github.io/organizador-tarefas/web/\n"
+            "2. Faça login com seu email\n"
+            "3. Clique em *Vincular Telegram* e copie o codigo de 6 digitos\n"
+            "4. Mande aqui: `/vincular 123456`\n\n"
+            "O codigo expira em 15 minutos.",
+            parse_mode="Markdown",
+            disable_web_page_preview=True,
+        )
+        return
+
+    codigo = args[0].strip().upper()
+    sucesso, resultado = vincular_chat_a_usuario(chat_id, codigo, nome)
+
+    if sucesso:
+        await update.message.reply_text(
+            f"🎉 *Conta vinculada com sucesso, {nome}!*\n\n"
+            "Agora tudo que voce mandar aqui vai para a sua conta.\n\n"
+            "Comandos principais:\n"
+            "• Digite uma tarefa (ex: \"reunião amanhã 14h\")\n"
+            "• /tarefas - ver tarefas pendentes\n"
+            "• /gasto 50 almoço - registrar gasto\n"
+            "• /receita 8000 salário - registrar receita\n"
+            "• /saldo - ver saldo financeiro\n"
+            "• /planejar - planejamento do dia\n",
+            parse_mode="Markdown",
+        )
+    else:
+        await update.message.reply_text(f"❌ {resultado}")
 
 
 async def cmd_tarefas(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -2161,7 +2369,8 @@ STATE_CONFIRMING_TRANSACAO = "confirming_transacao"
 
 def criar_transacao(tipo, valor, descricao, categoria, data=None, recorrente=False,
                     recorrencia=None, dia_vencimento=None, notas="",
-                    pessoa="pf", status="pago", pagador=None, data_prevista=None):
+                    pessoa="pf", status="pago", pagador=None, data_prevista=None,
+                    user_id=None):
     """Cria uma transação financeira no Supabase."""
     transacao = {
         "tipo": tipo,
@@ -2181,12 +2390,12 @@ def criar_transacao(tipo, valor, descricao, categoria, data=None, recorrente=Fal
         transacao["pagador"] = pagador
     if data_prevista:
         transacao["data_prevista"] = data_prevista
-    result = supabase_request("POST", "transacoes", transacao)
+    result = supabase_request("POST", "transacoes", transacao, user_id=user_id)
     if not result:
         # Fallback: tentar sem campos novos (caso migration 013 não tenha rodado)
         for campo in ["pessoa", "status", "pagador", "data_prevista"]:
             transacao.pop(campo, None)
-        result = supabase_request("POST", "transacoes", transacao)
+        result = supabase_request("POST", "transacoes", transacao, user_id=user_id)
     return result[0] if result else None
 
 
@@ -2270,6 +2479,17 @@ def formatar_transacao_card(t):
 
 async def _processar_texto_financeiro(update, context, texto, forcar_tipo=None):
     """Processa texto como transação(ões) financeira(s). Suporta múltiplas."""
+    # Multi-usuário: resolver user_id
+    chat_id = update.effective_chat.id if update.effective_chat else None
+    uid = get_user_id_from_chat(chat_id)
+    if not uid:
+        await update.message.reply_text(
+            "🔗 Vincule sua conta primeiro com `/vincular <codigo>`",
+            parse_mode="Markdown",
+        )
+        return
+    context.user_data["_user_id"] = uid
+
     if ai_brain:
         msg_loading = await update.message.reply_text("💰 Analisando transações...")
         resultado = ai_brain.classificar_transacao(texto)
@@ -2574,6 +2794,7 @@ async def processar_confirmacao_transacao(update, context, texto):
         salvas = 0
         erros = 0
         cards = []
+        uid = context.user_data.get("_user_id")
         for t in pending_list:
             transacao = criar_transacao(
                 tipo=t.get("tipo", "despesa"),
@@ -2588,6 +2809,7 @@ async def processar_confirmacao_transacao(update, context, texto):
                 status=t.get("status", "pago"),
                 pagador=t.get("pagador"),
                 data_prevista=t.get("data_prevista"),
+                user_id=uid,
             )
             if transacao:
                 salvas += 1
@@ -2686,6 +2908,20 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     texto = update.message.text.strip()
     if not texto:
         return
+
+    # MULTI-USUARIO: resolver user_id e guardar no contexto
+    chat_id = update.effective_chat.id if update.effective_chat else None
+    user_id = get_user_id_from_chat(chat_id)
+    if not user_id:
+        await update.message.reply_text(
+            "🔗 *Voce ainda nao vinculou sua conta.*\n\n"
+            "Crie conta no dashboard e use `/vincular <codigo>` para começar.\n"
+            "https://wendelcastro.github.io/organizador-tarefas/web/",
+            parse_mode="Markdown", disable_web_page_preview=True,
+        )
+        return
+    context.user_data["_user_id"] = user_id
+    set_current_user(user_id)
 
     state = get_state(context)
 
@@ -3256,6 +3492,7 @@ async def setup_commands(app):
     """Configura comandos no menu do Telegram."""
     commands = [
         BotCommand("start", "Iniciar o bot"),
+        BotCommand("vincular", "Vincular sua conta"),
         BotCommand("tarefas", "Ver tarefas pendentes"),
         BotCommand("planejar", "Planejamento inteligente"),
         BotCommand("feedback", "Feedback do dia"),
@@ -3461,36 +3698,40 @@ def main():
     app = ApplicationBuilder().token(TELEGRAM_TOKEN).post_init(post_init).build()
 
     # Handlers
+    # Comandos abertos (nao exigem vinculacao)
     app.add_handler(CommandHandler("start", cmd_start))
-    app.add_handler(CommandHandler("tarefas", cmd_tarefas))
-    app.add_handler(CommandHandler("planejar", cmd_planejar))
-    app.add_handler(CommandHandler("feedback", cmd_feedback))
-    app.add_handler(CommandHandler("resumo", cmd_resumo))
-    app.add_handler(CommandHandler("concluir", cmd_concluir))
-    app.add_handler(CommandHandler("editar", cmd_editar))
-    app.add_handler(CommandHandler("relatorio", cmd_relatorio))
-    app.add_handler(CommandHandler("decompor", cmd_decompor))
-    app.add_handler(CommandHandler("energia", cmd_energia))
-    app.add_handler(CommandHandler("coaching", cmd_coaching))
-    app.add_handler(CommandHandler("foco", cmd_foco))
-    app.add_handler(CommandHandler("buscar", cmd_buscar))
-    app.add_handler(CommandHandler("anexar", cmd_anexar))
-    app.add_handler(CommandHandler("excluir", cmd_excluir))
-    app.add_handler(CommandHandler("limpar", cmd_limpar))
+    app.add_handler(CommandHandler("vincular", cmd_vincular))
     app.add_handler(CommandHandler("cancelar", cmd_cancelar))
     app.add_handler(CommandHandler("status", cmd_status))
-    app.add_handler(CommandHandler("conectar_google", cmd_conectar_google))
-    app.add_handler(CommandHandler("conectar_microsoft", cmd_conectar_microsoft))
-    app.add_handler(CommandHandler("desconectar", cmd_desconectar))
-    app.add_handler(CommandHandler("gasto", cmd_gasto))
-    app.add_handler(CommandHandler("receita", cmd_receita))
-    app.add_handler(CommandHandler("saldo", cmd_saldo))
-    app.add_handler(CommandHandler("extrato", cmd_extrato))
-    app.add_handler(CommandHandler("orcamento", cmd_orcamento))
-    app.add_handler(CommandHandler("financeiro", cmd_financeiro))
-    app.add_handler(CommandHandler("recebido", cmd_recebido))
-    app.add_handler(CommandHandler("agenda", cmd_agenda))
-    app.add_handler(CommandHandler("sync", cmd_sync))
+
+    # Comandos que exigem vinculacao (wrap com require_linked_user)
+    app.add_handler(CommandHandler("tarefas", require_linked_user(cmd_tarefas)))
+    app.add_handler(CommandHandler("planejar", require_linked_user(cmd_planejar)))
+    app.add_handler(CommandHandler("feedback", require_linked_user(cmd_feedback)))
+    app.add_handler(CommandHandler("resumo", require_linked_user(cmd_resumo)))
+    app.add_handler(CommandHandler("concluir", require_linked_user(cmd_concluir)))
+    app.add_handler(CommandHandler("editar", require_linked_user(cmd_editar)))
+    app.add_handler(CommandHandler("relatorio", require_linked_user(cmd_relatorio)))
+    app.add_handler(CommandHandler("decompor", require_linked_user(cmd_decompor)))
+    app.add_handler(CommandHandler("energia", require_linked_user(cmd_energia)))
+    app.add_handler(CommandHandler("coaching", require_linked_user(cmd_coaching)))
+    app.add_handler(CommandHandler("foco", require_linked_user(cmd_foco)))
+    app.add_handler(CommandHandler("buscar", require_linked_user(cmd_buscar)))
+    app.add_handler(CommandHandler("anexar", require_linked_user(cmd_anexar)))
+    app.add_handler(CommandHandler("excluir", require_linked_user(cmd_excluir)))
+    app.add_handler(CommandHandler("limpar", require_linked_user(cmd_limpar)))
+    app.add_handler(CommandHandler("conectar_google", require_linked_user(cmd_conectar_google)))
+    app.add_handler(CommandHandler("conectar_microsoft", require_linked_user(cmd_conectar_microsoft)))
+    app.add_handler(CommandHandler("desconectar", require_linked_user(cmd_desconectar)))
+    app.add_handler(CommandHandler("gasto", require_linked_user(cmd_gasto)))
+    app.add_handler(CommandHandler("receita", require_linked_user(cmd_receita)))
+    app.add_handler(CommandHandler("saldo", require_linked_user(cmd_saldo)))
+    app.add_handler(CommandHandler("extrato", require_linked_user(cmd_extrato)))
+    app.add_handler(CommandHandler("orcamento", require_linked_user(cmd_orcamento)))
+    app.add_handler(CommandHandler("financeiro", require_linked_user(cmd_financeiro)))
+    app.add_handler(CommandHandler("recebido", require_linked_user(cmd_recebido)))
+    app.add_handler(CommandHandler("agenda", require_linked_user(cmd_agenda)))
+    app.add_handler(CommandHandler("sync", require_linked_user(cmd_sync)))
     app.add_handler(CallbackQueryHandler(handle_callback))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
     app.add_handler(MessageHandler(filters.VOICE | filters.AUDIO, handle_voice))

@@ -3338,6 +3338,9 @@ body::after {
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         <span class="btn-add-text">Nova tarefa</span>
       </button>
+      <button class="btn-logout" onclick="vincularTelegram()" title="Vincular Telegram" style="border-color:hsla(200,90%,60%,0.4);color:#4FC3F7">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21.5 2l-19 8 6 3 3 6 10-17z"/></svg>
+      </button>
       <button class="btn-logout" onclick="handleLogout()" title="Sair">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
       </button>
@@ -3960,6 +3963,64 @@ async function handleLogout() {
   tasks = [];
   calendarEvents = [];
   showAuthScreen();
+}
+
+// ========== VINCULAR TELEGRAM ==========
+async function vincularTelegram() {
+  if (!currentUser) { alert('Faça login primeiro.'); return; }
+
+  // Gerar código de 6 dígitos
+  const codigo = Math.random().toString(36).substring(2, 8).toUpperCase();
+
+  try {
+    const headers = await getAuthHeaders();
+    headers['Content-Type'] = 'application/json';
+    headers['Prefer'] = 'return=representation';
+
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/codigos_vinculacao`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        codigo,
+        user_id: currentUser.id,
+      }),
+    });
+
+    if (!res.ok) {
+      const err = await res.text();
+      alert('Erro ao gerar código: ' + err);
+      return;
+    }
+
+    // Mostrar modal com o código
+    const html = `
+      <div style="position:fixed;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;z-index:9999" onclick="this.remove()">
+        <div style="background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:var(--radius);padding:2rem;max-width:420px;width:90%;text-align:center" onclick="event.stopPropagation()">
+          <div style="font-size:2.5rem;margin-bottom:0.5rem">🔗</div>
+          <h2 style="font-family:'Cormorant Garamond',serif;font-size:1.5rem;color:var(--text-primary);margin-bottom:0.5rem">Vincular Telegram</h2>
+          <p style="font-size:0.85rem;color:var(--text-secondary);margin-bottom:1.2rem">Copie o código abaixo e envie no bot do Telegram</p>
+
+          <div style="background:var(--bg-glass);border:1px dashed var(--amber);border-radius:0.75rem;padding:1rem;margin-bottom:1.2rem">
+            <div style="font-family:monospace;font-size:2rem;font-weight:700;color:var(--amber);letter-spacing:0.3em">${codigo}</div>
+            <div style="font-size:0.7rem;color:var(--text-muted);margin-top:0.3rem">Expira em 15 minutos</div>
+          </div>
+
+          <div style="text-align:left;font-size:0.82rem;color:var(--text-secondary);line-height:1.6;margin-bottom:1.2rem">
+            <strong style="color:var(--amber)">Passo a passo:</strong><br>
+            1. Abra o bot no Telegram<br>
+            2. Digite: <code style="background:var(--bg-glass);padding:2px 6px;border-radius:4px;color:var(--amber)">/vincular ${codigo}</code><br>
+            3. Pronto! Suas mensagens vão para esta conta
+          </div>
+
+          <button onclick="navigator.clipboard.writeText('/vincular ${codigo}');this.textContent='✓ Copiado'" style="background:var(--amber);color:var(--bg-deep);border:none;padding:0.6rem 1.2rem;border-radius:0.6rem;font-family:inherit;font-weight:600;cursor:pointer;margin-right:0.5rem">Copiar comando</button>
+          <button onclick="this.closest('[style*=fixed]').remove()" style="background:var(--bg-glass);color:var(--text-secondary);border:1px solid var(--border-subtle);padding:0.6rem 1.2rem;border-radius:0.6rem;font-family:inherit;cursor:pointer">Fechar</button>
+        </div>
+      </div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', html);
+  } catch(e) {
+    alert('Erro: ' + e.message);
+  }
 }
 
 // Helper: get auth headers for direct fetch calls
@@ -7332,8 +7393,30 @@ function getMetasForQuarter(pilar) {
   return pilar.metas.filter(m => m.trimestre === q || m.trimestre === 'anual');
 }
 
+// Email do "dono" (metas hardcoded só aparecem para ele)
+const METAS_OWNER_EMAIL = 'wendelcastro.pe@gmail.com';
+
+function isMetasOwner() {
+  return currentUser && currentUser.email &&
+         currentUser.email.toLowerCase() === METAS_OWNER_EMAIL.toLowerCase();
+}
+
 function renderMetas() {
   const container = document.getElementById('metasView');
+
+  // Se não é o dono, mostrar empty state
+  if (!isMetasOwner()) {
+    container.innerHTML = `
+      <div class="fin-header"><h2>Metas 2026</h2></div>
+      <div class="fin-empty">
+        <div style="font-size:2.5rem;margin-bottom:0.5rem">🎯</div>
+        <strong>Em breve</strong>
+        <p>Metas pessoais configuráveis estarão disponíveis em breve.<br>
+        Por enquanto, foco nas tarefas e finanças!</p>
+      </div>`;
+    return;
+  }
+
   const currentQ = getCurrentQuarter();
 
   // Calcular stats de todos os pilares
