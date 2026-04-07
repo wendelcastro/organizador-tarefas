@@ -1617,7 +1617,7 @@ Responda APENAS com a dica em texto puro, sem formatacao markdown."""
             {"role": "user", "content": f"Tarefas atuais:\n{tarefas_json}{historico_ctx}\n\nDe uma dica personalizada de produtividade."}
         ]
 
-        result = self._call_llm(system, messages, max_tokens=200)
+        result = self._call_llm(system, messages, max_tokens=1024)
         return result.strip() if result else "Continue focando nas prioridades do dia. Voce esta no caminho certo!"
 
     # ========== TRIAGEM: TAREFA vs FINANÇA ==========

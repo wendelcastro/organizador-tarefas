@@ -845,48 +845,10 @@ def _salvar_tarefa_e_contexto(tarefa_data):
 
 
 def _criar_copias_recorrencia_semanal(tarefa_data):
-    """Para tarefas diárias, cria cópias para o restante da semana atual."""
-    rec = tarefa_data.get("recorrencia")
-    if rec != "diaria":
-        return []
-
-    hoje = datetime.now(TZ_RECIFE)
-    prazo_str = tarefa_data.get("prazo") or hoje.strftime("%Y-%m-%d")
-
-    try:
-        prazo_base = datetime.strptime(prazo_str, "%Y-%m-%d")
-    except ValueError:
-        prazo_base = hoje
-
-    copias_criadas = []
-    cat = tarefa_data.get("categoria", "Pessoal")
-    # Para categorias de trabalho, apenas dias úteis (seg-sex). Para pessoal, todos os dias.
-    max_dia = 4 if cat in ("Trabalho", "Consultoria", "Grupo Ser") else 6
-
-    for offset in range(1, 7):
-        dia = prazo_base + timedelta(days=offset)
-        # Não ultrapassar o final da semana (domingo)
-        if dia.weekday() > max_dia:
-            continue
-        # Não criar se mesma data que a base
-        if dia.strftime("%Y-%m-%d") == prazo_str:
-            continue
-        # Não criar datas passadas
-        if dia.date() < hoje.date():
-            continue
-
-        tarefa = criar_tarefa(
-            titulo=tarefa_data.get("titulo", "Tarefa"),
-            categoria=tarefa_data.get("categoria", "Pessoal"),
-            prioridade=tarefa_data.get("prioridade", "media"),
-            prazo=dia.strftime("%Y-%m-%d"),
-            horario=tarefa_data.get("horario"),
-            tempo_estimado=tarefa_data.get("tempo_estimado_min"),
-        )
-        if tarefa:
-            copias_criadas.append(tarefa)
-
-    return copias_criadas
+    """Desativado: tarefas recorrentes diárias agora usam apenas a tarefa original
+    com recorrencia='diaria'. A próxima instância é criada via _recriar_recorrente
+    quando a tarefa atual é concluída. Isso evita duplicatas no banco."""
+    return []
 
 
 async def processar_confirmacao(update, context, texto):
