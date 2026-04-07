@@ -3866,9 +3866,11 @@ sb.auth.onAuthStateChange((event, session) => {
   }
 });
 
-function showApp() {
+async function showApp() {
   document.getElementById('authScreen').classList.add('hidden');
   document.getElementById('mainApp').classList.remove('auth-hidden');
+  // Carregar perfil (role) antes de inicializar o app
+  await loadUserProfile();
   if (!appInitialized) {
     appInitialized = true;
     initApp();
@@ -3959,6 +3961,7 @@ async function handleLogout() {
   if (!confirm('Deseja sair da sua conta?')) return;
   await sb.auth.signOut();
   currentUser = null;
+  userProfile = null;
   appInitialized = false;
   tasks = [];
   calendarEvents = [];
@@ -7393,12 +7396,30 @@ function getMetasForQuarter(pilar) {
   return pilar.metas.filter(m => m.trimestre === q || m.trimestre === 'anual');
 }
 
-// Email do "dono" (metas hardcoded só aparecem para ele)
-const METAS_OWNER_EMAIL = 'wendelcastro.pe@gmail.com';
+// Perfil do usuário atual (carregado após login)
+let userProfile = null;
+
+async function loadUserProfile() {
+  if (!currentUser) { userProfile = null; return; }
+  try {
+    const { data, error } = await sb
+      .from('perfis_usuario')
+      .select('role, nome')
+      .eq('user_id', currentUser.id)
+      .single();
+    if (!error && data) {
+      userProfile = data;
+    } else {
+      userProfile = { role: 'user' }; // fallback
+    }
+  } catch(e) {
+    console.warn('Erro ao carregar perfil:', e);
+    userProfile = { role: 'user' };
+  }
+}
 
 function isMetasOwner() {
-  return currentUser && currentUser.email &&
-         currentUser.email.toLowerCase() === METAS_OWNER_EMAIL.toLowerCase();
+  return userProfile && userProfile.role === 'owner';
 }
 
 function renderMetas() {
