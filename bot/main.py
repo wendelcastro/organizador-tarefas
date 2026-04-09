@@ -382,6 +382,9 @@ def criar_tarefa(titulo, categoria="Pessoal", prioridade="media", prazo=None,
         tarefa["delegado_para"] = delegado_para
     if recorrencia:
         tarefa["recorrencia"] = recorrencia
+        # Tarefas diárias viram hábitos (UX de "feito hoje" em vez de concluir)
+        if recorrencia == "diaria":
+            tarefa["eh_habito"] = True
     if recorrencia_dia is not None:
         tarefa["recorrencia_dia"] = recorrencia_dia
 
@@ -396,8 +399,8 @@ def criar_tarefa(titulo, categoria="Pessoal", prioridade="media", prazo=None,
 
     result = supabase_request("POST", "tarefas", tarefa, user_id=user_id)
     if not result:
-        # Tentar sem campos novos (caso migration 003 nao tenha rodado)
-        for campo in ["tempo_estimado_min", "delegado_para", "recorrencia", "recorrencia_dia"]:
+        # Tentar sem campos novos (caso migrations mais recentes nao tenham rodado)
+        for campo in ["tempo_estimado_min", "delegado_para", "recorrencia", "recorrencia_dia", "eh_habito"]:
             tarefa.pop(campo, None)
         result = supabase_request("POST", "tarefas", tarefa, user_id=user_id)
     return result[0] if result else None
@@ -551,7 +554,31 @@ def obter_resumo():
 
 
 def concluir_tarefa_por_id(task_id):
-    """Conclui tarefa por ID e retorna a tarefa."""
+    """Conclui tarefa por ID e retorna a tarefa.
+
+    Se a tarefa for hábito (eh_habito=true), não muda o status — apenas
+    grava uma entrada em tarefas_diarias_log para o dia de hoje. Assim
+    o hábito continua vivo amanhã.
+    """
+    # Verifica se é hábito
+    tarefa = supabase_request("GET", "tarefas", params={
+        "id": f"eq.{task_id}",
+        "select": "id,titulo,eh_habito,recorrencia",
+    })
+    tarefa = tarefa[0] if tarefa else None
+
+    if tarefa and tarefa.get("eh_habito"):
+        hoje = datetime.now(TZ_RECIFE).strftime("%Y-%m-%d")
+        uid = current_user_id()
+        # upsert via merge-duplicates
+        supabase_request("POST", "tarefas_diarias_log", {
+            "tarefa_id": task_id,
+            "user_id": uid,
+            "data": hoje,
+        })
+        # Retorna tarefa original (sem alterar status)
+        return tarefa
+
     result = supabase_request("PATCH", f"tarefas?id=eq.{task_id}", {
         "status": "concluida"
     })
@@ -3141,6 +3168,20 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
+    # MULTI-USUARIO: resolver user_id antes de processar áudio
+    chat_id = update.effective_chat.id if update.effective_chat else None
+    user_id = get_user_id_from_chat(chat_id)
+    if not user_id:
+        await update.message.reply_text(
+            "🔗 *Voce ainda nao vinculou sua conta.*\n\n"
+            "Crie conta no dashboard e use `/vincular <codigo>` para começar.\n"
+            "https://wendelcastro.github.io/organizador-tarefas/web/",
+            parse_mode="Markdown", disable_web_page_preview=True,
+        )
+        return
+    context.user_data["_user_id"] = user_id
+    set_current_user(user_id)
+
     msg = await update.message.reply_text("🎤 Transcrevendo áudio...")
 
     try:
@@ -3163,6 +3204,8 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         logger.error(f"Erro no handler de voz: {e}")
         await msg.edit_text("❌ Erro ao processar áudio.")
+    finally:
+        set_current_user(None)
 
 
 # ========== CONFIRMACAO DE DECOMPOSICAO ==========
