@@ -1,12 +1,34 @@
 """
 Seed: Insere tarefas de exemplo no Supabase.
 Rode: python supabase/seed.py
+
+Requer variáveis de ambiente em .env (na raiz do projeto ou em bot/):
+  SUPABASE_URL=https://seu-projeto.supabase.co
+  SUPABASE_ANON_KEY=...  (ou SUPABASE_SERVICE_KEY para bypass de RLS)
 """
+import os
+import sys
 import urllib.request
 import json
+from pathlib import Path
 
-SUPABASE_URL = "https://vhfuthaqonzuasgpbcrg.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZoZnV0aGFxb256dWFzZ3BiY3JnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2ODk4OTgsImV4cCI6MjA4OTI2NTg5OH0.uJgJL-qrJtPqGUCWMO3e1a1JwudGvfUab4FxNC8SsBM"
+# Carrega .env (tenta raiz e pasta bot/)
+try:
+    from dotenv import load_dotenv
+    for candidate in (Path(__file__).resolve().parent.parent / ".env",
+                      Path(__file__).resolve().parent.parent / "bot" / ".env"):
+        if candidate.exists():
+            load_dotenv(candidate)
+            break
+except ImportError:
+    pass  # dotenv é opcional — também aceita variáveis já exportadas
+
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_KEY") or os.getenv("SUPABASE_ANON_KEY")
+
+if not SUPABASE_URL or not SUPABASE_KEY:
+    print("ERRO: Defina SUPABASE_URL e SUPABASE_ANON_KEY (ou SUPABASE_SERVICE_KEY) no .env")
+    sys.exit(1)
 
 tarefas = [
     {"titulo": "Preparar aula de IA - Modulo 3", "categoria": "Trabalho", "prioridade": "alta", "status": "pendente", "prazo": "2026-03-18", "horario": "08:00", "origem": "telegram"},
