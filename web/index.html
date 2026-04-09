@@ -3459,6 +3459,7 @@ body::after {
             <div class="sort-option" data-sort="priority" onclick="changeSort('priority')">🔴 Prioridade</div>
           </div>
         </div>
+        <button class="bulk-toggle-btn" id="rangeToggleBtn" onclick="toggleRangeDays()" title="Alternar entre 30 dias e tudo"><span id="rangeLabel">📅 30 dias</span></button>
         <button class="bulk-toggle-btn" id="bulkToggleBtn" onclick="toggleBulkMode()" title="Selecionar várias tarefas">☑ Selecionar</button>
       </div>
       <div class="task-list" id="taskList"></div>
@@ -4076,6 +4077,9 @@ let calendarConnections = { google: false, microsoft: false };
 let currentFilters = { category: 'all', priority: 'all', status: 'all', _special: null };
 let currentSort = 'smart'; // smart | newest | oldest | deadline_asc | deadline_desc | priority
 let statsScope = 'week'; // week | all
+// Em "Todas", por default mostramos só os últimos 30 dias para não poluir.
+// Usuário pode alternar via botão "Ver tudo". Persistido em localStorage.
+let tasksRangeDays = Number(localStorage.getItem('tasksRangeDays') || 30); // 30 ou 0 (tudo)
 
 // ========== SUPABASE: CARREGAR EVENTOS DO CALENDARIO ==========
 async function loadCalendarEvents() {
@@ -4090,8 +4094,10 @@ async function loadCalendarEvents() {
     const endStr = end.toISOString().split('T')[0];
 
     const headers = await getAuthHeaders();
+    const uid = currentUser?.id;
+    if (!uid) { calendarEvents = []; return; }
     const res = await fetch(
-      `${SUPABASE_URL}/rest/v1/eventos_calendario?dia=gte.${startStr}&dia=lte.${endStr}&order=data_inicio.asc`,
+      `${SUPABASE_URL}/rest/v1/eventos_calendario?user_id=eq.${uid}&dia=gte.${startStr}&dia=lte.${endStr}&order=data_inicio.asc`,
       { headers }
     );
     if (res.ok) {
@@ -4107,8 +4113,10 @@ async function loadCalendarEvents() {
 async function checkCalendarConnections() {
   try {
     const headers = await getAuthHeaders();
+    const uid = currentUser?.id;
+    if (!uid) { calendarConnections = { google:false, microsoft:false }; return; }
     const res = await fetch(
-      `${SUPABASE_URL}/rest/v1/configuracoes?chave=in.(google_calendar_tokens,microsoft_calendar_tokens)`,
+      `${SUPABASE_URL}/rest/v1/configuracoes?user_id=eq.${uid}&chave=in.(google_calendar_tokens,microsoft_calendar_tokens)`,
       { headers }
     );
     if (res.ok) {
@@ -4159,10 +4167,20 @@ function renderCalendarEvent(ev) {
 
 // ========== SUPABASE: CARREGAR TAREFAS ==========
 async function loadTasks() {
-  const { data, error } = await sb
+  if (!currentUser) { tasks = []; renderTasks(); return; }
+  let q = sb
     .from('tarefas')
     .select('*')
+    .eq('user_id', currentUser.id)
     .order('created_at', { ascending: false });
+  // Filtro de janela de tempo: 30 dias por padrão em "Todas"
+  if (tasksRangeDays && tasksRangeDays > 0) {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - tasksRangeDays);
+    const cutoffStr = cutoff.toISOString();
+    q = q.or(`created_at.gte.${cutoffStr},status.neq.concluida`);
+  }
+  const { data, error } = await q;
 
   if (error) {
     console.error('Erro ao carregar tarefas:', error);
@@ -4179,13 +4197,137 @@ async function loadTasks() {
 
   renderTasks();
   renderCalendar();
+  loadHabitLog();
+}
+
+// ========== HÁBITOS (tarefas diárias com log por dia) ==========
+// habitLogToday: Set com tarefa_id dos hábitos já concluídos HOJE
+// habitStats: { tarefa_id: { streak, feitos30d } }
+let habitLogToday = new Set();
+let habitStats = {};
+
+function todayStr() {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+
+async function loadHabitLog() {
+  habitLogToday = new Set();
+  habitStats = {};
+  if (!currentUser) return;
+  try {
+    const hoje = todayStr();
+    // Conclusões de hoje
+    const { data: hojeData } = await sb.from('tarefas_diarias_log')
+      .select('tarefa_id')
+      .eq('user_id', currentUser.id)
+      .eq('data', hoje);
+    if (hojeData) hojeData.forEach(r => habitLogToday.add(String(r.tarefa_id)));
+
+    // Últimos 30 dias — para calcular streak e feitos30d
+    const dataInicio = new Date(); dataInicio.setDate(dataInicio.getDate() - 29);
+    const startStr = dataInicio.toISOString().split('T')[0];
+    const { data: mes } = await sb.from('tarefas_diarias_log')
+      .select('tarefa_id,data')
+      .eq('user_id', currentUser.id)
+      .gte('data', startStr)
+      .order('data', { ascending: false });
+    if (mes) {
+      const porTarefa = {};
+      mes.forEach(r => {
+        const k = String(r.tarefa_id);
+        if (!porTarefa[k]) porTarefa[k] = new Set();
+        porTarefa[k].add(r.data);
+      });
+      Object.keys(porTarefa).forEach(k => {
+        const datas = porTarefa[k];
+        // streak: dias consecutivos terminando em hoje ou ontem
+        let streak = 0;
+        let cursor = new Date();
+        // se não tem hoje, começa de ontem
+        if (!datas.has(cursor.toISOString().split('T')[0])) {
+          cursor.setDate(cursor.getDate() - 1);
+        }
+        while (datas.has(cursor.toISOString().split('T')[0])) {
+          streak++;
+          cursor.setDate(cursor.getDate() - 1);
+        }
+        habitStats[k] = { streak, feitos30d: datas.size };
+      });
+    }
+  } catch(e) {
+    console.warn('loadHabitLog erro:', e.message);
+  }
+}
+
+function isHabitDoneToday(tarefaId) {
+  return habitLogToday.has(String(tarefaId));
+}
+
+function getHabitStreak(tarefaId) {
+  return (habitStats[String(tarefaId)] || {}).streak || 0;
+}
+
+async function toggleHabitToday(tarefaId) {
+  if (!currentUser) return;
+  const key = String(tarefaId);
+  const hoje = todayStr();
+  const task = tasks.find(t => String(t.id) === key);
+  const jaFeito = habitLogToday.has(key);
+  // Optimistic UI
+  if (jaFeito) {
+    habitLogToday.delete(key);
+  } else {
+    habitLogToday.add(key);
+  }
+  renderTasks();
+  renderToday();
+
+  try {
+    if (jaFeito) {
+      const { error } = await sb.from('tarefas_diarias_log')
+        .delete()
+        .eq('user_id', currentUser.id)
+        .eq('tarefa_id', key)
+        .eq('data', hoje);
+      if (error) throw error;
+      // Ajusta streak local
+      if (habitStats[key]) {
+        habitStats[key].streak = Math.max(0, habitStats[key].streak - 1);
+        habitStats[key].feitos30d = Math.max(0, habitStats[key].feitos30d - 1);
+      }
+    } else {
+      const { error } = await sb.from('tarefas_diarias_log').insert({
+        tarefa_id: key,
+        user_id: currentUser.id,
+        data: hoje
+      });
+      if (error) throw error;
+      // XP e streak
+      if (task) {
+        const xp = calculateXPForTask(task);
+        await updateGamification(xp);
+      }
+      if (!habitStats[key]) habitStats[key] = { streak: 0, feitos30d: 0 };
+      habitStats[key].streak += 1;
+      habitStats[key].feitos30d += 1;
+    }
+  } catch(e) {
+    // Rollback UI
+    console.error('toggleHabitToday erro:', e);
+    if (jaFeito) habitLogToday.add(key); else habitLogToday.delete(key);
+    alert('Erro ao salvar conclusão do hábito.');
+  }
+  renderTasks();
+  renderToday();
 }
 
 // ========== SUPABASE: CRIAR TAREFA ==========
 async function createTask(taskData) {
+  if (!currentUser) { alert('Sessão expirada. Faça login novamente.'); return null; }
   const { data, error } = await sb
     .from('tarefas')
-    .insert(taskData)
+    .insert({ ...taskData, user_id: currentUser.id })
     .select()
     .single();
 
@@ -4199,10 +4341,12 @@ async function createTask(taskData) {
 
 // ========== SUPABASE: ATUALIZAR TAREFA ==========
 async function updateTask(id, updates) {
+  if (!currentUser) return false;
   const { error } = await sb
     .from('tarefas')
     .update(updates)
-    .eq('id', id);
+    .eq('id', id)
+    .eq('user_id', currentUser.id);
 
   if (error) {
     console.error('Erro ao atualizar tarefa:', error);
@@ -4213,16 +4357,18 @@ async function updateTask(id, updates) {
 
 // ========== SUPABASE: EXCLUIR TAREFA ==========
 async function removeTask(id) {
+  if (!currentUser) return false;
   try {
     // Primeiro excluir subtarefas e anexos vinculados (caso CASCADE não esteja ativo)
-    await sb.from('subtarefas').delete().eq('tarefa_id', id);
-    await sb.from('anexos').delete().eq('tarefa_id', id);
+    await sb.from('subtarefas').delete().eq('tarefa_id', id).eq('user_id', currentUser.id);
+    await sb.from('anexos').delete().eq('tarefa_id', id).eq('user_id', currentUser.id);
 
     // Excluir a tarefa
     const { error } = await sb
       .from('tarefas')
       .delete()
-      .eq('id', id);
+      .eq('id', id)
+      .eq('user_id', currentUser.id);
 
     if (error) {
       console.error('Erro ao excluir tarefa:', error.message, error.details, error.hint);
@@ -4317,6 +4463,20 @@ function changeScope(scope) {
   document.querySelectorAll('.scope-btn').forEach(el => el.classList.toggle('active', el.dataset.scope === scope));
   updateStats();
   renderTasks();
+}
+
+// Alterna janela de "Todas" entre últimos 30 dias (default) e tudo
+async function toggleRangeDays() {
+  tasksRangeDays = tasksRangeDays === 0 ? 30 : 0;
+  localStorage.setItem('tasksRangeDays', String(tasksRangeDays));
+  const lbl = document.getElementById('rangeLabel');
+  if (lbl) lbl.textContent = tasksRangeDays === 0 ? '📅 Tudo' : '📅 30 dias';
+  await loadTasks();
+}
+
+function initRangeLabel() {
+  const lbl = document.getElementById('rangeLabel');
+  if (lbl) lbl.textContent = tasksRangeDays === 0 ? '📅 Tudo' : '📅 30 dias';
 }
 
 function updateStats() {
@@ -4473,6 +4633,8 @@ function filterByStatCard(type) {
 function getFilteredTasks() {
   const scoped = getScopedTasks();
   return scoped.filter(t => {
+    // Hábitos (tarefas diárias) NÃO aparecem em "Todas" — têm view própria
+    if (t.eh_habito) return false;
     if (currentFilters.category !== 'all' && t.categoria !== currentFilters.category) return false;
     if (currentFilters.priority !== 'all' && t.prioridade !== currentFilters.priority) return false;
     if (currentFilters.status !== 'all' && t.status !== currentFilters.status) return false;
@@ -4642,6 +4804,10 @@ function getDateLabel(dateStr) {
 async function toggleTask(id) {
   const task = tasks.find(t => String(t.id) === String(id));
   if (!task) return;
+  // Hábitos usam fluxo próprio: marca/desmarca "feito hoje" sem encerrar a tarefa mãe
+  if (task.eh_habito) {
+    return toggleHabitToday(id);
+  }
   const cycle = { 'pendente': 'em_andamento', 'em_andamento': 'concluida', 'concluida': 'pendente' };
   const oldStatus = task.status;
   const newStatus = cycle[oldStatus] || 'pendente';
@@ -4717,13 +4883,43 @@ function editTask(id) {
 }
 
 // ========== CALENDAR ==========
+// Remove tarefas que já aparecem como evento do Google (mesmo título + horário).
+// Normaliza título (lowercase, trim, sem pontuação simples) e compara horário
+// em HH:MM. Se houver match, a tarefa local é ocultada — mostramos só o evento.
+function _normTitle(s) {
+  return (s || '').toString().toLowerCase().trim().replace(/[.,!?;:()\[\]"]/g,'').replace(/\s+/g,' ');
+}
+function _normTime(s) {
+  if (!s) return '';
+  const m = String(s).match(/(\d{1,2}):(\d{2})/);
+  return m ? (m[1].padStart(2,'0') + ':' + m[2]) : '';
+}
+function deduplicateTasksAgainstEvents(dayTasks, dayEvents) {
+  if (!dayEvents || dayEvents.length === 0) return dayTasks;
+  const eventKeys = new Set();
+  dayEvents.forEach(ev => {
+    const t = _normTitle(ev.titulo);
+    const h = _normTime(ev.horario_inicio);
+    eventKeys.add(t + '|' + h);
+    eventKeys.add(t); // também match por título puro (evento all-day ou sem hora)
+  });
+  return dayTasks.filter(task => {
+    const t = _normTitle(task.titulo);
+    const h = _normTime(task.horario);
+    if (eventKeys.has(t + '|' + h)) return false;
+    if (h === '' && eventKeys.has(t)) return false;
+    return true;
+  });
+}
+
 function renderCalendar() {
   const weekDays = getWeekDays();
   const container = document.getElementById('calendarWeek');
   const MAX_VISIBLE = window.innerWidth >= 1024 ? 8 : 5;
 
   container.innerHTML = weekDays.map(day => {
-    const dayTasks = tasks.filter(t => {
+    let dayTasks = tasks.filter(t => {
+      if (t.eh_habito) return false; // hábitos não poluem a view Semana
       if (t.status === 'concluida') return false;
       // Exact date match (cópias diárias já existem no banco, não expandir aqui)
       if (t.prazo === day.date) return true;
@@ -4736,6 +4932,9 @@ function renderCalendar() {
       return false;
     });
     const dayEvents = calendarEvents.filter(ev => ev.dia === day.date);
+    // DEDUP: se uma tarefa tem o mesmo titulo+horario de um evento Google,
+    // mostra só o evento (evita duplicata quando a tarefa foi sincronizada).
+    dayTasks = deduplicateTasksAgainstEvents(dayTasks, dayEvents);
     dayTasks.sort((a, b) => (a.horario || 'zz').localeCompare(b.horario || 'zz'));
     dayEvents.sort((a, b) => (a.horario_inicio || 'zz').localeCompare(b.horario_inicio || 'zz'));
     const todayClass = day.isToday ? 'today' : '';
@@ -4992,16 +5191,22 @@ let todayViewMode = 'list'; // 'list' or 'timeline'
 
 function renderToday() {
   const hoje = new Date().toISOString().split('T')[0];
-  const todayTasks = tasks.filter(t => t.prazo === hoje && t.status !== 'concluida');
-  const todayDone = tasks.filter(t => t.prazo === hoje && t.status === 'concluida');
-  const overdue = tasks.filter(t => t.prazo && t.prazo < hoje && t.status !== 'concluida');
+  // Tarefas normais (não hábitos) agendadas para hoje
+  const todayTasks = tasks.filter(t => !t.eh_habito && t.prazo === hoje && t.status !== 'concluida');
+  const todayDone = tasks.filter(t => !t.eh_habito && t.prazo === hoje && t.status === 'concluida');
+  const overdue = tasks.filter(t => !t.eh_habito && t.prazo && t.prazo < hoje && t.status !== 'concluida');
+  // Hábitos pendentes de hoje (ainda não marcados)
+  const habitsPending = tasks.filter(t => t.eh_habito && !isHabitDoneToday(t.id));
+  const habitsDone = tasks.filter(t => t.eh_habito && isHabitDoneToday(t.id));
   const todayEvents = calendarEvents.filter(ev => ev.dia === hoje);
 
   todayTasks.sort((a, b) => (a.horario || 'zz').localeCompare(b.horario || 'zz'));
 
   const header = document.getElementById('todayHeader');
-  const total = todayTasks.length + overdue.length;
+  const totalHabitos = habitsPending.length + habitsDone.length;
+  const total = todayTasks.length + overdue.length + totalHabitos;
   let headerHTML = `📅 Hoje — ${todayTasks.length} tarefa${todayTasks.length !== 1 ? 's' : ''}`;
+  if (totalHabitos) headerHTML += ` · ${totalHabitos} hábito${totalHabitos !== 1 ? 's' : ''} (${habitsDone.length}/${totalHabitos})`;
   if (todayEvents.length) headerHTML += ` · ${todayEvents.length} evento${todayEvents.length !== 1 ? 's' : ''}`;
   headerHTML += (todayDone.length ? ` · ${todayDone.length} concluída${todayDone.length !== 1 ? 's' : ''}` : '');
   headerHTML += (overdue.length ? ` · <span style="color:var(--pri-alta)">${overdue.length} atrasada${overdue.length !== 1 ? 's' : ''}</span>` : '');
@@ -5022,7 +5227,8 @@ function renderToday() {
   header.innerHTML = headerHTML;
 
   const container = document.getElementById('todayTaskList');
-  const allTasks = [...overdue, ...todayTasks];
+  // Hábitos entram no topo da lista (pendentes primeiro, feitos depois)
+  const allTasks = [...habitsPending, ...overdue, ...todayTasks, ...habitsDone];
 
   if (allTasks.length === 0 && todayEvents.length === 0) {
     container.innerHTML = '<div class="today-empty"><p>Nenhuma tarefa para hoje! Aproveite o dia.</p></div>';
@@ -5056,30 +5262,36 @@ function renderToday() {
     const catColor = CATEGORY_COLORS[task.categoria] || 'var(--text-muted)';
     const catBg = CATEGORY_BG[task.categoria] || 'rgba(255,255,255,0.05)';
     const priColor = PRIORITY_COLORS[task.prioridade];
-    const overdueClass = isOverdue(task) ? 'overdue' : '';
+    const isHabit = !!task.eh_habito;
+    const habitDone = isHabit && isHabitDoneToday(task.id);
+    const overdueClass = (!isHabit && isOverdue(task)) ? 'overdue' : '';
     const meetingHTML = getMeetingBadgeHTML(task.meeting_link);
     const timeStr = task.horario || '';
-    const isLate = task.prazo < hoje;
+    const isLate = !isHabit && task.prazo < hoje;
     const inProgressClass = task.status === 'em_andamento' ? 'in-progress' : '';
+    const completedClass = habitDone ? 'completed' : '';
     const selectedClass = selectedTasks.has(String(task.id)) ? 'selected' : '';
+    const streak = isHabit ? getHabitStreak(task.id) : 0;
     const i = idx++;
 
     return `
-      <div class="task-card ${inProgressClass} ${selectedClass}" data-task-id="${task.id}" style="--cat-color:${catColor}; animation-delay:${i * 0.04}s">
+      <div class="task-card ${inProgressClass} ${completedClass} ${selectedClass}" data-task-id="${task.id}" style="--cat-color:${catColor}; animation-delay:${i * 0.04}s">
         <div class="bulk-check" data-action="bulk-select"></div>
         <div class="task-check" data-action="toggle"></div>
         <div class="task-info" data-action="detail">
           <div class="task-title-row">
             <span class="task-title">${task.titulo}</span>
             <span class="task-category-badge" style="background:${catBg};color:${catColor}">${task.categoria}</span>
+            ${isHabit ? '<span class="task-category-badge" style="background:rgba(196,153,61,0.15);color:#C4993D">🔁 Hábito</span>' : ''}
           </div>
           <div class="task-meta">
             <span class="task-priority"><span class="dot" style="background:${priColor}"></span>${PRIORITY_LABELS[task.prioridade]}</span>
             ${timeStr ? '<span>🕐 ' + timeStr + '</span>' : ''}
             ${isLate ? '<span style="color:var(--pri-alta)">⚠️ Atrasada</span>' : ''}
+            ${isHabit && streak > 0 ? '<span>🔥 ' + streak + ' ' + (streak === 1 ? 'dia' : 'dias') + '</span>' : ''}
             ${meetingHTML}
           </div>
-          ${getSubtaskProgressHTML(task.id)}
+          ${!isHabit ? getSubtaskProgressHTML(task.id) : ''}
         </div>
         <div class="task-right">
           <span class="task-date-badge ${overdueClass}">${task.prazo ? formatDate(task.prazo) : ''}</span>
@@ -5596,7 +5808,12 @@ function getXPForCurrentLevel(level) {
 
 async function loadGamification() {
   try {
-    const { data, error } = await sb.from('gamificacao').select('*').limit(1).single();
+    if (!currentUser) return;
+    const { data, error } = await sb.from('gamificacao')
+      .select('*')
+      .eq('user_id', currentUser.id)
+      .limit(1)
+      .maybeSingle();
     if (error) throw error;
     if (data) {
       gamification.xp = data.xp_total || 0;
@@ -5631,20 +5848,24 @@ async function updateGamification(xpGained) {
   await checkStreak();
 
   // Save
-  if (gamificationEnabled) {
+  if (gamificationEnabled && currentUser) {
     try {
-      const { data: existing } = await sb.from('gamificacao').select('id').limit(1).single();
+      const { data: existing } = await sb.from('gamificacao')
+        .select('id')
+        .eq('user_id', currentUser.id)
+        .limit(1)
+        .maybeSingle();
       if (existing) {
         await sb.from('gamificacao').update({
           xp_total: gamification.xp, streak_atual: gamification.streak,
           streak_recorde: gamification.streakRecord, nivel: gamification.level,
           titulo: gamification.title, updated_at: new Date().toISOString()
-        }).eq('id', existing.id);
+        }).eq('id', existing.id).eq('user_id', currentUser.id);
       } else {
         await sb.from('gamificacao').insert({
           xp_total: gamification.xp, streak_atual: gamification.streak,
           streak_recorde: gamification.streakRecord, nivel: gamification.level,
-          titulo: gamification.title
+          titulo: gamification.title, user_id: currentUser.id
         });
       }
     } catch (e) { console.warn('Erro ao salvar gamificacao no Supabase:', e.message); }
@@ -5886,14 +6107,22 @@ async function saveWeekSnapshot() {
   const snapshot = {
     semana_inicio: weekStart, semana_fim: weekEnd,
     total_tarefas: total, concluidas: completed,
-    taxa_conclusao: rate, anotacao: annotation
+    taxa_conclusao: rate, anotacao: annotation,
+    user_id: currentUser?.id
   };
 
   try {
-    // Check if snapshot already exists for this week
-    const { data: existing } = await sb.from('historico_semanal').select('id').eq('semana_inicio', weekStart).single();
+    if (!currentUser) throw new Error('Usuário não autenticado');
+    // Check if snapshot already exists for this week (do usuário atual)
+    const { data: existing } = await sb.from('historico_semanal')
+      .select('id')
+      .eq('user_id', currentUser.id)
+      .eq('semana_inicio', weekStart)
+      .maybeSingle();
     if (existing) {
-      await sb.from('historico_semanal').update(snapshot).eq('id', existing.id);
+      await sb.from('historico_semanal').update(snapshot)
+        .eq('id', existing.id)
+        .eq('user_id', currentUser.id);
     } else {
       await sb.from('historico_semanal').insert(snapshot);
     }
@@ -5917,9 +6146,16 @@ async function saveWeekSnapshot() {
 
 async function saveAnnotation(weekStart, text) {
   try {
-    const { data: existing } = await sb.from('historico_semanal').select('id').eq('semana_inicio', weekStart).single();
+    if (!currentUser) throw new Error('no user');
+    const { data: existing } = await sb.from('historico_semanal')
+      .select('id')
+      .eq('user_id', currentUser.id)
+      .eq('semana_inicio', weekStart)
+      .maybeSingle();
     if (existing) {
-      await sb.from('historico_semanal').update({ anotacao: text }).eq('id', existing.id);
+      await sb.from('historico_semanal').update({ anotacao: text })
+        .eq('id', existing.id)
+        .eq('user_id', currentUser.id);
     }
   } catch (e) {
     const key = 'weekSnapshot_' + weekStart;
@@ -5938,7 +6174,12 @@ function saveCurrentWeek() {
 
 async function loadWeekAnnotation(weekStart) {
   try {
-    const { data } = await sb.from('historico_semanal').select('anotacao').eq('semana_inicio', weekStart).single();
+    if (!currentUser) throw new Error('no user');
+    const { data } = await sb.from('historico_semanal')
+      .select('anotacao')
+      .eq('user_id', currentUser.id)
+      .eq('semana_inicio', weekStart)
+      .maybeSingle();
     if (data) return data.anotacao || '';
   } catch (e) {
     const key = 'weekSnapshot_' + weekStart;
@@ -5953,7 +6194,12 @@ async function loadWeekAnnotation(weekStart) {
 async function loadWeekHistoryList() {
   let histories = [];
   try {
-    const { data, error } = await sb.from('historico_semanal').select('*').order('semana_inicio', { ascending: false }).limit(10);
+    if (!currentUser) throw new Error('no user');
+    const { data, error } = await sb.from('historico_semanal')
+      .select('*')
+      .eq('user_id', currentUser.id)
+      .order('semana_inicio', { ascending: false })
+      .limit(10);
     if (!error && data) histories = data;
   } catch (e) {
     // Fallback: localStorage
@@ -6049,47 +6295,84 @@ function getTipoBadgeHTML(task) {
   return '';
 }
 
-function renderHabitTracker() {
+async function renderHabitTracker() {
   const container = document.getElementById('habitTrackerSection');
   if (!container) return;
 
   const weekDays = getWeekDaysForOffset(reviewWeekOffset);
-  const habitSubcats = Object.keys(SUBCATEGORY_LABELS);
-
-  // Find habits/routines for this week
   const weekStart = weekDays[0].date;
   const weekEnd = weekDays[6].date;
 
   let hasData = false;
   let html = '<div class="review-card" style="margin-top:0.75rem"><h3>Rastreador de hábitos</h3>';
-  html += '<div class="habit-grid">';
 
-  // Header row
-  html += '<div></div>';
-  weekDays.forEach(d => { html += '<div class="habit-grid-day-label">' + d.name + '</div>'; });
+  // ======== Seção 1: hábitos de verdade (eh_habito=true) via log diário ========
+  const habitos = tasks.filter(t => t.eh_habito);
+  if (habitos.length > 0 && currentUser) {
+    hasData = true;
+    // Busca log da semana
+    let logSemana = [];
+    try {
+      const { data } = await sb.from('tarefas_diarias_log')
+        .select('tarefa_id,data')
+        .eq('user_id', currentUser.id)
+        .gte('data', weekStart)
+        .lte('data', weekEnd);
+      if (data) logSemana = data;
+    } catch(e) { console.warn('habit tracker log:', e.message); }
 
+    const logSet = new Set(logSemana.map(r => String(r.tarefa_id) + '|' + r.data));
+
+    html += '<div class="habit-grid">';
+    html += '<div></div>';
+    weekDays.forEach(d => { html += '<div class="habit-grid-day-label">' + d.name + '</div>'; });
+
+    habitos.forEach(h => {
+      const tituloCurto = (h.titulo || '').slice(0, 24);
+      html += '<div class="habit-grid-label">🔁 ' + tituloCurto + '</div>';
+      weekDays.forEach(day => {
+        const key = String(h.id) + '|' + day.date;
+        if (logSet.has(key)) {
+          html += '<div class="habit-grid-cell completed">&#10003;</div>';
+        } else {
+          html += '<div class="habit-grid-cell"></div>';
+        }
+      });
+    });
+    html += '</div>';
+  }
+
+  // ======== Seção 2: subcategorias Pessoais antigas (compatibilidade) ========
+  const habitSubcats = Object.keys(SUBCATEGORY_LABELS);
+  const subHtml = [];
   habitSubcats.forEach(sub => {
     const subTasks = tasks.filter(t =>
-      t.subcategoria === sub && t.prazo >= weekStart && t.prazo <= weekEnd
+      !t.eh_habito && t.subcategoria === sub && t.prazo >= weekStart && t.prazo <= weekEnd
     );
     if (subTasks.length === 0) return;
     hasData = true;
-
     const icon = SUBCATEGORY_ICONS[sub] || '';
-    html += '<div class="habit-grid-label">' + icon + ' ' + SUBCATEGORY_LABELS[sub] + '</div>';
+    let row = '<div class="habit-grid-label">' + icon + ' ' + SUBCATEGORY_LABELS[sub] + '</div>';
     weekDays.forEach(day => {
       const dayTask = subTasks.find(t => t.prazo === day.date);
       if (dayTask) {
         const completed = dayTask.status === 'concluida';
-        html += '<div class="habit-grid-cell ' + (completed ? 'completed' : 'partial') + '">' + (completed ? '&#10003;' : '&#9711;') + '</div>';
+        row += '<div class="habit-grid-cell ' + (completed ? 'completed' : 'partial') + '">' + (completed ? '&#10003;' : '&#9711;') + '</div>';
       } else {
-        html += '<div class="habit-grid-cell"></div>';
+        row += '<div class="habit-grid-cell"></div>';
       }
     });
+    subHtml.push(row);
   });
+  if (subHtml.length > 0) {
+    html += '<div class="habit-grid" style="margin-top:0.75rem">';
+    html += '<div></div>';
+    weekDays.forEach(d => { html += '<div class="habit-grid-day-label">' + d.name + '</div>'; });
+    html += subHtml.join('');
+    html += '</div>';
+  }
 
-  html += '</div></div>';
-
+  html += '</div>';
   container.innerHTML = hasData ? html : '';
 }
 
@@ -6114,10 +6397,12 @@ async function renderHeatmap365() {
   const startStr = startDate.toISOString().split('T')[0];
 
   let completedDates = [];
+  if (!currentUser) { container.innerHTML = ''; return; }
   try {
     const { data, error } = await sb
       .from('tarefas')
       .select('prazo')
+      .eq('user_id', currentUser.id)
       .eq('status', 'concluida')
       .gte('prazo', startStr);
     if (!error && data) {
@@ -6748,6 +7033,8 @@ function initEnergyLogger() {
       const today = new Date().toISOString().split('T')[0];
       try {
         const authHdrs = await getAuthHeaders();
+        const uid = currentUser?.id;
+        if (!uid) throw new Error('Sem usuário autenticado');
         if (newLevel > 0) {
           await fetch(SUPABASE_URL + '/rest/v1/energia_diaria', {
             method: 'POST',
@@ -6759,11 +7046,12 @@ function initEnergyLogger() {
             body: JSON.stringify({
               data: today,
               periodo: periodKey,
-              nivel: newLevel
+              nivel: newLevel,
+              user_id: uid
             })
           });
         } else {
-          await fetch(SUPABASE_URL + '/rest/v1/energia_diaria?data=eq.' + today + '&periodo=eq.' + periodKey, {
+          await fetch(SUPABASE_URL + '/rest/v1/energia_diaria?user_id=eq.' + uid + '&data=eq.' + today + '&periodo=eq.' + periodKey, {
             method: 'DELETE',
             headers: authHdrs
           });
@@ -6780,7 +7068,9 @@ async function loadEnergyData() {
   const today = new Date().toISOString().split('T')[0];
   try {
     const headers = await getAuthHeaders();
-    const res = await fetch(SUPABASE_URL + '/rest/v1/energia_diaria?data=eq.' + today + '&select=periodo,nivel', {
+    const uid = currentUser?.id;
+    if (!uid) throw new Error('sem usuário');
+    const res = await fetch(SUPABASE_URL + '/rest/v1/energia_diaria?user_id=eq.' + uid + '&data=eq.' + today + '&select=periodo,nivel', {
       headers
     });
     const data = await res.json();
@@ -6835,9 +7125,11 @@ function renderTimeBlocks(dateStr) {
     html += '</div>';
   }
 
-  // Filter tasks for this date
-  const dayTasks = tasks.filter(t => t.prazo === dateStr);
+  // Filter tasks for this date (hábitos não entram aqui — view "Hoje" lida com eles)
+  let dayTasks = tasks.filter(t => !t.eh_habito && t.prazo === dateStr);
   const dayEvents = calendarEvents.filter(ev => ev.dia === dateStr && !ev.all_day);
+  // Dedup: se tarefa tem mesmo titulo/horario de um evento do Google, mostra só o evento
+  dayTasks = deduplicateTasksAgainstEvents(dayTasks, dayEvents);
 
   // Group by period
   const periods = [
@@ -7597,11 +7889,13 @@ async function loadFinancas() {
   const nextMonth = now.getMonth() === 11 ? `${now.getFullYear()+1}-01-01` : `${now.getFullYear()}-${String(now.getMonth()+2).padStart(2,'0')}-01`;
 
   const headers = await getAuthHeaders();
+  const uid = currentUser?.id;
+  if (!uid) { finTransacoes = []; finOrcamentos = []; finMetas = []; return; }
   try {
     const [tRes, oRes, mRes] = await Promise.all([
-      fetch(`${SUPABASE_URL}/rest/v1/transacoes?data=gte.${inicio}&data=lt.${nextMonth}&order=data.desc,created_at.desc`, { headers }),
-      fetch(`${SUPABASE_URL}/rest/v1/orcamento_mensal?mes=eq.${inicio}`, { headers }),
-      fetch(`${SUPABASE_URL}/rest/v1/metas_financeiras?status=eq.ativa&order=created_at.asc`, { headers }),
+      fetch(`${SUPABASE_URL}/rest/v1/transacoes?user_id=eq.${uid}&data=gte.${inicio}&data=lt.${nextMonth}&order=data.desc,created_at.desc`, { headers }),
+      fetch(`${SUPABASE_URL}/rest/v1/orcamento_mensal?user_id=eq.${uid}&mes=eq.${inicio}`, { headers }),
+      fetch(`${SUPABASE_URL}/rest/v1/metas_financeiras?user_id=eq.${uid}&status=eq.ativa&order=created_at.asc`, { headers }),
     ]);
     if (tRes.ok) finTransacoes = await tRes.json();
     if (oRes.ok) finOrcamentos = await oRes.json();
@@ -7807,8 +8101,10 @@ async function marcarRecebido(id) {
   const headers = await getAuthHeaders();
   headers['Content-Type'] = 'application/json';
   headers['Prefer'] = 'return=representation';
+  const uid = currentUser?.id;
+  if (!uid) return;
   try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/transacoes?id=eq.${id}`, {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/transacoes?id=eq.${id}&user_id=eq.${uid}`, {
       method: 'PATCH',
       headers,
       body: JSON.stringify({ status: 'pago', data: hoje })
@@ -8733,6 +9029,7 @@ if (localStorage.getItem('theme') === 'light') {
 // App initialization — called only after successful auth
 function initApp() {
   updateHeaderDate();
+  initRangeLabel();
   loadEnergyData();
   loadTasks().then(() => {
     loadGamification();
@@ -8825,9 +9122,11 @@ async function runCleanupAnalysis() {
   actions.style.display = 'none';
 
   // Get all non-completed tasks
+  if (!currentUser) { body.innerHTML = '<div class="cleanup-status">Sessão expirada.</div>'; return; }
   const { data: allTasks, error } = await sb
     .from('tarefas')
     .select('id,titulo,categoria,prioridade,prazo,horario,status,created_at')
+    .eq('user_id', currentUser.id)
     .neq('status', 'concluida')
     .order('titulo', { ascending: true });
 
@@ -9174,6 +9473,13 @@ const onboardingSteps = [
     fallbackTarget: '.header-right',
     title: '🔎 Busca Global',
     desc: 'Pesquise tarefas por título, notas ou categoria. Os resultados aparecem instantaneamente enquanto você digita.',
+    position: 'bottom'
+  },
+  {
+    target: 'button[onclick="vincularTelegram()"]',
+    fallbackTarget: '.header-right',
+    title: '✈️ Vincule seu Telegram',
+    desc: 'Este botão azul abre o fluxo para conectar o bot do Telegram à sua conta. É por ali que você cria tarefas por voz ou texto, registra gastos, e recebe lembretes. <strong>Sem isso, o bot não sabe quem você é</strong>. Clique aqui depois de fechar o tour e siga o passo a passo.',
     position: 'bottom'
   },
   {
