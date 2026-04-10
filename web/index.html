@@ -3918,22 +3918,23 @@ async function checkAuth() {
 }
 
 sb.auth.onAuthStateChange((event, session) => {
-  if (event === 'PASSWORD_RECOVERY') {
-    // Usuário clicou no link de recuperação de senha — mostra tela de nova senha
-    currentUser = session?.user || null;
-    showChangePassword();
-    return;
-  }
-  if (event === 'SIGNED_IN' && session) {
-    currentUser = session.user;
-    // Atualizar último acesso no perfil (ignora erro se migration 019 não rodou)
-    try { sb.rpc('atualizar_ultimo_acesso').then(() => {}).catch(() => {}); } catch(e) {}
-    showApp();
-  } else if (event === 'TOKEN_REFRESHED' && session) {
-    currentUser = session.user;
-  } else if (event === 'SIGNED_OUT') {
-    currentUser = null;
-    showAuthScreen();
+  try {
+    if (event === 'PASSWORD_RECOVERY') {
+      currentUser = session?.user || null;
+      showChangePassword();
+      return;
+    }
+    if (event === 'SIGNED_IN' && session) {
+      currentUser = session.user;
+      showApp();
+    } else if (event === 'TOKEN_REFRESHED' && session) {
+      currentUser = session.user;
+    } else if (event === 'SIGNED_OUT') {
+      currentUser = null;
+      showAuthScreen();
+    }
+  } catch(e) {
+    console.error('onAuthStateChange erro:', e);
   }
 });
 
@@ -3996,7 +3997,7 @@ async function handleLogin(e) {
     }
   } catch(ex) {
     console.error('handleLogin erro:', ex);
-    errEl.textContent = 'Erro: ' + (ex?.message || ex?.error_description || JSON.stringify(ex));
+    errEl.textContent = 'Erro ao conectar. Tente novamente. (' + (ex?.message || '') + ')';
   } finally {
     btn.disabled = false;
     btn.textContent = 'Entrar';
