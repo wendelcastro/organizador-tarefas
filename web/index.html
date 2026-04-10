@@ -1174,6 +1174,20 @@ body::after {
   animation: slideUp 0.35s ease;
 }
 .pomodoro-widget.active { display: block; }
+.pomodoro-phase-badge {
+  font-size: 0.65rem;
+  font-weight: 600;
+  padding: 0.15rem 0.5rem;
+  border-radius: 50px;
+  text-align: center;
+  margin-bottom: 0.3rem;
+  letter-spacing: 0.03em;
+}
+.pomodoro-cycle-dots {
+  text-align: center;
+  margin-bottom: 0.3rem;
+  line-height: 1;
+}
 .pomodoro-task-name {
   font-size: 0.72rem;
   color: var(--text-secondary);
@@ -3273,13 +3287,36 @@ body::after {
         <button type="submit" class="auth-btn" id="loginBtn">Entrar</button>
       </form>
       <div class="auth-toggle">
+        <a onclick="showForgotPassword()" style="cursor:pointer;opacity:0.7;font-size:0.85rem">Esqueci minha senha</a>
+      </div>
+      <div class="auth-toggle">
         Ainda não tem conta? <a onclick="showAuthRegister()">Criar conta</a>
+      </div>
+    </div>
+
+    <!-- FORGOT PASSWORD -->
+    <div id="authForgotPassword" style="display:none">
+      <form class="auth-form" onsubmit="handleForgotPassword(event)">
+        <p style="color:var(--text-secondary);font-size:0.85rem;margin-bottom:0.75rem">
+          Digite seu email e enviaremos um link para redefinir sua senha.
+        </p>
+        <input type="email" class="auth-input" id="forgotEmail" placeholder="Email cadastrado" required autocomplete="email">
+        <div class="auth-error" id="forgotError"></div>
+        <div class="auth-success" id="forgotSuccess" style="display:none"></div>
+        <button type="submit" class="auth-btn" id="forgotBtn">Enviar link de recuperação</button>
+      </form>
+      <div class="auth-toggle">
+        <a onclick="showAuthLogin()">Voltar para o login</a>
       </div>
     </div>
 
     <!-- REGISTER FORM -->
     <div id="authRegister" style="display:none">
       <form class="auth-form" onsubmit="handleRegister(event)">
+        <input type="text" class="auth-input" id="registerInviteCode" placeholder="Código de convite" required maxlength="8" autocomplete="off" style="text-transform:uppercase;letter-spacing:0.2em;text-align:center;font-weight:bold;font-size:1.1rem">
+        <p style="color:var(--text-muted);font-size:0.75rem;margin:-0.5rem 0 0.5rem;text-align:center">
+          Peça seu código de convite ao administrador
+        </p>
         <input type="email" class="auth-input" id="registerEmail" placeholder="Email" required autocomplete="email">
         <input type="password" class="auth-input" id="registerPassword" placeholder="Senha (mín. 6 caracteres)" required minlength="6" autocomplete="new-password">
         <input type="password" class="auth-input" id="registerPasswordConfirm" placeholder="Confirmar senha" required minlength="6" autocomplete="new-password">
@@ -3301,6 +3338,20 @@ body::after {
       <div class="auth-toggle" style="margin-top:1.5rem">
         <a onclick="showAuthLogin()">Voltar para o login</a>
       </div>
+    </div>
+
+    <!-- CHANGE PASSWORD (pós-login, acessível pelo menu) -->
+    <div id="authChangePassword" style="display:none">
+      <form class="auth-form" onsubmit="handleChangePassword(event)">
+        <p style="color:var(--text-secondary);font-size:0.85rem;margin-bottom:0.75rem">
+          Defina sua nova senha abaixo.
+        </p>
+        <input type="password" class="auth-input" id="newPassword" placeholder="Nova senha (mín. 6 caracteres)" required minlength="6" autocomplete="new-password">
+        <input type="password" class="auth-input" id="newPasswordConfirm" placeholder="Confirmar nova senha" required minlength="6" autocomplete="new-password">
+        <div class="auth-error" id="changePasswordError"></div>
+        <div class="auth-success" id="changePasswordSuccess" style="display:none"></div>
+        <button type="submit" class="auth-btn" id="changePasswordBtn">Alterar senha</button>
+      </form>
     </div>
   </div>
 </div>
@@ -3328,6 +3379,7 @@ body::after {
         <button data-view="kpis" onclick="switchView('kpis')">KPIs</button>
         <button data-view="metas" onclick="switchView('metas')">Metas</button>
         <button data-view="financas" onclick="switchView('financas')">Finanças</button>
+        <button data-view="admin" onclick="switchView('admin')" id="adminNavBtn" style="display:none">Admin</button>
       </div>
       <button class="btn-cleanup" onclick="openCleanupPanel()" title="Análise de duplicatas">🧹</button>
       <button class="btn-help-center" onclick="openHelpCenter()" title="Central de Ajuda">?</button>
@@ -3340,6 +3392,9 @@ body::after {
       </button>
       <button class="btn-logout" onclick="vincularTelegram()" title="Vincular Telegram" style="border-color:hsla(200,90%,60%,0.4);color:#4FC3F7">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21.5 2l-19 8 6 3 3 6 10-17z"/></svg>
+      </button>
+      <button class="btn-logout" onclick="showChangePassword()" title="Alterar senha" style="border-color:hsla(43,52%,54%,0.4);color:#C4993D">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
       </button>
       <button class="btn-logout" onclick="handleLogout()" title="Sair">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
@@ -3493,6 +3548,7 @@ body::after {
     <div class="kpis-view" id="kpisView"></div>
     <div class="metas-view" id="metasView"></div>
     <div class="financas-view" id="financasView"></div>
+    <div class="admin-view" id="adminView" style="display:none"></div>
   </main>
 </div>
 
@@ -3547,13 +3603,16 @@ body::after {
   <button onclick="exitBulkMode()" title="Sair do modo seleção">Cancelar</button>
 </div>
 
-<!-- POMODORO WIDGET -->
+<!-- POMODORO WIDGET (completo: 4 ciclos trabalho + 3 pausas curtas + 1 pausa longa) -->
 <div class="pomodoro-widget" id="pomodoroWidget">
+  <div class="pomodoro-phase-badge" id="pomodoroPhase" title="Fase atual"></div>
   <div class="pomodoro-task-name" id="pomodoroTaskName">—</div>
   <div class="pomodoro-time" id="pomodoroTime">25:00</div>
+  <div class="pomodoro-cycle-dots" id="pomodoroCycleDots"></div>
   <div class="pomodoro-controls">
     <button class="pomodoro-btn" id="pomodoroPlayPause" onclick="togglePomodoro()" title="Play/Pause">&#9654;</button>
     <button class="pomodoro-btn stop" id="pomodoroStop" onclick="stopPomodoro()" title="Parar">&#9632;</button>
+    <button class="pomodoro-btn" id="pomodoroSkip" onclick="pomodoroSkipPhase()" title="Pular fase">&#9197;</button>
   </div>
   <div class="pomodoro-accumulated" id="pomodoroAccum"></div>
 </div>
@@ -3856,8 +3915,16 @@ async function checkAuth() {
 }
 
 sb.auth.onAuthStateChange((event, session) => {
+  if (event === 'PASSWORD_RECOVERY') {
+    // Usuário clicou no link de recuperação de senha — mostra tela de nova senha
+    currentUser = session?.user || null;
+    showChangePassword();
+    return;
+  }
   if (event === 'SIGNED_IN' && session) {
     currentUser = session.user;
+    // Atualizar último acesso no perfil
+    sb.rpc('atualizar_ultimo_acesso').catch(() => {});
     showApp();
   } else if (event === 'TOKEN_REFRESHED' && session) {
     currentUser = session.user;
@@ -3924,11 +3991,17 @@ async function handleLogin(e) {
 
 async function handleRegister(e) {
   e.preventDefault();
+  const inviteCode = document.getElementById('registerInviteCode').value.trim().toUpperCase();
   const email = document.getElementById('registerEmail').value;
   const password = document.getElementById('registerPassword').value;
   const confirm = document.getElementById('registerPasswordConfirm').value;
   const errEl = document.getElementById('registerError');
   const btn = document.getElementById('registerBtn');
+
+  if (!inviteCode || inviteCode.length < 4) {
+    errEl.textContent = 'Código de convite é obrigatório. Peça ao administrador.';
+    return;
+  }
 
   if (password !== confirm) {
     errEl.textContent = 'As senhas não coincidem.';
@@ -3937,24 +4010,157 @@ async function handleRegister(e) {
 
   errEl.textContent = '';
   btn.disabled = true;
-  btn.textContent = 'Criando conta...';
+  btn.textContent = 'Validando convite...';
 
-  const { data, error } = await sb.auth.signUp({ email, password });
-  btn.disabled = false;
-  btn.textContent = 'Criar conta';
+  // 1) Validar código de convite
+  try {
+    const { data: convite, error: cErr } = await sb
+      .from('codigos_convite')
+      .select('id,codigo,expira_em')
+      .eq('codigo', inviteCode)
+      .eq('ativo', true)
+      .is('usado_por', null)
+      .gt('expira_em', new Date().toISOString())
+      .maybeSingle();
 
-  if (error) {
-    if (error.message.includes('already registered') || error.message.includes('already been registered')) {
-      errEl.textContent = 'Este email já está cadastrado. Faça login.';
-    } else {
-      errEl.textContent = error.message;
+    if (cErr || !convite) {
+      btn.disabled = false;
+      btn.textContent = 'Criar conta';
+      errEl.textContent = 'Código de convite inválido, já usado ou expirado. Peça um novo ao administrador.';
+      return;
     }
-  } else if (data?.user?.identities?.length === 0) {
-    errEl.textContent = 'Este email já está cadastrado. Faça login.';
-  } else {
+
+    // 2) Criar conta no Supabase Auth
+    btn.textContent = 'Criando conta...';
+    const { data, error } = await sb.auth.signUp({ email, password });
+    btn.disabled = false;
+    btn.textContent = 'Criar conta';
+
+    if (error) {
+      if (error.message.includes('already registered') || error.message.includes('already been registered')) {
+        errEl.textContent = 'Este email já está cadastrado. Faça login.';
+      } else {
+        errEl.textContent = error.message;
+      }
+      return;
+    }
+    if (data?.user?.identities?.length === 0) {
+      errEl.textContent = 'Este email já está cadastrado. Faça login.';
+      return;
+    }
+
+    // 3) Marcar convite como usado
+    if (data?.user?.id) {
+      await sb.from('codigos_convite')
+        .update({ usado_por: data.user.id, usado_em: new Date().toISOString(), ativo: false })
+        .eq('id', convite.id);
+
+      // Salvar o código usado no perfil (o trigger da 016 já criou o perfil)
+      await sb.from('perfis_usuario')
+        .update({ codigo_convite_usado: inviteCode })
+        .eq('user_id', data.user.id);
+    }
+
     document.getElementById('authLogin').style.display = 'none';
     document.getElementById('authRegister').style.display = 'none';
     document.getElementById('authConfirm').style.display = 'block';
+  } catch(ex) {
+    btn.disabled = false;
+    btn.textContent = 'Criar conta';
+    errEl.textContent = 'Erro ao validar convite. Tente novamente.';
+    console.error('handleRegister:', ex);
+  }
+}
+
+// ========== ESQUECI MINHA SENHA ==========
+function showForgotPassword() {
+  document.getElementById('authLogin').style.display = 'none';
+  document.getElementById('authRegister').style.display = 'none';
+  document.getElementById('authConfirm').style.display = 'none';
+  document.getElementById('authForgotPassword').style.display = 'block';
+  document.getElementById('forgotError').textContent = '';
+  document.getElementById('forgotSuccess').style.display = 'none';
+}
+
+async function handleForgotPassword(e) {
+  e.preventDefault();
+  const email = document.getElementById('forgotEmail').value;
+  const errEl = document.getElementById('forgotError');
+  const successEl = document.getElementById('forgotSuccess');
+  const btn = document.getElementById('forgotBtn');
+
+  errEl.textContent = '';
+  successEl.style.display = 'none';
+  btn.disabled = true;
+  btn.textContent = 'Enviando...';
+
+  const { error } = await sb.auth.resetPasswordForEmail(email, {
+    redirectTo: window.location.origin + window.location.pathname
+  });
+
+  btn.disabled = false;
+  btn.textContent = 'Enviar link de recuperação';
+
+  if (error) {
+    errEl.textContent = error.message;
+  } else {
+    successEl.textContent = 'Email enviado! Verifique sua caixa de entrada e clique no link para redefinir sua senha.';
+    successEl.style.display = 'block';
+  }
+}
+
+// ========== ALTERAR SENHA (logado ou via link de recuperação) ==========
+function showChangePassword() {
+  // Acessível via menu do usuário logado ou via callback de reset
+  const authScreen = document.getElementById('authScreen');
+  const mainApp = document.getElementById('mainApp');
+  authScreen.classList.remove('hidden');
+  mainApp.classList.add('auth-hidden');
+
+  ['authLogin','authRegister','authConfirm','authForgotPassword'].forEach(id => {
+    document.getElementById(id).style.display = 'none';
+  });
+  document.getElementById('authChangePassword').style.display = 'block';
+  document.getElementById('changePasswordError').textContent = '';
+  document.getElementById('changePasswordSuccess').style.display = 'none';
+}
+
+async function handleChangePassword(e) {
+  e.preventDefault();
+  const newPw = document.getElementById('newPassword').value;
+  const confirmPw = document.getElementById('newPasswordConfirm').value;
+  const errEl = document.getElementById('changePasswordError');
+  const successEl = document.getElementById('changePasswordSuccess');
+  const btn = document.getElementById('changePasswordBtn');
+
+  if (newPw !== confirmPw) {
+    errEl.textContent = 'As senhas não coincidem.';
+    return;
+  }
+
+  errEl.textContent = '';
+  successEl.style.display = 'none';
+  btn.disabled = true;
+  btn.textContent = 'Alterando...';
+
+  const { error } = await sb.auth.updateUser({ password: newPw });
+
+  btn.disabled = false;
+  btn.textContent = 'Alterar senha';
+
+  if (error) {
+    errEl.textContent = error.message;
+  } else {
+    successEl.textContent = 'Senha alterada com sucesso!';
+    successEl.style.display = 'block';
+    setTimeout(() => {
+      if (currentUser) {
+        document.getElementById('authScreen').classList.add('hidden');
+        document.getElementById('mainApp').classList.remove('auth-hidden');
+      } else {
+        showAuthLogin();
+      }
+    }, 2000);
   }
 }
 
@@ -6639,31 +6845,58 @@ async function postponeTask(id) {
   }
 }
 
-// ========== FEATURE 3: POMODORO TIMER ==========
+// ========== FEATURE 3: POMODORO TIMER (Técnica Completa) ==========
+//
+// Ciclo Pomodoro clássico:
+// 1) Trabalho 25min → 2) Pausa curta 5min → 3) Trabalho 25min → 4) Pausa curta 5min
+// → 5) Trabalho 25min → 6) Pausa curta 5min → 7) Trabalho 25min → 8) Pausa LONGA 15min
+// Total: 4 blocos de trabalho, 3 pausas curtas, 1 pausa longa = ~2h10min
+//
+const POMODORO_WORK_MIN = 25;
+const POMODORO_SHORT_BREAK_MIN = 5;
+const POMODORO_LONG_BREAK_MIN = 15;
+const POMODORO_CYCLES = 4; // 4 blocos de trabalho antes da pausa longa
+
+// Fases: 'work', 'short_break', 'long_break'
 let pomodoroState = {
   taskId: null,
   taskName: '',
   running: false,
   paused: false,
-  remainingSeconds: 25 * 60,
+  remainingSeconds: POMODORO_WORK_MIN * 60,
   intervalId: null,
-  accumulatedByTask: {} // taskId -> seconds
+  accumulatedByTask: {},
+  phase: 'work',        // 'work' | 'short_break' | 'long_break'
+  currentCycle: 1,       // 1 a 4 (qual bloco de trabalho)
+  completedCycles: 0,    // quantos blocos de trabalho finalizados nesta sessão
+};
+
+const PHASE_CONFIG = {
+  work:        { label: 'Foco',         color: '#4CAF50', minutes: POMODORO_WORK_MIN,        beepFreq: 880  },
+  short_break: { label: 'Pausa curta',  color: '#4FC3F7', minutes: POMODORO_SHORT_BREAK_MIN, beepFreq: 660  },
+  long_break:  { label: 'Pausa longa',  color: '#CE93D8', minutes: POMODORO_LONG_BREAK_MIN,  beepFreq: 440  },
 };
 
 function startPomodoro(taskId) {
   const task = tasks.find(t => String(t.id) === String(taskId));
   if (!task) return;
 
-  // Stop existing
+  // Pede permissão de notificação logo no início
+  if ('Notification' in window && Notification.permission === 'default') {
+    Notification.requestPermission();
+  }
+
   if (pomodoroState.intervalId) clearInterval(pomodoroState.intervalId);
 
   pomodoroState.taskId = taskId;
   pomodoroState.taskName = task.titulo;
-  pomodoroState.remainingSeconds = 25 * 60;
+  pomodoroState.phase = 'work';
+  pomodoroState.currentCycle = 1;
+  pomodoroState.completedCycles = 0;
+  pomodoroState.remainingSeconds = POMODORO_WORK_MIN * 60;
   pomodoroState.running = true;
   pomodoroState.paused = false;
 
-  // Load accumulated from localStorage
   const saved = localStorage.getItem('pomodoro_accum');
   if (saved) {
     try { pomodoroState.accumulatedByTask = JSON.parse(saved); } catch(e) {}
@@ -6673,27 +6906,130 @@ function startPomodoro(taskId) {
   document.getElementById('pomodoroWidget').classList.add('active');
   document.getElementById('pomodoroPlayPause').innerHTML = '&#10074;&#10074;';
 
+  _startPomodoroInterval();
+}
+
+function _startPomodoroInterval() {
+  if (pomodoroState.intervalId) clearInterval(pomodoroState.intervalId);
   pomodoroState.intervalId = setInterval(() => {
     if (!pomodoroState.running || pomodoroState.paused) return;
     pomodoroState.remainingSeconds--;
 
-    // Track accumulated time
-    if (!pomodoroState.accumulatedByTask[taskId]) pomodoroState.accumulatedByTask[taskId] = 0;
-    pomodoroState.accumulatedByTask[taskId]++;
-    if (pomodoroState.remainingSeconds % 30 === 0) {
-      localStorage.setItem('pomodoro_accum', JSON.stringify(pomodoroState.accumulatedByTask));
+    // Acumula tempo de TRABALHO (não de pausa) para a tarefa
+    if (pomodoroState.phase === 'work') {
+      const tid = pomodoroState.taskId;
+      if (!pomodoroState.accumulatedByTask[tid]) pomodoroState.accumulatedByTask[tid] = 0;
+      pomodoroState.accumulatedByTask[tid]++;
+      if (pomodoroState.remainingSeconds % 30 === 0) {
+        localStorage.setItem('pomodoro_accum', JSON.stringify(pomodoroState.accumulatedByTask));
+      }
     }
 
     updatePomodoroUI();
 
     if (pomodoroState.remainingSeconds <= 0) {
-      clearInterval(pomodoroState.intervalId);
-      pomodoroState.running = false;
-      pomodoroState.intervalId = null;
-      localStorage.setItem('pomodoro_accum', JSON.stringify(pomodoroState.accumulatedByTask));
-      pomodoroFinished();
+      _pomodoroPhaseComplete();
     }
   }, 1000);
+}
+
+function _pomodoroPhaseComplete() {
+  clearInterval(pomodoroState.intervalId);
+  pomodoroState.intervalId = null;
+  pomodoroState.paused = true;
+
+  const cfg = PHASE_CONFIG[pomodoroState.phase];
+
+  // Toca som
+  _pomodoroBeep(cfg.beepFreq);
+
+  if (pomodoroState.phase === 'work') {
+    pomodoroState.completedCycles++;
+    localStorage.setItem('pomodoro_accum', JSON.stringify(pomodoroState.accumulatedByTask));
+
+    // Salvar tempo no Supabase (acumulado até agora)
+    _savePomodoroToDatabase();
+
+    if (pomodoroState.completedCycles >= POMODORO_CYCLES) {
+      // Após 4 blocos → pausa longa
+      _pomodoroTransition('long_break', 'Excelente! 4 Pomodoros completos. Hora da pausa longa de 15 minutos. Descanse de verdade — levante, alongue, hidrate-se.');
+    } else {
+      // Pausa curta
+      _pomodoroTransition('short_break', 'Pomodoro ' + pomodoroState.completedCycles + '/4 concluído! Pausa de 5 minutos. Levante, olhe para longe, respire.');
+    }
+  } else if (pomodoroState.phase === 'short_break') {
+    // Fim da pausa curta → próximo trabalho
+    pomodoroState.currentCycle = pomodoroState.completedCycles + 1;
+    _pomodoroTransition('work', 'Pausa encerrada! Hora de focar no Pomodoro ' + pomodoroState.currentCycle + '/4.');
+  } else if (pomodoroState.phase === 'long_break') {
+    // Fim do ciclo completo!
+    _pomodoroNotify('Ciclo Pomodoro completo!', 'Você completou 4 Pomodoros de ' + pomodoroState.taskName + '. Parabéns!');
+    document.getElementById('pomodoroTime').textContent = 'Completo!';
+    document.getElementById('pomodoroPhase').textContent = '🏆 Sessão completa';
+    document.getElementById('pomodoroPhase').style.background = 'hsla(43,52%,54%,0.2)';
+    document.getElementById('pomodoroPhase').style.color = '#C4993D';
+    pomodoroState.running = false;
+    setTimeout(() => {
+      document.getElementById('pomodoroWidget').classList.remove('active');
+      renderTasks();
+      renderToday();
+    }, 5000);
+    return;
+  }
+}
+
+function _pomodoroTransition(newPhase, message) {
+  const cfg = PHASE_CONFIG[newPhase];
+  pomodoroState.phase = newPhase;
+  pomodoroState.remainingSeconds = cfg.minutes * 60;
+  pomodoroState.paused = false;
+  pomodoroState.running = true;
+
+  _pomodoroNotify(cfg.label, message);
+  updatePomodoroUI();
+  document.getElementById('pomodoroPlayPause').innerHTML = '&#10074;&#10074;';
+  _startPomodoroInterval();
+}
+
+function _pomodoroNotify(title, body) {
+  if ('Notification' in window && Notification.permission === 'granted') {
+    new Notification(title, { body, icon: '🍅' });
+  }
+}
+
+function _pomodoroBeep(freq) {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.frequency.value = freq;
+    gain.gain.value = 0.3;
+    osc.start();
+    // 3 beeps curtos
+    setTimeout(() => { gain.gain.value = 0; }, 200);
+    setTimeout(() => { gain.gain.value = 0.3; }, 400);
+    setTimeout(() => { gain.gain.value = 0; }, 600);
+    setTimeout(() => { gain.gain.value = 0.3; }, 800);
+    setTimeout(() => { osc.stop(); ctx.close(); }, 1000);
+  } catch(e) {}
+}
+
+async function _savePomodoroToDatabase() {
+  if (!currentUser || !pomodoroState.taskId) return;
+  const tid = pomodoroState.taskId;
+  const accumSec = pomodoroState.accumulatedByTask[tid] || 0;
+  const accumMin = Math.floor(accumSec / 60);
+  if (accumMin <= 0) return;
+  try {
+    await sb.from('tarefas')
+      .update({ tempo_gasto_min: accumMin })
+      .eq('id', tid)
+      .eq('user_id', currentUser.id);
+  } catch(e) {
+    console.warn('Erro ao salvar tempo Pomodoro no banco:', e.message);
+  }
 }
 
 function togglePomodoro() {
@@ -6704,45 +7040,25 @@ function togglePomodoro() {
 
 function stopPomodoro() {
   if (pomodoroState.intervalId) clearInterval(pomodoroState.intervalId);
-  // Save accumulated
   localStorage.setItem('pomodoro_accum', JSON.stringify(pomodoroState.accumulatedByTask));
+  _savePomodoroToDatabase();
   pomodoroState.running = false;
   pomodoroState.paused = false;
   pomodoroState.intervalId = null;
   pomodoroState.taskId = null;
+  pomodoroState.phase = 'work';
+  pomodoroState.currentCycle = 1;
+  pomodoroState.completedCycles = 0;
   document.getElementById('pomodoroWidget').classList.remove('active');
   renderTasks();
   renderToday();
 }
 
-function pomodoroFinished() {
-  // Browser notification
-  if ('Notification' in window && Notification.permission === 'granted') {
-    new Notification('Pomodoro concluído!', { body: pomodoroState.taskName, icon: '🍅' });
-  } else if ('Notification' in window && Notification.permission !== 'denied') {
-    Notification.requestPermission();
-  }
-
-  // Beep sound
-  try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.frequency.value = 880;
-    gain.gain.value = 0.3;
-    osc.start();
-    setTimeout(() => { osc.stop(); ctx.close(); }, 500);
-  } catch(e) {}
-
-  document.getElementById('pomodoroPlayPause').innerHTML = '&#9654;';
-  document.getElementById('pomodoroTime').textContent = 'Fim!';
-  setTimeout(() => {
-    document.getElementById('pomodoroWidget').classList.remove('active');
-    renderTasks();
-    renderToday();
-  }, 3000);
+function pomodoroSkipPhase() {
+  if (!pomodoroState.running) return;
+  if (!confirm('Pular esta fase e ir para a próxima?')) return;
+  pomodoroState.remainingSeconds = 0;
+  _pomodoroPhaseComplete();
 }
 
 function updatePomodoroUI() {
@@ -6751,10 +7067,35 @@ function updatePomodoroUI() {
   document.getElementById('pomodoroTime').textContent = String(min).padStart(2, '0') + ':' + String(sec).padStart(2, '0');
   document.getElementById('pomodoroTaskName').textContent = pomodoroState.taskName;
 
+  // Badge da fase
+  const cfg = PHASE_CONFIG[pomodoroState.phase];
+  const phaseEl = document.getElementById('pomodoroPhase');
+  const cycleLabel = pomodoroState.phase === 'work'
+    ? cfg.label + ' ' + pomodoroState.currentCycle + '/' + POMODORO_CYCLES
+    : cfg.label;
+  phaseEl.textContent = cycleLabel;
+  phaseEl.style.background = cfg.color + '22';
+  phaseEl.style.color = cfg.color;
+
+  // Dots de ciclos completos
+  const dotsEl = document.getElementById('pomodoroCycleDots');
+  let dots = '';
+  for (let i = 1; i <= POMODORO_CYCLES; i++) {
+    const done = i <= pomodoroState.completedCycles;
+    const current = i === pomodoroState.currentCycle && pomodoroState.phase === 'work';
+    dots += '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;margin:0 2px;'
+      + 'background:' + (done ? '#4CAF50' : current ? '#C4993D' : 'rgba(255,255,255,0.15)') + '"></span>';
+  }
+  dotsEl.innerHTML = dots;
+
+  // Widget border-color based on phase
+  document.getElementById('pomodoroWidget').style.borderColor = cfg.color + '66';
+
+  // Acumulado de trabalho
   const accum = pomodoroState.accumulatedByTask[pomodoroState.taskId] || 0;
   if (accum > 0) {
     const accumMin = Math.floor(accum / 60);
-    document.getElementById('pomodoroAccum').textContent = 'Acumulado: ' + accumMin + 'min';
+    document.getElementById('pomodoroAccum').textContent = 'Foco total: ' + accumMin + 'min';
   } else {
     document.getElementById('pomodoroAccum').textContent = '';
   }
@@ -7459,10 +7800,10 @@ function renderKPIs() {
 // ========== PATCH: switchView to handle 'matrix', 'timeblock', 'kpis', 'metas', 'financas' ==========
 const _originalSwitchView = switchView;
 switchView = function(view) {
-  const extraViews = ['matrixView','timeblockView','kpisView','metasView','financasView'];
+  const extraViews = ['matrixView','timeblockView','kpisView','metasView','financasView','adminView'];
   extraViews.forEach(id => { const el = document.getElementById(id); if(el) { el.classList.remove('active'); el.style.display = 'none'; } });
 
-  const extraKeys = ['matrix','timeblock','kpis','metas','financas'];
+  const extraKeys = ['matrix','timeblock','kpis','metas','financas','admin'];
   if (extraKeys.includes(view)) {
     document.getElementById('tasksView').classList.add('hidden');
     document.getElementById('todayView').classList.remove('active');
@@ -7475,6 +7816,7 @@ switchView = function(view) {
       kpis: { id: 'kpisView', fn: () => renderKPIs() },
       metas: { id: 'metasView', fn: () => renderMetas() },
       financas: { id: 'financasView', fn: () => renderFinancas() },
+      admin: { id: 'adminView', fn: () => renderAdmin() },
     };
     const target = viewMap[view];
     const el = document.getElementById(target.id);
@@ -7487,6 +7829,185 @@ switchView = function(view) {
     _originalSwitchView(view);
   }
 };
+
+// ========== PAINEL ADMIN (owner only) ==========
+async function renderAdmin() {
+  const container = document.getElementById('adminView');
+  if (!isMetasOwner()) {
+    container.innerHTML = '<div class="empty-state"><p>Acesso restrito ao administrador.</p></div>';
+    return;
+  }
+
+  container.innerHTML = '<div style="padding:1rem"><div class="cleanup-status"><div class="spinner"></div><div>Carregando painel admin...</div></div></div>';
+
+  try {
+    // Carregar usuários com contagens
+    const { data: perfis, error: pErr } = await sb
+      .from('perfis_usuario')
+      .select('user_id, role, status, nome_exibicao, ultimo_acesso, created_at, codigo_convite_usado')
+      .order('created_at', { ascending: true });
+
+    // Emails dos usuários (via auth.users não é acessível direto — usamos o email do currentUser para o owner e perfis para o resto)
+    // Na prática, precisamos da view admin_usuarios_resumo, mas ela lê auth.users que RLS não permite.
+    // Alternativa: guardar email no perfil. Por agora, mostrar user_id resumido.
+
+    // Carregar convites
+    const { data: convites, error: cErr } = await sb
+      .from('codigos_convite')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(20);
+
+    // Contagens por usuário
+    const { data: tarefaCounts } = await sb.from('tarefas').select('user_id').then(r => {
+      const counts = {};
+      (r.data || []).forEach(t => { counts[t.user_id] = (counts[t.user_id] || 0) + 1; });
+      return { data: counts };
+    });
+
+    const users = perfis || [];
+    const invites = convites || [];
+
+    let html = '<div style="padding:0.5rem 1rem">';
+    html += '<h2 style="font-family:\'Cormorant Garamond\',serif;font-size:1.4rem;color:var(--text-primary);margin-bottom:1rem">Painel Administrativo</h2>';
+
+    // ===== SEÇÃO: GERAR CONVITE =====
+    html += '<div class="review-card" style="margin-bottom:1rem">';
+    html += '<h3 style="margin-bottom:0.75rem">Gerar código de convite</h3>';
+    html += '<div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap">';
+    html += '<select id="adminInviteExpiry" class="auth-input" style="width:auto;padding:0.4rem 0.6rem;font-size:0.85rem">';
+    html += '<option value="1">1 dia</option><option value="3">3 dias</option><option value="7" selected>7 dias</option><option value="30">30 dias</option>';
+    html += '</select>';
+    html += '<button class="auth-btn" style="width:auto;padding:0.5rem 1.2rem;font-size:0.85rem" onclick="adminGerarConvite()">Gerar convite</button>';
+    html += '</div>';
+    html += '<div id="adminConviteResult" style="margin-top:0.75rem"></div>';
+    html += '</div>';
+
+    // ===== SEÇÃO: CONVITES EXISTENTES =====
+    html += '<div class="review-card" style="margin-bottom:1rem">';
+    html += '<h3 style="margin-bottom:0.75rem">Convites (' + invites.length + ')</h3>';
+    if (invites.length === 0) {
+      html += '<p style="color:var(--text-muted);font-size:0.85rem">Nenhum convite gerado ainda.</p>';
+    } else {
+      html += '<div style="overflow-x:auto"><table style="width:100%;font-size:0.8rem;border-collapse:collapse">';
+      html += '<tr style="color:var(--text-muted);text-align:left"><th style="padding:0.4rem">Código</th><th>Criado</th><th>Expira</th><th>Status</th></tr>';
+      invites.forEach(c => {
+        const criado = new Date(c.created_at).toLocaleDateString('pt-BR');
+        const expira = new Date(c.expira_em).toLocaleDateString('pt-BR');
+        const now = new Date();
+        let status = '';
+        if (c.usado_por) status = '<span style="color:#4CAF50">Usado</span>';
+        else if (!c.ativo) status = '<span style="color:var(--text-muted)">Desativado</span>';
+        else if (new Date(c.expira_em) < now) status = '<span style="color:var(--pri-alta)">Expirado</span>';
+        else status = '<span style="color:#4FC3F7">Ativo</span>';
+        html += '<tr style="border-top:1px solid var(--border-subtle)">';
+        html += '<td style="padding:0.4rem;font-family:monospace;font-weight:bold;letter-spacing:0.1em">' + c.codigo + '</td>';
+        html += '<td>' + criado + '</td><td>' + expira + '</td><td>' + status + '</td>';
+        html += '</tr>';
+      });
+      html += '</table></div>';
+    }
+    html += '</div>';
+
+    // ===== SEÇÃO: USUÁRIOS =====
+    html += '<div class="review-card" style="margin-bottom:1rem">';
+    html += '<h3 style="margin-bottom:0.75rem">Usuários (' + users.length + ')</h3>';
+    html += '<div style="overflow-x:auto"><table style="width:100%;font-size:0.8rem;border-collapse:collapse">';
+    html += '<tr style="color:var(--text-muted);text-align:left"><th style="padding:0.4rem">Usuário</th><th>Role</th><th>Status</th><th>Tarefas</th><th>Último acesso</th><th>Ações</th></tr>';
+    users.forEach(u => {
+      const isOwner = u.role === 'owner';
+      const isSelf = u.user_id === currentUser?.id;
+      const nome = u.nome_exibicao || u.user_id.substring(0, 8) + '...';
+      const conviteUsado = u.codigo_convite_usado || '-';
+      const ultimoAcesso = u.ultimo_acesso ? new Date(u.ultimo_acesso).toLocaleDateString('pt-BR') : 'Nunca';
+      const nTarefas = tarefaCounts?.[u.user_id] || 0;
+      const statusColor = u.status === 'ativo' ? '#4CAF50' : u.status === 'desativado' ? 'var(--pri-alta)' : '#FFC107';
+
+      html += '<tr style="border-top:1px solid var(--border-subtle)">';
+      html += '<td style="padding:0.5rem"><div>' + nome + '</div><div style="font-size:0.7rem;color:var(--text-muted)">Convite: ' + conviteUsado + '</div></td>';
+      html += '<td>' + (isOwner ? '<strong style="color:#C4993D">Owner</strong>' : 'Usuário') + '</td>';
+      html += '<td><span style="color:' + statusColor + '">' + (u.status || 'ativo') + '</span></td>';
+      html += '<td style="text-align:center">' + nTarefas + '</td>';
+      html += '<td>' + ultimoAcesso + '</td>';
+      html += '<td>';
+      if (!isSelf && !isOwner) {
+        if (u.status === 'ativo') {
+          html += '<button onclick="adminToggleUser(\'' + u.user_id + '\',\'desativado\')" style="font-size:0.7rem;padding:0.2rem 0.5rem;background:var(--pri-alta);color:white;border:none;border-radius:4px;cursor:pointer" title="Desativar">Desativar</button> ';
+        } else {
+          html += '<button onclick="adminToggleUser(\'' + u.user_id + '\',\'ativo\')" style="font-size:0.7rem;padding:0.2rem 0.5rem;background:#4CAF50;color:white;border:none;border-radius:4px;cursor:pointer" title="Ativar">Ativar</button> ';
+        }
+        html += '<button onclick="adminDeleteUser(\'' + u.user_id + '\')" style="font-size:0.7rem;padding:0.2rem 0.5rem;background:transparent;color:var(--pri-alta);border:1px solid var(--pri-alta);border-radius:4px;cursor:pointer" title="Excluir">Excluir</button>';
+      } else if (isSelf) {
+        html += '<span style="font-size:0.7rem;color:var(--text-muted)">Você</span>';
+      }
+      html += '</td></tr>';
+    });
+    html += '</table></div></div>';
+
+    html += '</div>';
+    container.innerHTML = html;
+  } catch(e) {
+    console.error('renderAdmin:', e);
+    container.innerHTML = '<div class="empty-state"><p>Erro ao carregar painel admin.</p></div>';
+  }
+}
+
+async function adminGerarConvite() {
+  const resultEl = document.getElementById('adminConviteResult');
+  const days = parseInt(document.getElementById('adminInviteExpiry').value) || 7;
+  resultEl.innerHTML = '<span style="color:var(--text-muted)">Gerando...</span>';
+
+  try {
+    // Gerar código aleatório no JS (6 chars uppercase sem ambiguidades)
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let codigo = '';
+    for (let i = 0; i < 6; i++) codigo += chars[Math.floor(Math.random() * chars.length)];
+
+    const expira = new Date();
+    expira.setDate(expira.getDate() + days);
+
+    const { error } = await sb.from('codigos_convite').insert({
+      codigo,
+      criado_por: currentUser.id,
+      expira_em: expira.toISOString()
+    });
+
+    if (error) throw error;
+
+    resultEl.innerHTML = `
+      <div style="background:hsla(43,52%,54%,0.1);border:1px solid hsla(43,52%,54%,0.3);border-radius:0.5rem;padding:0.75rem;text-align:center">
+        <div style="font-size:0.8rem;color:var(--text-muted);margin-bottom:0.3rem">Código de convite (válido por ${days} dias)</div>
+        <div style="font-size:1.8rem;font-weight:bold;letter-spacing:0.3em;color:#C4993D;font-family:monospace">${codigo}</div>
+        <button onclick="navigator.clipboard.writeText('${codigo}').then(()=>this.textContent='Copiado!')" style="margin-top:0.5rem;padding:0.3rem 1rem;font-size:0.8rem;background:var(--bg-glass);border:1px solid var(--border-subtle);border-radius:50px;color:var(--text-primary);cursor:pointer">Copiar código</button>
+      </div>`;
+
+    // Refresh lista de convites
+    setTimeout(() => renderAdmin(), 500);
+  } catch(e) {
+    resultEl.innerHTML = '<span style="color:var(--pri-alta)">Erro: ' + (e.message || e) + '</span>';
+  }
+}
+
+async function adminToggleUser(userId, novoStatus) {
+  if (!confirm(`Tem certeza que deseja ${novoStatus === 'desativado' ? 'desativar' : 'reativar'} este usuário?`)) return;
+  try {
+    await sb.from('perfis_usuario').update({ status: novoStatus }).eq('user_id', userId);
+    renderAdmin();
+  } catch(e) {
+    alert('Erro: ' + (e.message || e));
+  }
+}
+
+async function adminDeleteUser(userId) {
+  if (!confirm('ATENÇÃO: Excluir este usuário vai remover o perfil dele. As tarefas e dados ficarão órfãos. Tem certeza?')) return;
+  if (!confirm('Esta ação é IRREVERSÍVEL. Confirma exclusão?')) return;
+  try {
+    await sb.from('perfis_usuario').delete().eq('user_id', userId);
+    renderAdmin();
+  } catch(e) {
+    alert('Erro: ' + (e.message || e));
+  }
+}
 
 // ========== METAS 2026 ==========
 const METAS_CONFIG = {
@@ -7696,7 +8217,7 @@ async function loadUserProfile() {
   try {
     const { data, error } = await sb
       .from('perfis_usuario')
-      .select('role, nome')
+      .select('role, nome, status, nome_exibicao')
       .eq('user_id', currentUser.id)
       .maybeSingle();
 
@@ -7714,6 +8235,9 @@ async function loadUserProfile() {
     if (data) {
       userProfile = data;
       console.log('[perfil] Carregado:', userProfile);
+      // Mostrar/ocultar botão Admin na nav
+      const adminBtn = document.getElementById('adminNavBtn');
+      if (adminBtn) adminBtn.style.display = (data.role === 'owner') ? '' : 'none';
     } else {
       // Perfil não existe ainda — tentar criar agora
       console.warn('[perfil] Perfil ainda não existe. Criando...');
