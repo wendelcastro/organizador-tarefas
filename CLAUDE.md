@@ -91,8 +91,9 @@ sistema de ajuda in-app e PWA com Service Worker.
 - URL: (configurar em .env)
 - Anon Key: (configurar em .env)
 
-### Tabelas (13)
-- `tarefas` — Todas as tarefas (com tempo estimado, recorrência, delegação, quadrante Eisenhower, tempo gasto)
+### Tabelas (18)
+- `tarefas` — Todas as tarefas (com tempo estimado, recorrência, delegação, quadrante Eisenhower, tempo gasto, eh_habito)
+- `tarefas_diarias_log` — Log de conclusão diária de hábitos (tarefa_id + data, UNIQUE)
 - `categorias` — Trabalho, Consultoria, Grupo Ser, Pessoal
 - `historico` — Log de todas as mudanças (trigger automático)
 - `configuracoes` — Chat ID, fuso horário, tokens OAuth (Google/Microsoft)
@@ -105,10 +106,34 @@ sistema de ajuda in-app e PWA com Service Worker.
 - `anexos` — Textos, transcrições, links e arquivos vinculados a tarefas/eventos (com índice full-text)
 - `energia_diaria` — Nível de energia por período do dia (1-5, manhã/tarde/noite)
 - `reflexoes` — Reflexões diárias com pergunta e resposta
+- `perfis_usuario` — Perfil com role (owner/user), status (ativo/desativado), nome, último acesso
+- `usuarios_bot` — Mapeamento chat_id Telegram → user_id Supabase
+- `codigos_vinculacao` — Códigos temporários para vincular Telegram à conta
+- `codigos_convite` — Códigos de convite para cadastro (uso único, com validade)
 
 ### Views
-- `resumo_semanal` — Numeros agregados da semana
-- `carga_por_dia` — Ocupacao por dia para analise de sobrecarga
+- `resumo_semanal` — Números agregados da semana
+- `carga_por_dia` — Ocupação por dia para análise de sobrecarga
+- `habitos_streak` — Streak e feitos em 30 dias por hábito
+- `admin_usuarios_resumo` — Contagem de dados por usuário (para painel admin)
+
+### Migrations SQL (rodar na ordem)
+- `supabase/001_criar_tabelas.sql` a `supabase/016_perfis_usuario.sql` — Base original
+- `supabase/017_fix_rls_financas.sql` — Corrige RLS inseguro nas tabelas financeiras
+- `supabase/018_habitos_log.sql` — Tabela de log diário de hábitos + coluna eh_habito
+- `supabase/019_convites_admin.sql` — Sistema de convites + campos admin em perfis_usuario
+
+### Dashboard Views (10)
+- **Todas** — Lista de tarefas avulsas (hábitos ficam ocultos, default 30 dias)
+- **Hoje** — Tarefas do dia + hábitos com checkbox "feito hoje" + eventos
+- **Semana** — Calendário visual (com dedup contra Google Calendar)
+- **Blocos** — Blocos de tempo por período (manhã/tarde/noite)
+- **KPIs** — Gráficos de produtividade
+- **Matriz** — Matriz de Eisenhower (urgente x importante)
+- **Revisão** — Revisão semanal + heatmap 365 + rastreador de hábitos + gamificação
+- **Metas** — Planejamento estratégico 2026 (só owner) + coaching IA
+- **Finanças** — Saldo, gastos, orçamento, receitas pendentes, metas financeiras
+- **Admin** — Painel admin (só owner): convites, usuários, ações
 
 ## Chaves API (.env) — 14 variáveis
 - `TELEGRAM_BOT_TOKEN` — @BotFather (obrigatório)
