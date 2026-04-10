@@ -3993,7 +3993,7 @@ async function handleLogin(e) {
     }
   } catch(ex) {
     console.error('handleLogin erro:', ex);
-    errEl.textContent = 'Erro de conexão. Tente novamente.';
+    errEl.textContent = 'Erro: ' + (ex?.message || ex?.error_description || JSON.stringify(ex));
   } finally {
     btn.disabled = false;
     btn.textContent = 'Entrar';
