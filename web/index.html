@@ -3352,6 +3352,9 @@ body::after {
         <div class="auth-success" id="changePasswordSuccess" style="display:none"></div>
         <button type="submit" class="auth-btn" id="changePasswordBtn">Alterar senha</button>
       </form>
+      <div class="auth-toggle">
+        <a onclick="cancelChangePassword()">Cancelar e voltar</a>
+      </div>
     </div>
   </div>
 </div>
@@ -4119,19 +4122,32 @@ async function handleForgotPassword(e) {
 }
 
 // ========== ALTERAR SENHA (logado ou via link de recuperação) ==========
+let _changePasswordFromApp = false; // marca se veio do app logado ou do recovery
+
 function showChangePassword() {
-  // Acessível via menu do usuário logado ou via callback de reset
+  // Se estava logado no app, marca para saber que "cancelar" volta pro app
+  _changePasswordFromApp = !!currentUser && appInitialized;
+
   const authScreen = document.getElementById('authScreen');
   const mainApp = document.getElementById('mainApp');
   authScreen.classList.remove('hidden');
   mainApp.classList.add('auth-hidden');
 
-  ['authLogin','authRegister','authConfirm','authForgotPassword'].forEach(id => {
-    document.getElementById(id).style.display = 'none';
-  });
+  _hideAllAuthForms();
   document.getElementById('authChangePassword').style.display = 'block';
   document.getElementById('changePasswordError').textContent = '';
   document.getElementById('changePasswordSuccess').style.display = 'none';
+}
+
+function cancelChangePassword() {
+  if (_changePasswordFromApp && currentUser) {
+    // Voltar para o dashboard
+    document.getElementById('authScreen').classList.add('hidden');
+    document.getElementById('mainApp').classList.remove('auth-hidden');
+  } else {
+    // Voltar para login
+    showAuthLogin();
+  }
 }
 
 async function handleChangePassword(e) {
