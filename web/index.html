@@ -3950,17 +3950,22 @@ function showAuthScreen() {
   document.getElementById('authScreen').classList.remove('hidden');
 }
 
+function _hideAllAuthForms() {
+  ['authLogin','authRegister','authConfirm','authForgotPassword','authChangePassword'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+}
+
 function showAuthLogin() {
+  _hideAllAuthForms();
   document.getElementById('authLogin').style.display = 'block';
-  document.getElementById('authRegister').style.display = 'none';
-  document.getElementById('authConfirm').style.display = 'none';
   document.getElementById('loginError').textContent = '';
 }
 
 function showAuthRegister() {
-  document.getElementById('authLogin').style.display = 'none';
+  _hideAllAuthForms();
   document.getElementById('authRegister').style.display = 'block';
-  document.getElementById('authConfirm').style.display = 'none';
   document.getElementById('registerError').textContent = '';
 }
 
@@ -3974,18 +3979,24 @@ async function handleLogin(e) {
   btn.disabled = true;
   btn.textContent = 'Entrando...';
 
-  const { error } = await sb.auth.signInWithPassword({ email, password });
-  btn.disabled = false;
-  btn.textContent = 'Entrar';
+  try {
+    const { error } = await sb.auth.signInWithPassword({ email, password });
 
-  if (error) {
-    if (error.message.includes('Email not confirmed')) {
-      errEl.textContent = 'Email ainda não confirmado. Verifique sua caixa de entrada.';
-    } else if (error.message.includes('Invalid login')) {
-      errEl.textContent = 'Email ou senha incorretos.';
-    } else {
-      errEl.textContent = error.message;
+    if (error) {
+      if (error.message.includes('Email not confirmed')) {
+        errEl.textContent = 'Email ainda não confirmado. Verifique sua caixa de entrada.';
+      } else if (error.message.includes('Invalid login')) {
+        errEl.textContent = 'Email ou senha incorretos.';
+      } else {
+        errEl.textContent = error.message;
+      }
     }
+  } catch(ex) {
+    console.error('handleLogin erro:', ex);
+    errEl.textContent = 'Erro de conexão. Tente novamente.';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Entrar';
   }
 }
 
@@ -4074,9 +4085,7 @@ async function handleRegister(e) {
 
 // ========== ESQUECI MINHA SENHA ==========
 function showForgotPassword() {
-  document.getElementById('authLogin').style.display = 'none';
-  document.getElementById('authRegister').style.display = 'none';
-  document.getElementById('authConfirm').style.display = 'none';
+  _hideAllAuthForms();
   document.getElementById('authForgotPassword').style.display = 'block';
   document.getElementById('forgotError').textContent = '';
   document.getElementById('forgotSuccess').style.display = 'none';
@@ -8217,7 +8226,7 @@ async function loadUserProfile() {
   try {
     const { data, error } = await sb
       .from('perfis_usuario')
-      .select('role, nome, status, nome_exibicao')
+      .select('*')
       .eq('user_id', currentUser.id)
       .maybeSingle();
 
