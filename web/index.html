@@ -3926,8 +3926,8 @@ sb.auth.onAuthStateChange((event, session) => {
   }
   if (event === 'SIGNED_IN' && session) {
     currentUser = session.user;
-    // Atualizar último acesso no perfil
-    sb.rpc('atualizar_ultimo_acesso').catch(() => {});
+    // Atualizar último acesso no perfil (ignora erro se migration 019 não rodou)
+    try { sb.rpc('atualizar_ultimo_acesso').then(() => {}).catch(() => {}); } catch(e) {}
     showApp();
   } else if (event === 'TOKEN_REFRESHED' && session) {
     currentUser = session.user;
