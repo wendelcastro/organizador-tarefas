@@ -674,6 +674,8 @@ body::after {
   line-height: 1.3;
 }
 .calendar-task:active { transform: scale(0.97); background: rgba(255,255,255,0.08); }
+.calendar-habit { border-left-style: dashed; opacity: 0.7; }
+.calendar-habit.habit-done { opacity: 0.4; text-decoration: line-through; }
 
 .calendar-task-content {
   display: flex;
@@ -4406,11 +4408,12 @@ async function loadTasks() {
     .eq('user_id', currentUser.id)
     .order('created_at', { ascending: false });
   // Filtro de janela de tempo: 30 dias por padrão em "Todas"
+  // Inclui: criadas nos últimos N dias OU não concluídas OU concluídas nos últimos N dias
   if (tasksRangeDays && tasksRangeDays > 0) {
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - tasksRangeDays);
     const cutoffStr = cutoff.toISOString();
-    q = q.or(`created_at.gte.${cutoffStr},status.neq.concluida`);
+    q = q.or(`created_at.gte.${cutoffStr},status.neq.concluida,updated_at.gte.${cutoffStr}`);
   }
   const { data, error } = await q;
 
@@ -4429,6 +4432,7 @@ async function loadTasks() {
 
   renderTasks();
   renderCalendar();
+  renderToday();
   loadHabitLog();
 }
 
@@ -4552,6 +4556,8 @@ async function toggleHabitToday(tarefaId) {
   }
   renderTasks();
   renderToday();
+  renderCalendar();
+  renderProgressRing();
 }
 
 // ========== SUPABASE: CRIAR TAREFA ==========
@@ -4746,9 +4752,11 @@ function updateStats() {
     banner.style.display = 'none';
   }
 
-  // Badge no botão Hoje (quantidade de tarefas do dia)
+  // Badge no botão Hoje (tarefas do dia + hábitos pendentes)
   const hoje = new Date().toISOString().split('T')[0];
-  const todayCount = tasks.filter(t => t.prazo === hoje && t.status !== 'concluida').length;
+  const todayTaskCount = tasks.filter(t => !t.eh_habito && t.prazo === hoje && t.status !== 'concluida').length;
+  const todayHabitCount = tasks.filter(t => t.eh_habito && !isHabitDoneToday(t.id)).length;
+  const todayCount = todayTaskCount + todayHabitCount;
   document.querySelectorAll('[data-view="today"]').forEach(btn => {
     let badge = btn.querySelector('.nav-badge');
     if (todayCount > 0) {
@@ -5084,11 +5092,14 @@ async function deleteTask(id) {
   tasks = tasks.filter(t => String(t.id) !== String(id));
   renderTasks();
   renderCalendar();
+  renderToday();
 
   const ok = await removeTask(id);
   if (!ok) {
     tasks = backup;
     renderTasks();
+    renderCalendar();
+    renderToday();
   }
 }
 
@@ -5151,7 +5162,7 @@ function renderCalendar() {
 
   container.innerHTML = weekDays.map(day => {
     let dayTasks = tasks.filter(t => {
-      if (t.eh_habito) return false; // hábitos não poluem a view Semana
+      if (t.eh_habito) return false; // hábitos ficam em seção própria abaixo
       if (t.status === 'concluida') return false;
       // Exact date match (cópias diárias já existem no banco, não expandir aqui)
       if (t.prazo === day.date) return true;
@@ -5163,6 +5174,8 @@ function renderCalendar() {
       }
       return false;
     });
+    // Hábitos diários aparecem em todos os dias da semana
+    const dayHabits = tasks.filter(t => t.eh_habito);
     const dayEvents = calendarEvents.filter(ev => ev.dia === day.date);
     // DEDUP: se uma tarefa tem o mesmo titulo+horario de um evento Google,
     // mostra só o evento (evita duplicata quando a tarefa foi sincronizada).
@@ -5170,13 +5183,14 @@ function renderCalendar() {
     dayTasks.sort((a, b) => (a.horario || 'zz').localeCompare(b.horario || 'zz'));
     dayEvents.sort((a, b) => (a.horario_inicio || 'zz').localeCompare(b.horario_inicio || 'zz'));
     const todayClass = day.isToday ? 'today' : '';
-    const totalItems = dayTasks.length + dayEvents.length;
+    const totalItems = dayTasks.length + dayEvents.length + dayHabits.length;
     const emptyClass = totalItems === 0 ? 'empty-day' : '';
 
     // Merge events and tasks for display
     const allItems = [];
     dayEvents.forEach(ev => allItems.push({ type: 'event', data: ev, sortKey: ev.all_day ? '00:00' : (ev.horario_inicio || 'zz') }));
     dayTasks.forEach(t => allItems.push({ type: 'task', data: t, sortKey: t.horario || 'zz' }));
+    dayHabits.forEach(t => allItems.push({ type: 'habit', data: t, sortKey: 'zzz' })); // hábitos no final
     allItems.sort((a, b) => a.sortKey.localeCompare(b.sortKey));
 
     const visible = allItems.slice(0, MAX_VISIBLE);
@@ -5193,6 +5207,15 @@ function renderCalendar() {
           ${visible.map(item => {
             if (item.type === 'event') {
               return renderCalendarEvent(item.data);
+            }
+            if (item.type === 'habit') {
+              const h = item.data;
+              const done = day.isToday && isHabitDoneToday(h.id);
+              return `<div class="calendar-task calendar-habit ${done ? 'habit-done' : ''}" style="--cat-color:#C4993D" data-task-id="${h.id}">
+                <div class="calendar-task-content">
+                  <span class="calendar-task-title">🔁 ${h.titulo}</span>
+                </div>
+              </div>`;
             }
             const t = item.data;
             const platform = detectMeetingPlatform(t.meeting_link);
@@ -5459,8 +5482,8 @@ function renderToday() {
   header.innerHTML = headerHTML;
 
   const container = document.getElementById('todayTaskList');
-  // Hábitos entram no topo da lista (pendentes primeiro, feitos depois)
-  const allTasks = [...habitsPending, ...overdue, ...todayTasks, ...habitsDone];
+  // Hábitos no topo, depois atrasadas, depois hoje pendentes, depois hábitos feitos, depois concluídas hoje
+  const allTasks = [...habitsPending, ...overdue, ...todayTasks, ...habitsDone, ...todayDone];
 
   if (allTasks.length === 0 && todayEvents.length === 0) {
     container.innerHTML = '<div class="today-empty"><p>Nenhuma tarefa para hoje! Aproveite o dia.</p></div>';
@@ -5501,7 +5524,7 @@ function renderToday() {
     const timeStr = task.horario || '';
     const isLate = !isHabit && task.prazo < hoje;
     const inProgressClass = task.status === 'em_andamento' ? 'in-progress' : '';
-    const completedClass = habitDone ? 'completed' : '';
+    const completedClass = (habitDone || task.status === 'concluida') ? 'completed' : '';
     const selectedClass = selectedTasks.has(String(task.id)) ? 'selected' : '';
     const streak = isHabit ? getHabitStreak(task.id) : 0;
     const i = idx++;
@@ -5646,6 +5669,7 @@ async function saveTask(event) {
       }
       renderTasks();
       renderCalendar();
+      renderToday();
     }
     editingTaskId = null;
   } else {
@@ -5657,6 +5681,7 @@ async function saveTask(event) {
       tasks.unshift({ ...created, horario: created.horario ? created.horario.substring(0, 5) : '' });
       renderTasks();
       renderCalendar();
+      renderToday();
     }
   }
 }
@@ -6119,10 +6144,13 @@ async function updateGamification(xpGained) {
 
 function calculateDailyProgress() {
   const hoje = new Date().toISOString().split('T')[0];
-  const todayTasks = tasks.filter(t => t.prazo === hoje);
-  if (todayTasks.length === 0) return 0;
-  const done = todayTasks.filter(t => t.status === 'concluida').length;
-  return Math.round((done / todayTasks.length) * 100);
+  const todayTasks = tasks.filter(t => !t.eh_habito && t.prazo === hoje);
+  const todayHabits = tasks.filter(t => t.eh_habito);
+  const totalItems = todayTasks.length + todayHabits.length;
+  if (totalItems === 0) return 0;
+  const tasksDone = todayTasks.filter(t => t.status === 'concluida').length;
+  const habitsDone = todayHabits.filter(t => isHabitDoneToday(t.id)).length;
+  return Math.round(((tasksDone + habitsDone) / totalItems) * 100);
 }
 
 function renderProgressRing() {
@@ -6293,12 +6321,14 @@ async function handleCalendarDrop(e, newDate) {
   task.prazo = newDate;
   renderCalendar();
   renderTasks();
+  renderToday();
 
   const ok = await updateTask(taskId, { prazo: newDate });
   if (!ok) {
     task.prazo = oldDate;
     renderCalendar();
     renderTasks();
+    renderToday();
   }
 }
 
@@ -7266,7 +7296,9 @@ function renderMatrix() {
       const newQuadrant = quad.dataset.quadrant;
       if (taskId && newQuadrant) {
         saveQuadrant(taskId, newQuadrant);
-        renderMatrix(); // re-render
+        renderMatrix();
+        renderTasks();
+        renderToday();
       }
     });
   });
@@ -7325,6 +7357,8 @@ function renderMatrix() {
           const newQuadrant = quad.dataset.quadrant;
           saveQuadrant(touchDragId, newQuadrant);
           renderMatrix();
+          renderTasks();
+          renderToday();
         }
       }
       touchDragEl = null; touchDragId = null;
@@ -8261,17 +8295,70 @@ async function loadUserProfile() {
     if (data) {
       userProfile = data;
       console.log('[perfil] Carregado:', userProfile);
+
+      // Se o perfil é 'user', tentar auto-promoção a owner (se nenhum owner existir)
+      // Usa RPC com SECURITY DEFINER para ignorar RLS e ver todos os perfis
+      if (data.role !== 'owner') {
+        try {
+          const { data: rpcResult } = await sb.rpc('promover_primeiro_owner');
+          if (rpcResult === 'promovido a owner') {
+            console.log('[perfil] Promovido a owner via RPC.');
+            userProfile.role = 'owner';
+          }
+        } catch(rpcErr) {
+          // RPC não existe (migration 020 não rodou) — fallback: auto-promoção direta
+          // Funciona para usuário único (RLS limita visão ao próprio perfil)
+          console.warn('[perfil] RPC não disponível, tentando promoção direta:', rpcErr.message);
+          const { data: owners } = await sb
+            .from('perfis_usuario')
+            .select('user_id')
+            .eq('role', 'owner')
+            .limit(1);
+          if (!owners || owners.length === 0) {
+            await sb.from('perfis_usuario')
+              .update({ role: 'owner' })
+              .eq('user_id', currentUser.id);
+            userProfile.role = 'owner';
+            console.log('[perfil] Promovido a owner (fallback direto).');
+          }
+        }
+      }
+
       // Mostrar/ocultar botão Admin na nav
       const adminBtn = document.getElementById('adminNavBtn');
-      if (adminBtn) adminBtn.style.display = (data.role === 'owner') ? '' : 'none';
+      if (adminBtn) adminBtn.style.display = (userProfile.role === 'owner') ? '' : 'none';
     } else {
-      // Perfil não existe ainda — tentar criar agora
+      // Perfil não existe ainda — criar e tentar auto-promoção
       console.warn('[perfil] Perfil ainda não existe. Criando...');
       const { error: insertErr } = await sb
         .from('perfis_usuario')
         .insert({ user_id: currentUser.id, role: 'user' });
       if (insertErr) console.warn('[perfil] Erro ao criar perfil:', insertErr);
       userProfile = { role: 'user' };
+      // Tentar promoção a owner
+      try {
+        const { data: rpcResult } = await sb.rpc('promover_primeiro_owner');
+        if (rpcResult === 'promovido a owner') {
+          userProfile.role = 'owner';
+          console.log('[perfil] Perfil criado e promovido a owner via RPC.');
+        }
+      } catch(rpcErr) {
+        // Fallback sem RPC
+        const { data: owners } = await sb
+          .from('perfis_usuario')
+          .select('user_id')
+          .eq('role', 'owner')
+          .limit(1);
+        if (!owners || owners.length === 0) {
+          await sb.from('perfis_usuario')
+            .update({ role: 'owner' })
+            .eq('user_id', currentUser.id);
+          userProfile.role = 'owner';
+        }
+      }
+      console.log('[perfil] Perfil criado com role:', userProfile.role);
+      const adminBtn = document.getElementById('adminNavBtn');
+      if (adminBtn) adminBtn.style.display = (userProfile.role === 'owner') ? '' : 'none';
     }
   } catch(e) {
     console.warn('[perfil] Exceção:', e);

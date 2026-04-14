@@ -27,30 +27,20 @@ sistema de ajuda in-app e PWA com Service Worker.
 /bot          - Telegram Bot + AI Brain + Calendar Sync (Python)
 /web          - Dashboard Web (HTML/CSS/JS single-file) + PWA (manifest + Service Worker)
 /docs         - Documentação didática completa (7 guias)
-/supabase     - Migrations SQL (001 a 010)
+/supabase     - Migrations SQL (001 a 020)
 ```
 
 ## Arquivos Chave
 - `bot/main.py` — Ponto de entrada, handlers (23 comandos), jobs programados, health check HTTP (porta 8000), OAuth callbacks
 - `bot/ai_brain.py` — Cérebro IA: dual provider (Gemini/Claude), classificação, resolução temporal, sobrecarga, múltiplas tarefas, coaching, decomposição
 - `bot/calendar_sync.py` — Integração Google Calendar + Microsoft Outlook/Teams (OAuth2, sync, lembretes, criação de eventos, Google Tasks)
-- `web/index.html` — Dashboard Premium (7 views, gamificação, drag&drop, Eisenhower, Pomodoro, busca com highlight, anexos com drag & drop, energia, histórico semanal, hábitos, timeline, bulk, dark/light, realtime, PWA, sistema de ajuda in-app)
+- `web/index.html` — Dashboard Premium (10 views, gamificação, drag&drop, Eisenhower, Pomodoro, busca com highlight, anexos com drag & drop, energia, histórico semanal, hábitos, timeline, bulk, dark/light, realtime, PWA, sistema de ajuda in-app, metas, finanças, admin)
 - `web/manifest.json` — PWA manifest para instalação no celular/desktop
 - `web/sw.js` — Service Worker para cache network-first (PWA offline)
 - `Dockerfile` — Build para Koyeb (python:3.11-slim + ffmpeg, EXPOSE 8000)
 - `Procfile` — Declaração de worker para PaaS
 
-### Migrations SQL (rodar na ordem)
-- `supabase/001_criar_tabelas.sql` — Tabelas base (tarefas, categorias, historico, configuracoes)
-- `supabase/002_fix_delete_trigger.sql` — Fix FK do historico
-- `supabase/003_melhorias_inteligentes.sql` — V2: tempo estimado, recorrencia, delegacao, contexto IA
-- `supabase/004_gamificacao_historico_habitos.sql` — V3: gamificacao (XP, niveis, streaks), historico semanal, habitos
-- `supabase/005_pomodoro_reflexoes.sql` — Pomodoro tracking (tempo_gasto_min), reflexoes diarias
-- `supabase/006_energy_mapping.sql` — Mapeamento de energia por periodo (manha/tarde/noite)
-- `supabase/007_eisenhower_quadrant.sql` — Coluna quadrante_eisenhower na tabela tarefas
-- `supabase/008_subtarefas.sql` — Subtarefas/checklist vinculadas a tarefas
-- `supabase/009_eventos_calendario.sql` — Tabela eventos_calendario para sync Google/Microsoft
-- `supabase/010_anexos_busca.sql` — Tabela anexos + indices full-text search (portugues)
+### Migrations SQL (rodar na ordem, ver lista completa abaixo)
 
 ## Comandos do Bot (23 comandos)
 
@@ -122,11 +112,12 @@ sistema de ajuda in-app e PWA com Service Worker.
 - `supabase/017_fix_rls_financas.sql` — Corrige RLS inseguro nas tabelas financeiras
 - `supabase/018_habitos_log.sql` — Tabela de log diário de hábitos + coluna eh_habito
 - `supabase/019_convites_admin.sql` — Sistema de convites + campos admin em perfis_usuario
+- `supabase/020_auto_owner.sql` — RPC `promover_primeiro_owner()` para auto-promoção do primeiro usuário
 
 ### Dashboard Views (10)
 - **Todas** — Lista de tarefas avulsas (hábitos ficam ocultos, default 30 dias)
-- **Hoje** — Tarefas do dia + hábitos com checkbox "feito hoje" + eventos
-- **Semana** — Calendário visual (com dedup contra Google Calendar)
+- **Hoje** — Tarefas do dia + hábitos com checkbox "feito hoje" + eventos + concluídas do dia
+- **Semana** — Calendário visual (com dedup contra Google Calendar + hábitos diários)
 - **Blocos** — Blocos de tempo por período (manhã/tarde/noite)
 - **KPIs** — Gráficos de produtividade
 - **Matriz** — Matriz de Eisenhower (urgente x importante)
@@ -150,6 +141,17 @@ sistema de ajuda in-app e PWA com Service Worker.
 - `MICROSOFT_CLIENT_SECRET` — portal.azure.com (Outlook/Teams OAuth)
 - `BOT_PUBLIC_URL` — URL pública do bot no Koyeb (para callbacks OAuth)
 - `OAUTH_SECRET_KEY` — Chave secreta para assinar state OAuth (HMAC)
+
+### Funções RPC (Supabase)
+- `promover_primeiro_owner()` — Auto-promove o primeiro usuário a owner (SECURITY DEFINER, ignora RLS)
+
+### Sincronização entre views (regra crítica)
+Toda ação que modifica tarefas DEVE chamar as três funções de render:
+- `renderTasks()` — atualiza lista "Todas" + stats + progress ring
+- `renderCalendar()` — atualiza calendário semanal
+- `renderToday()` — atualiza aba "Hoje"
+
+Funções que disparam render: `toggleTask`, `deleteTask`, `saveTask`, `bulkComplete`, `bulkDelete`, `handleCalendarDrop`, `postponeTask`, `toggleHabitToday`, `saveQuadrant` (via matrix drop), `loadTasks` (realtime).
 
 ## Regras
 1. Nunca commitar .env ou chaves de API
