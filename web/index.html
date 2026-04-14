@@ -8282,9 +8282,8 @@ async function loadUserProfile() {
       .maybeSingle();
 
     if (error) {
-      // Se a tabela não existe (migration 016 não rodou), loga mensagem clara
       if (error.code === '42P01' || /does not exist/i.test(error.message || '')) {
-        console.warn('[perfil] Tabela perfis_usuario não existe. Rode a migration 016_perfis_usuario.sql no Supabase.');
+        console.warn('[perfil] Tabela perfis_usuario não existe. Rode a migration 016.');
       } else {
         console.warn('[perfil] Erro ao carregar:', error);
       }
@@ -8294,76 +8293,70 @@ async function loadUserProfile() {
 
     if (data) {
       userProfile = data;
-      console.log('[perfil] Carregado:', userProfile);
-
-      // Se o perfil é 'user', tentar auto-promoção a owner (se nenhum owner existir)
-      if (data.role !== 'owner') {
-        let promoted = false;
-        // Tentativa 1: RPC com SECURITY DEFINER (ignora RLS, verifica todos os perfis)
-        const { data: rpcResult, error: rpcError } = await sb.rpc('promover_primeiro_owner');
-        if (!rpcError && rpcResult === 'promovido a owner') {
-          console.log('[perfil] Promovido a owner via RPC.');
-          userProfile.role = 'owner';
-          promoted = true;
-        } else {
-          if (rpcError) console.warn('[perfil] RPC falhou:', rpcError.message);
-          // Tentativa 2: promoção direta (funciona para usuário único — RLS limita visão ao próprio perfil)
-          const { data: owners } = await sb
-            .from('perfis_usuario')
-            .select('user_id')
-            .eq('role', 'owner')
-            .limit(1);
-          if (!owners || owners.length === 0) {
-            const { error: upErr } = await sb.from('perfis_usuario')
-              .update({ role: 'owner' })
-              .eq('user_id', currentUser.id);
-            if (!upErr) {
-              userProfile.role = 'owner';
-              promoted = true;
-              console.log('[perfil] Promovido a owner (fallback direto).');
-            }
-          }
-        }
-        if (promoted) console.log('[perfil] Role atualizado para owner.');
-      }
-
-      // Mostrar/ocultar botão Admin na nav
-      const adminBtn = document.getElementById('adminNavBtn');
-      if (adminBtn) adminBtn.style.display = (userProfile.role === 'owner') ? '' : 'none';
+      console.log('[perfil] Carregado — role:', data.role);
     } else {
-      // Perfil não existe ainda — criar e tentar auto-promoção
-      console.warn('[perfil] Perfil ainda não existe. Criando...');
-      const { error: insertErr } = await sb
-        .from('perfis_usuario')
+      // Perfil não existe — criar
+      console.warn('[perfil] Criando perfil...');
+      await sb.from('perfis_usuario')
         .insert({ user_id: currentUser.id, role: 'user' });
-      if (insertErr) console.warn('[perfil] Erro ao criar perfil:', insertErr);
       userProfile = { role: 'user' };
-      // Tentar promoção a owner
-      const { data: rpcResult, error: rpcError } = await sb.rpc('promover_primeiro_owner');
-      if (!rpcError && rpcResult === 'promovido a owner') {
-        userProfile.role = 'owner';
-        console.log('[perfil] Perfil criado e promovido a owner via RPC.');
-      } else {
-        if (rpcError) console.warn('[perfil] RPC falhou:', rpcError.message);
-        const { data: owners } = await sb
-          .from('perfis_usuario')
-          .select('user_id')
-          .eq('role', 'owner')
-          .limit(1);
-        if (!owners || owners.length === 0) {
-          const { error: upErr } = await sb.from('perfis_usuario')
-            .update({ role: 'owner' })
-            .eq('user_id', currentUser.id);
-          if (!upErr) userProfile.role = 'owner';
-        }
-      }
-      console.log('[perfil] Perfil criado com role:', userProfile.role);
-      const adminBtn = document.getElementById('adminNavBtn');
-      if (adminBtn) adminBtn.style.display = (userProfile.role === 'owner') ? '' : 'none';
     }
+
+    // Auto-promoção: se não é owner, verificar se o sistema tem algum owner
+    // Se não tem, este usuário é o primeiro → promover automaticamente
+    if (userProfile.role !== 'owner') {
+      await autoPromoteFirstOwner();
+    }
+
+    // Atualizar UI
+    const adminBtn = document.getElementById('adminNavBtn');
+    if (adminBtn) adminBtn.style.display = (userProfile.role === 'owner') ? '' : 'none';
+    console.log('[perfil] Role final:', userProfile.role);
   } catch(e) {
     console.warn('[perfil] Exceção:', e);
     userProfile = { role: 'user' };
+  }
+}
+
+async function autoPromoteFirstOwner() {
+  // Estratégia 1: RPC SECURITY DEFINER (ignora RLS, vê todos os perfis)
+  const { data: rpcResult, error: rpcError } = await sb.rpc('promover_primeiro_owner');
+  if (!rpcError) {
+    console.log('[perfil] RPC retornou:', rpcResult);
+    if (rpcResult === 'promovido a owner') {
+      userProfile.role = 'owner';
+      return;
+    }
+    // 'já existe owner' — verificar se sou eu (pode ter sido promovido em outra sessão)
+    if (rpcResult === 'já existe owner') {
+      const { data: recheck } = await sb.from('perfis_usuario')
+        .select('role')
+        .eq('user_id', currentUser.id)
+        .maybeSingle();
+      if (recheck && recheck.role === 'owner') {
+        userProfile.role = 'owner';
+        console.log('[perfil] Já sou owner (confirmado via recheck).');
+      }
+      return;
+    }
+  }
+
+  // Estratégia 2: promoção direta (se RPC não existe ou falhou)
+  console.warn('[perfil] RPC indisponível:', rpcError?.message || 'resposta inesperada');
+  const { data: owners } = await sb.from('perfis_usuario')
+    .select('user_id')
+    .eq('role', 'owner')
+    .limit(1);
+  if (!owners || owners.length === 0) {
+    const { error: upErr } = await sb.from('perfis_usuario')
+      .update({ role: 'owner' })
+      .eq('user_id', currentUser.id);
+    if (!upErr) {
+      userProfile.role = 'owner';
+      console.log('[perfil] Promovido a owner (fallback direto).');
+    } else {
+      console.warn('[perfil] Falha ao promover:', upErr.message);
+    }
   }
 }
 
