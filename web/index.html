@@ -8297,31 +8297,34 @@ async function loadUserProfile() {
       console.log('[perfil] Carregado:', userProfile);
 
       // Se o perfil é 'user', tentar auto-promoção a owner (se nenhum owner existir)
-      // Usa RPC com SECURITY DEFINER para ignorar RLS e ver todos os perfis
       if (data.role !== 'owner') {
-        try {
-          const { data: rpcResult } = await sb.rpc('promover_primeiro_owner');
-          if (rpcResult === 'promovido a owner') {
-            console.log('[perfil] Promovido a owner via RPC.');
-            userProfile.role = 'owner';
-          }
-        } catch(rpcErr) {
-          // RPC não existe (migration 020 não rodou) — fallback: auto-promoção direta
-          // Funciona para usuário único (RLS limita visão ao próprio perfil)
-          console.warn('[perfil] RPC não disponível, tentando promoção direta:', rpcErr.message);
+        let promoted = false;
+        // Tentativa 1: RPC com SECURITY DEFINER (ignora RLS, verifica todos os perfis)
+        const { data: rpcResult, error: rpcError } = await sb.rpc('promover_primeiro_owner');
+        if (!rpcError && rpcResult === 'promovido a owner') {
+          console.log('[perfil] Promovido a owner via RPC.');
+          userProfile.role = 'owner';
+          promoted = true;
+        } else {
+          if (rpcError) console.warn('[perfil] RPC falhou:', rpcError.message);
+          // Tentativa 2: promoção direta (funciona para usuário único — RLS limita visão ao próprio perfil)
           const { data: owners } = await sb
             .from('perfis_usuario')
             .select('user_id')
             .eq('role', 'owner')
             .limit(1);
           if (!owners || owners.length === 0) {
-            await sb.from('perfis_usuario')
+            const { error: upErr } = await sb.from('perfis_usuario')
               .update({ role: 'owner' })
               .eq('user_id', currentUser.id);
-            userProfile.role = 'owner';
-            console.log('[perfil] Promovido a owner (fallback direto).');
+            if (!upErr) {
+              userProfile.role = 'owner';
+              promoted = true;
+              console.log('[perfil] Promovido a owner (fallback direto).');
+            }
           }
         }
+        if (promoted) console.log('[perfil] Role atualizado para owner.');
       }
 
       // Mostrar/ocultar botão Admin na nav
@@ -8336,24 +8339,22 @@ async function loadUserProfile() {
       if (insertErr) console.warn('[perfil] Erro ao criar perfil:', insertErr);
       userProfile = { role: 'user' };
       // Tentar promoção a owner
-      try {
-        const { data: rpcResult } = await sb.rpc('promover_primeiro_owner');
-        if (rpcResult === 'promovido a owner') {
-          userProfile.role = 'owner';
-          console.log('[perfil] Perfil criado e promovido a owner via RPC.');
-        }
-      } catch(rpcErr) {
-        // Fallback sem RPC
+      const { data: rpcResult, error: rpcError } = await sb.rpc('promover_primeiro_owner');
+      if (!rpcError && rpcResult === 'promovido a owner') {
+        userProfile.role = 'owner';
+        console.log('[perfil] Perfil criado e promovido a owner via RPC.');
+      } else {
+        if (rpcError) console.warn('[perfil] RPC falhou:', rpcError.message);
         const { data: owners } = await sb
           .from('perfis_usuario')
           .select('user_id')
           .eq('role', 'owner')
           .limit(1);
         if (!owners || owners.length === 0) {
-          await sb.from('perfis_usuario')
+          const { error: upErr } = await sb.from('perfis_usuario')
             .update({ role: 'owner' })
             .eq('user_id', currentUser.id);
-          userProfile.role = 'owner';
+          if (!upErr) userProfile.role = 'owner';
         }
       }
       console.log('[perfil] Perfil criado com role:', userProfile.role);
