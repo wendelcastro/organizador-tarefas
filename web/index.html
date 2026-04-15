@@ -8366,16 +8366,19 @@ function isMetasOwner() {
 
 function renderMetas() {
   const container = document.getElementById('metasView');
+  console.log('[metas] userProfile:', JSON.stringify(userProfile), '| isOwner:', isMetasOwner());
 
-  // Se não é o dono, mostrar empty state
+  // Se não é o dono, mostrar empty state com diagnóstico
   if (!isMetasOwner()) {
+    const debugRole = userProfile ? userProfile.role : 'null';
     container.innerHTML = `
       <div class="fin-header"><h2>Metas 2026</h2></div>
       <div class="fin-empty">
         <div style="font-size:2.5rem;margin-bottom:0.5rem">🎯</div>
-        <strong>Em breve</strong>
-        <p>Metas pessoais configuráveis estarão disponíveis em breve.<br>
-        Por enquanto, foco nas tarefas e finanças!</p>
+        <strong>Acesso restrito</strong>
+        <p>Seu perfil está como <code>${debugRole}</code>. Metas requerem role <code>owner</code>.</p>
+        <p style="margin-top:0.5rem;font-size:0.75rem;opacity:0.7">Rode no Supabase SQL Editor:<br>
+        <code>UPDATE perfis_usuario SET role = 'owner' WHERE user_id = '${currentUser?.id || '?'}';</code></p>
       </div>`;
     return;
   }
