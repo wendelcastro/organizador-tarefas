@@ -285,8 +285,10 @@ function renderCalendar() {
       }
       return false;
     });
-    // Hábitos diários aparecem em todos os dias da semana
-    const dayHabits = tasks.filter(t => t.eh_habito);
+    // Hábitos: cards individuais só no dia de hoje, badge compacto nos outros dias
+    const allHabits = tasks.filter(t => t.eh_habito);
+    const dayHabits = day.isToday ? allHabits : [];
+    const habitBadgeCount = !day.isToday ? allHabits.length : 0;
     const dayEvents = calendarEvents.filter(ev => ev.dia === day.date);
     // DEDUP: se uma tarefa tem o mesmo titulo+horario de um evento Google,
     // mostra só o evento (evita duplicata quando a tarefa foi sincronizada).
@@ -295,13 +297,13 @@ function renderCalendar() {
     dayEvents.sort((a, b) => (a.horario_inicio || 'zz').localeCompare(b.horario_inicio || 'zz'));
     const todayClass = day.isToday ? 'today' : '';
     const totalItems = dayTasks.length + dayEvents.length + dayHabits.length;
-    const emptyClass = totalItems === 0 ? 'empty-day' : '';
+    const emptyClass = totalItems === 0 && habitBadgeCount === 0 ? 'empty-day' : '';
 
     // Merge events and tasks for display
     const allItems = [];
     dayEvents.forEach(ev => allItems.push({ type: 'event', data: ev, sortKey: ev.all_day ? '00:00' : (ev.horario_inicio || 'zz') }));
     dayTasks.forEach(t => allItems.push({ type: 'task', data: t, sortKey: t.horario || 'zz' }));
-    dayHabits.forEach(t => allItems.push({ type: 'habit', data: t, sortKey: 'zzz' })); // hábitos no final
+    dayHabits.forEach(t => allItems.push({ type: 'habit', data: t, sortKey: 'zzz' }));
     allItems.sort((a, b) => a.sortKey.localeCompare(b.sortKey));
 
     const visible = allItems.slice(0, MAX_VISIBLE);
@@ -341,6 +343,7 @@ function renderCalendar() {
             </div>`;
           }).join('')}
           ${remaining > 0 ? '<div class="calendar-task-count">+' + remaining + ' mais</div>' : ''}
+          ${habitBadgeCount > 0 ? '<div class="calendar-task-count" style="color:var(--accent);opacity:0.7">🔁 ' + habitBadgeCount + ' hábito' + (habitBadgeCount > 1 ? 's' : '') + '</div>' : ''}
         </div>
       </div>`;
   }).join('');
@@ -753,6 +756,7 @@ async function saveTask(event) {
   const platform = detectMeetingPlatform(meetingLink);
 
   const categoria = document.getElementById('inputCategory').value;
+  const tipo = document.getElementById('inputTipo').value || 'tarefa';
   const taskData = {
     titulo: document.getElementById('inputTitle').value,
     categoria: categoria,
@@ -762,8 +766,9 @@ async function saveTask(event) {
     meeting_link: meetingLink,
     meeting_platform: platform ? platform.type : null,
     notas: document.getElementById('inputNotes').value,
-    tipo: document.getElementById('inputTipo').value || 'tarefa',
+    tipo: tipo,
     subcategoria: categoria === 'Pessoal' ? (document.getElementById('inputSubcategoria').value || null) : null,
+    eh_habito: (tipo === 'habito' || tipo === 'rotina') ? true : false,
   };
 
   closeModal();
