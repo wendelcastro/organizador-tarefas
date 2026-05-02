@@ -1,0 +1,269 @@
+/*
+ * =====================================================
+ *  DESIGN SYSTEM — Organizador de Tarefas
+ *  Inspirado no Notion Design System
+ *  Versao: 1.0
+ * =====================================================
+ *
+ *  Este arquivo e a fonte de verdade para todos os
+ *  tokens visuais do projeto. Qualquer novo componente
+ *  DEVE usar estas variaveis e seguir estes padroes.
+ *
+ *  Referencia: https://getdesign.md/notion/design-md
+ * =====================================================
+ */
+
+/* ============================
+   1. CORES — PALETA PRIMARIA
+   ============================ */
+
+:root {
+  /* --- Accent (Notion Blue) --- */
+  --accent: #0075de;
+  --accent-hover: #005bab;
+  --accent-focus: #097fe8;
+  --accent-bg: #f2f9ff;
+  --accent-text: #097fe8;
+  --accent-light: #62aef0;
+  --deep-navy: #213183;
+
+  /* --- Neutrals (warm undertones) --- */
+  --white: #ffffff;
+  --warm-white: #f6f5f4;
+  --warm-dark: #31302e;
+  --warm-gray-500: #615d59;
+  --warm-gray-300: #a39e98;
+  --near-black: rgba(0, 0, 0, 0.95);
+
+  /* --- Semantic --- */
+  --success: #1aae39;
+  --error: #dd5b00;
+  --warning: #dd5b00;
+  --info: #0075de;
+  --teal: #2a9d99;
+  --pink: #ff64c8;
+  --purple: #391c57;
+  --brown: #523410;
+
+  /* --- Categories --- */
+  --cat-trabalho: #0075de;
+  --cat-consultoria: #2a9d99;
+  --cat-grupo-ser: #7c5caa;
+  --cat-pessoal: #1aae39;
+
+  /* --- Priority --- */
+  --pri-alta: #dd5b00;
+  --pri-media: #0075de;
+  --pri-baixa: #a39e98;
+
+
+  /* ============================
+     2. SUPERFICIES E BORDAS
+     ============================ */
+
+  --bg-deep: #ffffff;
+  --bg-surface: #f6f5f4;
+  --bg-card: #ffffff;
+  --bg-glass: rgba(0, 0, 0, 0.03);
+
+  --border-subtle: rgba(0, 0, 0, 0.1);
+  --border-hover: rgba(0, 0, 0, 0.18);
+
+  --text-primary: rgba(0, 0, 0, 0.95);
+  --text-secondary: #615d59;
+  --text-muted: #a39e98;
+
+
+  /* ============================
+     3. SOMBRAS (multi-layer)
+     ============================ */
+
+  --shadow-card:
+    rgba(0,0,0,0.04) 0px 4px 18px,
+    rgba(0,0,0,0.027) 0px 2.025px 7.84688px,
+    rgba(0,0,0,0.02) 0px 0.8px 2.925px,
+    rgba(0,0,0,0.01) 0px 0.175px 1.04062px;
+
+  --shadow-deep:
+    rgba(0,0,0,0.01) 0px 1px 3px,
+    rgba(0,0,0,0.02) 0px 3px 7px,
+    rgba(0,0,0,0.02) 0px 7px 15px,
+    rgba(0,0,0,0.04) 0px 14px 28px,
+    rgba(0,0,0,0.05) 0px 23px 52px;
+
+  --shadow-focus: 0 0 0 2px var(--accent-focus);
+
+
+  /* ============================
+     4. TIPOGRAFIA
+     ============================ */
+
+  --font-primary: 'Inter', -apple-system, system-ui, 'Segoe UI', Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  /* Tamanhos */
+  --text-display: 48px;
+  --text-h1: 36px;
+  --text-h2: 24px;
+  --text-h3: 20px;
+  --text-body: 16px;
+  --text-body-sm: 14px;
+  --text-caption: 12px;
+  --text-micro: 11px;
+
+  /* Pesos */
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+
+
+  /* ============================
+     5. ESPACAMENTO
+     ============================ */
+
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 40px;
+  --space-2xl: 64px;
+
+
+  /* ============================
+     6. BORDER RADIUS
+     ============================ */
+
+  --radius-none: 0px;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-pill: 9999px;
+
+  /* Mapeados para o sistema atual */
+  --radius: 12px;
+
+
+  /* ============================
+     7. TRANSICOES
+     ============================ */
+
+  --transition: 0.2s ease;
+  --transition-slow: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+
+  /* ============================
+     8. SAFE AREAS (PWA)
+     ============================ */
+
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+
+/* ============================
+   9. DARK MODE
+   ============================ */
+
+.dark-mode {
+  --bg-deep: #191918;
+  --bg-surface: #222221;
+  --bg-card: #2a2a29;
+  --bg-glass: rgba(255, 255, 255, 0.05);
+
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --border-hover: rgba(255, 255, 255, 0.15);
+
+  --text-primary: rgba(255, 255, 255, 0.95);
+  --text-secondary: rgba(255, 255, 255, 0.6);
+  --text-muted: rgba(255, 255, 255, 0.35);
+
+  --shadow-card:
+    rgba(0,0,0,0.2) 0px 4px 18px,
+    rgba(0,0,0,0.15) 0px 2px 8px;
+
+  --shadow-deep:
+    rgba(0,0,0,0.3) 0px 8px 30px,
+    rgba(0,0,0,0.2) 0px 4px 15px;
+}
+
+
+/* =====================================================
+   GUIA DE USO — REFERENCIA RAPIDA
+   =====================================================
+
+   BOTAO PRIMARIO:
+     background: var(--accent);
+     color: var(--white);
+     padding: 8px 16px;
+     border-radius: var(--radius-sm);
+     border: 1px solid transparent;
+     font: var(--weight-semibold) 15px var(--font-primary);
+
+   BOTAO SECUNDARIO:
+     background: var(--bg-glass);
+     color: var(--text-primary);
+     padding: 8px 16px;
+     border-radius: var(--radius-sm);
+     border: 1px solid var(--border-subtle);
+
+   BOTAO GHOST:
+     background: transparent;
+     color: var(--text-primary);
+     border: none;
+
+   PILL BADGE:
+     background: var(--accent-bg);
+     color: var(--accent-text);
+     padding: 4px 8px;
+     border-radius: var(--radius-pill);
+     font: var(--weight-semibold) 12px var(--font-primary);
+     letter-spacing: 0.125px;
+
+   CARD:
+     background: var(--bg-card);
+     border: 1px solid var(--border-subtle);
+     border-radius: var(--radius-lg);
+     box-shadow: var(--shadow-card);
+
+   INPUT:
+     background: var(--white);
+     color: var(--text-primary);
+     border: 1px solid var(--border-subtle);
+     border-radius: var(--radius-sm);
+     padding: 8px 12px;
+     font: var(--weight-regular) 16px var(--font-primary);
+
+   TIPOGRAFIA — HEADINGS:
+     h1: 48px / weight-bold / line-height 1.1 / letter-spacing -0.04em
+     h2: 36px / weight-bold / line-height 1.15 / letter-spacing -0.03em
+     h3: 24px / weight-semibold / line-height 1.25 / letter-spacing -0.02em
+     body: 16px / weight-regular / line-height 1.5 / letter-spacing normal
+     label: 12px / weight-semibold / line-height 1.25 / letter-spacing 0.08em / uppercase
+
+   BORDAS:
+     Padrao: 1px solid var(--border-subtle)     -> whisper border
+     Hover:  1px solid var(--border-hover)       -> levemente mais visivel
+     Focus:  box-shadow: var(--shadow-focus)     -> anel azul
+
+   SOMBRAS:
+     Nenhuma:  sem sombra                        -> texto, fundos
+     Suave:    var(--shadow-card)                -> cards, containers
+     Profunda: var(--shadow-deep)                -> modais, overlays
+
+   SECOES ALTERNADAS:
+     Secao A: background: var(--white)
+     Secao B: background: var(--warm-white)      -> ritmo visual
+
+   PRINCIPIOS:
+     1. Neutrals quentes (#f6f5f4, #615d59, #a39e98) — nunca cinza frio
+     2. Letter-spacing negativo nos headings, positivo nos badges
+     3. Pesos: 400 (ler), 500 (interagir), 600 (enfatizar), 700 (anunciar)
+     4. Bordas sao sussurros: 1px solid rgba(0,0,0,0.1)
+     5. Sombras em multiplas camadas, opacidade individual < 0.05
+     6. Notion Blue (#0075de) e a unica cor saturada — usar com parcimonia
+     7. Pill (9999px) para badges, 4px para botoes e inputs
+     8. Warm white (#f6f5f4) para ritmo visual entre secoes
+
+   ===================================================== */

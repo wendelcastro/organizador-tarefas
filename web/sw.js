@@ -1,8 +1,16 @@
-const CACHE_NAME = 'organizador-v2';
+const CACHE_NAME = 'organizador-v4';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
-  'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,700&display=swap'
+  './design-tokens.css',
+  './styles.css',
+  './js/app-core.js',
+  './js/views-main.js',
+  './js/features-1.js',
+  './js/features-2.js',
+  './js/features-3.js',
+  './js/features-4-init.js',
+  'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap'
 ];
 
 self.addEventListener('install', e => {

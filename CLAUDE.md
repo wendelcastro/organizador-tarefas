@@ -24,18 +24,54 @@ sistema de ajuda in-app e PWA com Service Worker.
 
 ## Estrutura de Pastas
 ```
-/bot          - Telegram Bot + AI Brain + Calendar Sync (Python)
-/web          - Dashboard Web (HTML/CSS/JS single-file) + PWA (manifest + Service Worker)
-/docs         - Documentação didática completa (7 guias)
-/supabase     - Migrations SQL (001 a 020)
+/bot              - Telegram Bot + AI Brain + Calendar Sync (Python)
+/web              - Dashboard Web (componentizado) + PWA
+  /web/js/        - Módulos JavaScript (6 arquivos, ordem importa!)
+  /web/icons/     - Ícones PWA (SVG, 192px, 512px)
+/docs             - Documentação didática completa (7 guias)
+/supabase         - Migrations SQL (001 a 020)
 ```
 
+## Design System (Notion-inspired)
+- **Fonte de verdade**: `web/design-tokens.css` — todos os tokens visuais, guia de uso
+- **Font**: Inter (400, 500, 600, 700) — letter-spacing negativo em headings
+- **Accent**: Notion Blue `#0075de` — única cor saturada no UI
+- **Paleta**: Warm neutrals (`#f6f5f4`, `#615d59`, `#a39e98`) — nunca cinza frio
+- **Tema padrão**: Light (branco) — dark mode via classe `.dark-mode`
+- **Bordas**: Whisper borders `1px solid rgba(0,0,0,0.1)` — leves como sussurro
+- **Sombras**: Multi-layer `var(--shadow-card)` para cards, `var(--shadow-deep)` para modais
+- **Radius**: 12px cards, 4px botões/inputs, 9999px pills/badges
+- **REGRA**: Todo novo componente DEVE usar os tokens do design system. Ver guia completo em `web/design-tokens.css`
+
 ## Arquivos Chave
+
+### Bot (Python)
 - `bot/main.py` — Ponto de entrada, handlers (23 comandos), jobs programados, health check HTTP (porta 8000), OAuth callbacks
 - `bot/ai_brain.py` — Cérebro IA: dual provider (Gemini/Claude), classificação, resolução temporal, sobrecarga, múltiplas tarefas, coaching, decomposição
 - `bot/calendar_sync.py` — Integração Google Calendar + Microsoft Outlook/Teams (OAuth2, sync, lembretes, criação de eventos, Google Tasks)
-- `web/index.html` — Dashboard Premium (10 views, gamificação, drag&drop, Eisenhower, Pomodoro, busca com highlight, anexos com drag & drop, energia, histórico semanal, hábitos, timeline, bulk, dark/light, realtime, PWA, sistema de ajuda in-app, metas, finanças, admin)
-- `web/manifest.json` — PWA manifest para instalação no celular/desktop
+
+### Dashboard Web (componentizado)
+- `web/index.html` — HTML puro (~656 linhas), sem CSS/JS inline
+- `web/design-tokens.css` — Design System tokens + guia de referência rápida
+- `web/styles.css` — Todos os estilos CSS (~3.246 linhas)
+- `web/js/app-core.js` — Supabase, auth, estado global, config, CRUD, helpers, filtros/sort
+- `web/js/views-main.js` — Render de tasks/calendar/today/review, modal, bulk, detail, timeline, theme
+- `web/js/features-1.js` — Gamificação, drag&drop, heatmap 365, hábitos UI, week history, swipe
+- `web/js/features-2.js` — Pomodoro, Eisenhower matrix, energia, time blocks, KPIs, switchView PATCH
+- `web/js/features-3.js` — Admin, Metas 2026, Finanças, user profile, AI coaching, renderReview PATCH
+- `web/js/features-4-init.js` — Subtarefas, busca, anexos, INIT, PWA, help, onboarding, patches finais
+- `web/sw.js` — Service Worker (cache v4, network-first)
+- `web/manifest.json` — PWA manifest
+
+### Ordem de carregamento JS (CRÍTICA — não alterar!)
+```
+1. app-core.js       → Estado global, auth, Supabase, CRUD
+2. views-main.js     → Render principal, views base, modal
+3. features-1.js     → Gamificação, drag&drop, hábitos
+4. features-2.js     → Pomodoro, matrix, KPIs + switchView PATCH #1
+5. features-3.js     → Admin, metas, finanças + renderReview PATCH
+6. features-4-init.js→ Search, attachments, INIT + patches finais + checkAuth()
+```
 - `web/sw.js` — Service Worker para cache network-first (PWA offline)
 - `Dockerfile` — Build para Koyeb (python:3.11-slim + ffmpeg, EXPOSE 8000)
 - `Procfile` — Declaração de worker para PaaS
