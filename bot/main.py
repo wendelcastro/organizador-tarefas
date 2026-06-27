@@ -3707,15 +3707,21 @@ def start_health_server():
     thread.start()
     logger.info(f"Health check server rodando na porta {port}")
 
-    # Keep-alive: pinga a propria porta a cada 4 min para evitar sleeping do Koyeb free tier
+    # Keep-alive: pinga a URL PUBLICA do Koyeb a cada 3 min para evitar o scale-to-zero.
+    # IMPORTANTE: tem que ser a URL externa (BOT_PUBLIC_URL). Pingar localhost NAO conta
+    # como trafego de entrada no roteador do Koyeb, entao a instancia hiberna mesmo assim
+    # e o bot para de fazer polling (mensagens do Telegram ficam presas na fila).
+    keepalive_url = os.environ.get("BOT_PUBLIC_URL") or f"http://localhost:{port}/"
+    logger.info(f"Keep-alive pingando {keepalive_url} a cada 3 min")
+
     def _keep_alive():
         import urllib.request
         while True:
-            time.sleep(240)  # 4 minutos
+            time.sleep(180)  # 3 minutos (abaixo do limite de inatividade do Koyeb)
             try:
-                urllib.request.urlopen(f"http://localhost:{port}/")
-            except Exception:
-                pass
+                urllib.request.urlopen(keepalive_url, timeout=30)
+            except Exception as e:
+                logger.warning(f"Keep-alive falhou: {e}")
     ka_thread = threading.Thread(target=_keep_alive, daemon=True)
     ka_thread.start()
 
