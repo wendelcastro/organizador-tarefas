@@ -67,7 +67,7 @@ async function renderAdmin() {
         if (c.usado_por) status = '<span style="color:#4CAF50">Usado</span>';
         else if (!c.ativo) status = '<span style="color:var(--text-muted)">Desativado</span>';
         else if (new Date(c.expira_em) < now) status = '<span style="color:var(--pri-alta)">Expirado</span>';
-        else status = '<span style="color:#4FC3F7">Ativo</span>';
+        else status = '<span style="color:var(--success)">Ativo</span>';
         html += '<tr style="border-top:1px solid var(--border-subtle)">';
         html += '<td style="padding:0.4rem;font-family:monospace;font-weight:bold;letter-spacing:0.1em">' + c.codigo + '</td>';
         html += '<td>' + criado + '</td><td>' + expira + '</td><td>' + status + '</td>';
@@ -93,7 +93,7 @@ async function renderAdmin() {
 
       html += '<tr style="border-top:1px solid var(--border-subtle)">';
       html += '<td style="padding:0.5rem"><div>' + nome + '</div><div style="font-size:0.7rem;color:var(--text-muted)">Convite: ' + conviteUsado + '</div></td>';
-      html += '<td>' + (isOwner ? '<strong style="color:#0075de">Owner</strong>' : 'Usuário') + '</td>';
+      html += '<td>' + (isOwner ? '<strong style="color:var(--accent)">Owner</strong>' : 'Usuário') + '</td>';
       html += '<td><span style="color:' + statusColor + '">' + (u.status || 'ativo') + '</span></td>';
       html += '<td style="text-align:center">' + nTarefas + '</td>';
       html += '<td>' + ultimoAcesso + '</td>';
@@ -143,9 +143,9 @@ async function adminGerarConvite() {
     if (error) throw error;
 
     resultEl.innerHTML = `
-      <div style="background:rgba(0,117,222,0.08);border:1px solid rgba(0,117,222,0.2);border-radius:0.5rem;padding:0.75rem;text-align:center">
+      <div style="background:rgba(185,145,91,0.08);border:1px solid rgba(185,145,91,0.2);border-radius:0.5rem;padding:0.75rem;text-align:center">
         <div style="font-size:0.8rem;color:var(--text-muted);margin-bottom:0.3rem">Código de convite (válido por ${days} dias)</div>
-        <div style="font-size:1.8rem;font-weight:bold;letter-spacing:0.3em;color:#0075de;font-family:monospace">${codigo}</div>
+        <div style="font-size:1.8rem;font-weight:bold;letter-spacing:0.3em;color:var(--accent);font-family:var(--font-mono)">${codigo}</div>
         <button onclick="navigator.clipboard.writeText('${codigo}').then(()=>this.textContent='Copiado!')" style="margin-top:0.5rem;padding:0.3rem 1rem;font-size:0.8rem;background:var(--bg-glass);border:1px solid var(--border-subtle);border-radius:50px;color:var(--text-primary);cursor:pointer">Copiar código</button>
       </div>`;
 
@@ -592,8 +592,8 @@ function renderMetas() {
 
         ${(recentDone.length > 0 || recentPending.length > 0) ? `<div class="metas-related">
           <div class="metas-related-title">Tarefas vinculadas</div>
-          ${recentDone.map(t => `<div class="metas-related-item"><span class="done-badge">✓</span> ${t.titulo}</div>`).join('')}
-          ${recentPending.map(t => `<div class="metas-related-item"><span class="pending-badge">○</span> ${t.titulo}</div>`).join('')}
+          ${recentDone.map(t => `<div class="metas-related-item"><span class="done-badge">✓</span> ${escapeHtml(t.titulo)}</div>`).join('')}
+          ${recentPending.map(t => `<div class="metas-related-item"><span class="pending-badge">○</span> ${escapeHtml(t.titulo)}</div>`).join('')}
         </div>` : '<div style="font-size:0.72rem;color:var(--text-muted);font-style:italic;margin-top:0.4rem">Nenhuma tarefa vinculada a este pilar ainda</div>'}
       </div>`;
     }).join('')}
@@ -729,15 +729,15 @@ async function renderFinancas() {
       </div>` : ''}
     </div>
 
-    ${(pendentes.length > 0 || planejadas.length > 0) ? `<div class="fin-card" style="margin-bottom:0.8rem;border-color:rgba(0,117,222,0.2)">
+    ${(pendentes.length > 0 || planejadas.length > 0) ? `<div class="fin-card" style="margin-bottom:0.8rem;border-color:rgba(185,145,91,0.2)">
       <h3 style="color:var(--amber)">⏳ Receitas a receber</h3>
       ${pendentes.filter(t=>t.tipo==='receita').map(t => {
         const pessoa = t.pessoa === 'pj' ? '🏢' : '👤';
-        return `<div class="fin-transacao" style="border-color:rgba(0,117,222,0.1)">
+        return `<div class="fin-transacao" style="border-color:rgba(185,145,91,0.1)">
           <div class="fin-transacao-icon">⏳</div>
           <div class="fin-transacao-info">
-            <div class="fin-transacao-desc">${t.descricao}</div>
-            <div class="fin-transacao-meta">${pessoa} ${t.categoria}${t.pagador ? ' · 💼 ' + t.pagador : ''}${t.data_prevista ? ' · Previsto: ' + new Date(t.data_prevista+'T12:00:00').toLocaleDateString('pt-BR') : ''}</div>
+            <div class="fin-transacao-desc">${escapeHtml(t.descricao)}</div>
+            <div class="fin-transacao-meta">${pessoa} ${escapeHtml(t.categoria)}${t.pagador ? ' · 💼 ' + escapeHtml(t.pagador) : ''}${t.data_prevista ? ' · Previsto: ' + new Date(t.data_prevista+'T12:00:00').toLocaleDateString('pt-BR') : ''}</div>
           </div>
           <div style="display:flex;align-items:center;gap:0.4rem">
             <div class="fin-transacao-valor receita">+ ${formatMoney(t.valor)}</div>
@@ -747,11 +747,11 @@ async function renderFinancas() {
       }).join('')}
       ${planejadas.filter(t=>t.tipo==='receita').map(t => {
         const pessoa = t.pessoa === 'pj' ? '🏢' : '👤';
-        return `<div class="fin-transacao" style="border-color:rgba(0,117,222,0.1);opacity:0.7">
+        return `<div class="fin-transacao" style="border-color:rgba(185,145,91,0.1);opacity:0.7">
           <div class="fin-transacao-icon">📋</div>
           <div class="fin-transacao-info">
-            <div class="fin-transacao-desc">${t.descricao}</div>
-            <div class="fin-transacao-meta">${pessoa} ${t.categoria}${t.pagador ? ' · 💼 ' + t.pagador : ''}</div>
+            <div class="fin-transacao-desc">${escapeHtml(t.descricao)}</div>
+            <div class="fin-transacao-meta">${pessoa} ${escapeHtml(t.categoria)}${t.pagador ? ' · 💼 ' + escapeHtml(t.pagador) : ''}</div>
           </div>
           <div class="fin-transacao-valor receita" style="opacity:0.6">+ ${formatMoney(t.valor)}</div>
         </div>`;
@@ -789,7 +789,7 @@ async function renderFinancas() {
             const cor = pct < 60 ? '#2ECC71' : (pct < 80 ? '#F39C12' : '#FF6B6B');
             return `<div class="fin-orc-item">
               <div class="fin-orc-header">
-                <span class="fin-orc-cat">${orc.categoria}</span>
+                <span class="fin-orc-cat">${escapeHtml(orc.categoria)}</span>
                 <span class="fin-orc-val" style="color:${cor}">${formatMoney(gasto)} / ${formatMoney(limite)} (${pct.toFixed(0)}%)</span>
               </div>
               <div class="fin-orc-bar"><div class="fin-orc-bar-fill" style="width:${Math.min(pct,100)}%;background:${cor}"></div></div>
@@ -804,7 +804,7 @@ async function renderFinancas() {
         const pct = Number(m.valor_alvo) > 0 ? (Number(m.valor_atual)/Number(m.valor_alvo)*100) : 0;
         return `<div class="fin-orc-item">
           <div class="fin-orc-header">
-            <span class="fin-orc-cat">${m.icone || '🎯'} ${m.titulo}${m.prazo ? ' · até ' + new Date(m.prazo+'T12:00:00').toLocaleDateString('pt-BR') : ''}</span>
+            <span class="fin-orc-cat">${m.icone || '🎯'} ${escapeHtml(m.titulo)}${m.prazo ? ' · até ' + new Date(m.prazo+'T12:00:00').toLocaleDateString('pt-BR') : ''}</span>
             <span class="fin-orc-val" style="color:var(--amber)">${formatMoney(m.valor_atual)} / ${formatMoney(m.valor_alvo)}</span>
           </div>
           <div class="fin-orc-bar"><div class="fin-orc-bar-fill" style="width:${Math.min(pct,100)}%;background:var(--amber)"></div></div>
@@ -822,8 +822,8 @@ async function renderFinancas() {
         return `<div class="fin-transacao">
           <div class="fin-transacao-icon">${statusIcon || (isReceita ? '🟢' : '🔴')}</div>
           <div class="fin-transacao-info">
-            <div class="fin-transacao-desc">${t.descricao}</div>
-            <div class="fin-transacao-meta">${t.categoria} · ${new Date(t.data+'T12:00:00').toLocaleDateString('pt-BR')}${pessoaTag}${t.pagador ? ' · ' + t.pagador : ''}</div>
+            <div class="fin-transacao-desc">${escapeHtml(t.descricao)}</div>
+            <div class="fin-transacao-meta">${escapeHtml(t.categoria)} · ${new Date(t.data+'T12:00:00').toLocaleDateString('pt-BR')}${pessoaTag}${t.pagador ? ' · ' + escapeHtml(t.pagador) : ''}</div>
           </div>
           <div class="fin-transacao-valor ${isReceita ? 'receita' : 'despesa'}">${isReceita ? '+' : '-'} ${formatMoney(t.valor)}</div>
         </div>`;

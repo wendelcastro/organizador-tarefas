@@ -1,105 +1,130 @@
 /*
  * =====================================================
  *  DESIGN SYSTEM — Organizador de Tarefas
- *  Inspirado no Notion Design System
- *  Versao: 1.0
+ *  "Wendel Castro Design System"
+ *  Versao: 2.0 — Navy & Gold (Jul/2026)
  * =====================================================
  *
- *  Este arquivo e a fonte de verdade para todos os
- *  tokens visuais do projeto. Qualquer novo componente
- *  DEVE usar estas variaveis e seguir estes padroes.
+ *  FONTE ÚNICA DE VERDADE de todos os tokens visuais.
+ *  styles.css NÃO deve redefinir :root — apenas consome
+ *  estas variáveis.
  *
- *  Referencia: https://getdesign.md/notion/design-md
+ *  Sistema de duas cores:
+ *    Navy profundo (#001f35) = base / identidade / humano
+ *    Gold (#b9915b)          = AÇÃO — todo elemento interativo
+ *
+ *  Tipografia (papéis estritos):
+ *    Playfair Display  → títulos e headings (serifada, elegante)
+ *    Manrope           → UI, corpo, botões, números, labels
+ *    Libre Baskerville → citações e destaques editoriais
+ *    JetBrains Mono    → código / dados monoespaçados
  * =====================================================
  */
 
-/* ============================
-   1. CORES — PALETA PRIMARIA
-   ============================ */
-
 :root {
-  /* --- Accent (Notion Blue) --- */
-  --accent: #0075de;
-  --accent-hover: #005bab;
-  --accent-focus: #097fe8;
-  --accent-bg: #f2f9ff;
-  --accent-text: #097fe8;
-  --accent-light: #62aef0;
-  --deep-navy: #213183;
+  /* ============================
+     1. MARCA — NAVY & GOLD
+     ============================ */
+  --navy-deep: #001f35;      /* identidade: fundos imersivos, seções escuras */
+  --gold: #b9915b;           /* assinatura: TODO elemento interativo */
+  --slate-blue: #184560;     /* navy médio: labels, cards escuros elevados */
+  --teal-blue: #146ca9;      /* acento informacional (dados / editorial) */
+  --burgundy: #842e20;       /* acento escuro quente */
+  --warm-brown: #441b1b;     /* acento decorativo terroso */
 
-  /* --- Neutrals (warm undertones) --- */
+  /* --- Accent (Gold = ação) --- */
+  --accent: #b9915b;
+  --accent-hover: #a37f4c;
+  --accent-focus: #c9a06a;
+  --accent-bg: #f6efe4;      /* tinta de gold suave para pills/badges */
+  --accent-text: #8a6a3e;    /* gold legível como texto sobre claro */
+  --accent-light: #d4b78a;
+  --deep-navy: #001f35;
+
+  /* --- Aliases legados (compatibilidade — apontam para o novo accent) --- */
+  --amber: var(--accent);
+  --amber-dark: var(--accent-hover);
+  --amber-light: var(--accent-light);
+  --navy: #001f35;
+  --offwhite: #ffffff;
+
+  /* ============================
+     2. NEUTROS (undertone quente/azulado)
+     ============================ */
   --white: #ffffff;
-  --warm-white: #f6f5f4;
-  --warm-dark: #31302e;
-  --warm-gray-500: #615d59;
-  --warm-gray-300: #a39e98;
-  --near-black: rgba(0, 0, 0, 0.95);
-
-  /* --- Semantic --- */
-  --success: #1aae39;
-  --error: #dd5b00;
-  --warning: #dd5b00;
-  --info: #0075de;
-  --teal: #2a9d99;
-  --pink: #ff64c8;
-  --purple: #391c57;
-  --brown: #523410;
-
-  /* --- Categories --- */
-  --cat-trabalho: #0075de;
-  --cat-consultoria: #2a9d99;
-  --cat-grupo-ser: #7c5caa;
-  --cat-pessoal: #1aae39;
-
-  /* --- Priority --- */
-  --pri-alta: #dd5b00;
-  --pri-media: #0075de;
-  --pri-baixa: #a39e98;
-
+  --warm-white: #f5f4f3;     /* superfície de página — nunca branco puro */
+  --warm-dark: #031a26;
+  --warm-gray-500: #69727d;
+  --warm-gray-300: #9da5ae;
+  --near-black: #031a26;     /* texto — azulado, nunca preto puro */
 
   /* ============================
-     2. SUPERFICIES E BORDAS
+     3. SEMANTIC / STATUS
      ============================ */
-
-  --bg-deep: #ffffff;
-  --bg-surface: #f6f5f4;
-  --bg-card: #ffffff;
-  --bg-glass: rgba(0, 0, 0, 0.03);
-
-  --border-subtle: rgba(0, 0, 0, 0.1);
-  --border-hover: rgba(0, 0, 0, 0.18);
-
-  --text-primary: rgba(0, 0, 0, 0.95);
-  --text-secondary: #615d59;
-  --text-muted: #a39e98;
-
+  --success: #4caf50;
+  --error: #cf2e2e;
+  --warning: #a37f4c;
+  --info: #146ca9;
+  --teal: #146ca9;
+  --pink: #842e20;
+  --purple: #333366;
+  --brown: #441b1b;
 
   /* ============================
-     3. SOMBRAS (multi-layer)
+     4. CATEGORIAS
      ============================ */
+  --cat-trabalho: #184560;    /* slate-blue */
+  --cat-consultoria: #146ca9; /* teal-blue */
+  --cat-grupo-ser: #842e20;   /* burgundy */
+  --cat-pessoal: #4caf50;     /* success green */
 
+  /* ============================
+     5. PRIORIDADE
+     ============================ */
+  --pri-alta: #cf2e2e;
+  --pri-media: #146ca9;
+  --pri-baixa: #9da5ae;
+
+  /* ============================
+     6. SUPERFICIES E BORDAS
+     ============================ */
+  --bg-deep: #f5f4f3;        /* fundo da página (off-white) */
+  --bg-surface: #eceae7;     /* insets / seção alternada (ritmo) */
+  --bg-card: #ffffff;        /* cards brancos que destacam sobre o off-white */
+  --bg-glass: rgba(0, 31, 53, 0.04); /* navy tint */
+
+  --border-subtle: rgba(0, 31, 53, 0.12);  /* whisper border navy-tinted */
+  --border-hover: rgba(0, 31, 53, 0.22);
+
+  --text-primary: #031a26;
+  --text-secondary: #69727d;
+  --text-muted: #9da5ae;
+
+  /* ============================
+     7. SOMBRAS (navy-tinted, multi-layer)
+     ============================ */
   --shadow-card:
-    rgba(0,0,0,0.04) 0px 4px 18px,
-    rgba(0,0,0,0.027) 0px 2.025px 7.84688px,
-    rgba(0,0,0,0.02) 0px 0.8px 2.925px,
-    rgba(0,0,0,0.01) 0px 0.175px 1.04062px;
+    rgba(0,31,53,0.06) 0px 4px 18px,
+    rgba(0,31,53,0.04) 0px 2.025px 7.85px,
+    rgba(0,31,53,0.03) 0px 0.8px 2.93px,
+    rgba(0,31,53,0.02) 0px 0.175px 1.04px;
 
   --shadow-deep:
-    rgba(0,0,0,0.01) 0px 1px 3px,
-    rgba(0,0,0,0.02) 0px 3px 7px,
-    rgba(0,0,0,0.02) 0px 7px 15px,
-    rgba(0,0,0,0.04) 0px 14px 28px,
-    rgba(0,0,0,0.05) 0px 23px 52px;
+    rgba(0,31,53,0.03) 0px 1px 3px,
+    rgba(0,31,53,0.05) 0px 3px 7px,
+    rgba(0,31,53,0.06) 0px 7px 15px,
+    rgba(0,31,53,0.10) 0px 14px 28px,
+    rgba(0,31,53,0.14) 0px 23px 52px;
 
   --shadow-focus: 0 0 0 2px var(--accent-focus);
 
-
   /* ============================
-     4. TIPOGRAFIA
+     8. TIPOGRAFIA
      ============================ */
-
-  --font-primary: 'Inter', -apple-system, system-ui, 'Segoe UI', Helvetica, Arial, sans-serif;
-  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --font-primary: 'Manrope', 'Inter', -apple-system, system-ui, 'Segoe UI', Helvetica, Arial, sans-serif;
+  --font-display: 'Playfair Display', 'Cormorant Garamond', 'Spectral', Georgia, serif;
+  --font-editorial: 'Libre Baskerville', 'Spectral', Georgia, serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 
   /* Tamanhos */
   --text-display: 48px;
@@ -117,75 +142,63 @@
   --weight-semibold: 600;
   --weight-bold: 700;
 
-
   /* ============================
-     5. ESPACAMENTO
+     9. ESPACAMENTO (base 20px, incremento 5px)
      ============================ */
-
-  --space-xs: 4px;
-  --space-sm: 8px;
-  --space-md: 16px;
-  --space-lg: 24px;
-  --space-xl: 40px;
+  --space-xs: 5px;
+  --space-sm: 10px;
+  --space-md: 20px;
+  --space-lg: 30px;
+  --space-xl: 50px;
   --space-2xl: 64px;
 
-
   /* ============================
-     6. BORDER RADIUS
+     10. BORDER RADIUS
      ============================ */
-
   --radius-none: 0px;
-  --radius-sm: 4px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-  --radius-xl: 16px;
+  --radius-sm: 8px;          /* botões e inputs */
+  --radius-md: 10px;
+  --radius-lg: 16px;         /* cards */
+  --radius-xl: 20px;         /* containers de destaque */
   --radius-pill: 9999px;
-
-  /* Mapeados para o sistema atual */
-  --radius: 12px;
-
+  --radius: 16px;            /* alias de card (usado no sistema atual) */
 
   /* ============================
-     7. TRANSICOES
+     11. TRANSICOES
      ============================ */
-
-  --transition: 0.2s ease;
+  --transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   --transition-slow: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
-
   /* ============================
-     8. SAFE AREAS (PWA)
+     12. SAFE AREAS (PWA)
      ============================ */
-
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 
 /* ============================
-   9. DARK MODE
+   13. DARK MODE — base Navy
    ============================ */
-
 .dark-mode {
-  --bg-deep: #191918;
-  --bg-surface: #222221;
-  --bg-card: #2a2a29;
+  --bg-deep: #001f35;        /* navy profundo como fundo */
+  --bg-surface: #06263d;
+  --bg-card: #0b2e46;        /* slate elevado */
   --bg-glass: rgba(255, 255, 255, 0.05);
 
-  --border-subtle: rgba(255, 255, 255, 0.08);
-  --border-hover: rgba(255, 255, 255, 0.15);
+  --border-subtle: rgba(255, 255, 255, 0.10);
+  --border-hover: rgba(255, 255, 255, 0.18);
 
-  --text-primary: rgba(255, 255, 255, 0.95);
-  --text-secondary: rgba(255, 255, 255, 0.6);
-  --text-muted: rgba(255, 255, 255, 0.35);
+  --text-primary: #f5f4f3;
+  --text-secondary: #9aa7b3;
+  --text-muted: #69727d;
 
-  --shadow-card:
-    rgba(0,0,0,0.2) 0px 4px 18px,
-    rgba(0,0,0,0.15) 0px 2px 8px;
+  /* Gold e categorias mantêm-se — funcionam bem sobre navy */
+  --accent-bg: rgba(185, 145, 91, 0.14);
+  --accent-text: #d4b78a;
 
-  --shadow-deep:
-    rgba(0,0,0,0.3) 0px 8px 30px,
-    rgba(0,0,0,0.2) 0px 4px 15px;
+  --shadow-card: rgba(0,0,0,0.35) 0px 4px 18px, rgba(0,0,0,0.25) 0px 2px 8px;
+  --shadow-deep: rgba(0,0,0,0.45) 0px 8px 30px, rgba(0,0,0,0.30) 0px 4px 15px;
 }
 
 
@@ -193,77 +206,43 @@
    GUIA DE USO — REFERENCIA RAPIDA
    =====================================================
 
+   REGRA DE OURO: Gold (--accent) === ação. Todo elemento
+   clicável usa gold. Navy é a base/identidade.
+
    BOTAO PRIMARIO:
-     background: var(--accent);
-     color: var(--white);
-     padding: 8px 16px;
-     border-radius: var(--radius-sm);
-     border: 1px solid transparent;
-     font: var(--weight-semibold) 15px var(--font-primary);
+     background: var(--accent);          (gold)
+     color: var(--navy-deep);            (texto navy sobre gold)
+     border-radius: var(--radius-sm);    (8px)
+     font: var(--weight-bold) 14px var(--font-primary);  (Manrope)
 
-   BOTAO SECUNDARIO:
-     background: var(--bg-glass);
-     color: var(--text-primary);
-     padding: 8px 16px;
-     border-radius: var(--radius-sm);
+   TITULO / HEADING:
+     font-family: var(--font-display);   (Playfair Display)
+     color: var(--text-heading, var(--navy-deep));
+     font-weight: 400–600; letter-spacing: -0.01em;
+
+   CORPO / UI / NUMEROS / LABELS:
+     font-family: var(--font-primary);   (Manrope)
+
+   CITAÇÃO / DESTAQUE EDITORIAL:
+     font-family: var(--font-editorial); (Libre Baskerville)
+
+   CARD:
+     background: var(--bg-card);         (branco)
      border: 1px solid var(--border-subtle);
-
-   BOTAO GHOST:
-     background: transparent;
-     color: var(--text-primary);
-     border: none;
+     border-radius: var(--radius-lg);    (16px)
+     box-shadow: var(--shadow-card);
 
    PILL BADGE:
      background: var(--accent-bg);
      color: var(--accent-text);
-     padding: 4px 8px;
      border-radius: var(--radius-pill);
-     font: var(--weight-semibold) 12px var(--font-primary);
-     letter-spacing: 0.125px;
-
-   CARD:
-     background: var(--bg-card);
-     border: 1px solid var(--border-subtle);
-     border-radius: var(--radius-lg);
-     box-shadow: var(--shadow-card);
-
-   INPUT:
-     background: var(--white);
-     color: var(--text-primary);
-     border: 1px solid var(--border-subtle);
-     border-radius: var(--radius-sm);
-     padding: 8px 12px;
-     font: var(--weight-regular) 16px var(--font-primary);
-
-   TIPOGRAFIA — HEADINGS:
-     h1: 48px / weight-bold / line-height 1.1 / letter-spacing -0.04em
-     h2: 36px / weight-bold / line-height 1.15 / letter-spacing -0.03em
-     h3: 24px / weight-semibold / line-height 1.25 / letter-spacing -0.02em
-     body: 16px / weight-regular / line-height 1.5 / letter-spacing normal
-     label: 12px / weight-semibold / line-height 1.25 / letter-spacing 0.08em / uppercase
-
-   BORDAS:
-     Padrao: 1px solid var(--border-subtle)     -> whisper border
-     Hover:  1px solid var(--border-hover)       -> levemente mais visivel
-     Focus:  box-shadow: var(--shadow-focus)     -> anel azul
-
-   SOMBRAS:
-     Nenhuma:  sem sombra                        -> texto, fundos
-     Suave:    var(--shadow-card)                -> cards, containers
-     Profunda: var(--shadow-deep)                -> modais, overlays
-
-   SECOES ALTERNADAS:
-     Secao A: background: var(--white)
-     Secao B: background: var(--warm-white)      -> ritmo visual
 
    PRINCIPIOS:
-     1. Neutrals quentes (#f6f5f4, #615d59, #a39e98) — nunca cinza frio
-     2. Letter-spacing negativo nos headings, positivo nos badges
-     3. Pesos: 400 (ler), 500 (interagir), 600 (enfatizar), 700 (anunciar)
-     4. Bordas sao sussurros: 1px solid rgba(0,0,0,0.1)
-     5. Sombras em multiplas camadas, opacidade individual < 0.05
-     6. Notion Blue (#0075de) e a unica cor saturada — usar com parcimonia
-     7. Pill (9999px) para badges, 4px para botoes e inputs
-     8. Warm white (#f6f5f4) para ritmo visual entre secoes
+     1. Gold = interativo, sempre. Navy = base.
+     2. Playfair só em títulos; Manrope em todo o resto.
+     3. Neutros quentes/azulados — off-white #f5f4f3, nunca branco/cinza frio.
+     4. Bordas são sussurros navy-tinted: rgba(0,31,53,0.12).
+     5. Sombras em camadas com tinta navy.
+     6. Radius: 8px botões/inputs, 16px cards, 9999px pills.
 
    ===================================================== */

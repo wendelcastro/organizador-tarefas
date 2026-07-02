@@ -119,8 +119,8 @@ function _pomodoroPhaseComplete() {
     _pomodoroNotify('Ciclo Pomodoro completo!', 'Você completou 4 Pomodoros de ' + pomodoroState.taskName + '. Parabéns!');
     document.getElementById('pomodoroTime').textContent = 'Completo!';
     document.getElementById('pomodoroPhase').textContent = '🏆 Sessão completa';
-    document.getElementById('pomodoroPhase').style.background = 'rgba(0,117,222,0.15)';
-    document.getElementById('pomodoroPhase').style.color = '#0075de';
+    document.getElementById('pomodoroPhase').style.background = 'rgba(185,145,91,0.15)';
+    document.getElementById('pomodoroPhase').style.color = 'var(--accent)';
     pomodoroState.running = false;
     setTimeout(() => {
       document.getElementById('pomodoroWidget').classList.remove('active');
@@ -237,7 +237,7 @@ function updatePomodoroUI() {
     const done = i <= pomodoroState.completedCycles;
     const current = i === pomodoroState.currentCycle && pomodoroState.phase === 'work';
     dots += '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;margin:0 2px;'
-      + 'background:' + (done ? '#4CAF50' : current ? '#0075de' : 'rgba(0,0,0,0.08)') + '"></span>';
+      + 'background:' + (done ? 'var(--success)' : current ? 'var(--accent)' : 'rgba(0,0,0,0.08)') + '"></span>';
   }
   dotsEl.innerHTML = dots;
 
@@ -322,8 +322,8 @@ function renderMatrix() {
       const catColor = CATEGORY_COLORS[t.categoria] || 'var(--text-muted)';
       const isManual = t.quadrante_eisenhower ? '' : '<span class="matrix-task-badge">auto</span>';
       return '<div class="matrix-task-item" draggable="true" style="--cat-color:' + catColor + '" data-task-id="' + t.id + '">'
-        + '<div>' + t.titulo + isManual + '</div>'
-        + '<div class="matrix-task-meta">' + (t.prazo ? formatDate(t.prazo) : 'Sem prazo') + ' · ' + t.categoria + '</div>'
+        + '<div>' + escapeHtml(t.titulo) + isManual + '</div>'
+        + '<div class="matrix-task-meta">' + (t.prazo ? formatDate(t.prazo) : 'Sem prazo') + ' · ' + escapeHtml(t.categoria) + '</div>'
         + '</div>';
     }).join('');
   }
@@ -707,7 +707,7 @@ function renderTimeBlocks(dateStr) {
         const duration = t.tempo_estimado_min ? t.tempo_estimado_min + 'min' : '';
         html += '<div class="timeblock-task' + completedClass + '" style="--cat-color:' + catColor + '" data-task-id="' + t.id + '">';
         html += '<span class="timeblock-task-time">' + (t.horario || '--:--') + '</span>';
-        html += '<span class="timeblock-task-title">' + t.titulo + '</span>';
+        html += '<span class="timeblock-task-title">' + escapeHtml(t.titulo) + '</span>';
         if (duration) html += '<span class="timeblock-task-duration">' + duration + '</span>';
         html += '</div>';
       });

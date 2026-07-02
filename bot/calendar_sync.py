@@ -50,7 +50,14 @@ GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "")
 MICROSOFT_CLIENT_ID = os.getenv("MICROSOFT_CLIENT_ID", "")
 MICROSOFT_CLIENT_SECRET = os.getenv("MICROSOFT_CLIENT_SECRET", "")
-OAUTH_SECRET = os.getenv("OAUTH_SECRET_KEY", "organizador-default-secret")
+# Segurança (H3): sem default público. O state OAuth é assinado com este segredo;
+# um default conhecido permitiria forjar states e derrotar a proteção CSRF.
+OAUTH_SECRET = os.getenv("OAUTH_SECRET_KEY", "")
+if not OAUTH_SECRET:
+    logger.warning(
+        "OAUTH_SECRET_KEY não definido — fluxo OAuth de calendário DESABILITADO "
+        "por segurança. Defina OAUTH_SECRET_KEY no ambiente para habilitar."
+    )
 
 TZ_RECIFE = timezone(timedelta(hours=-3))
 
@@ -68,7 +75,10 @@ def _supabase_request(method, endpoint, data=None, params=None, extra_headers=No
 
     url = f"{SUPABASE_URL}/rest/v1/{endpoint}"
     if params:
-        url += "?" + "&".join(f"{k}={v}" for k, v in params.items())
+        # URL-encode preservando operadores PostgREST (eq. in.(...)); encoda &, = (M1).
+        url += "?" + "&".join(
+            f"{k}={urllib.parse.quote(str(v), safe='().,*:')}" for k, v in params.items()
+        )
 
     headers = {
         "apikey": SUPABASE_KEY,
@@ -110,20 +120,37 @@ def _supabase_request(method, endpoint, data=None, params=None, extra_headers=No
 
 # ========== OAUTH STATE (HMAC) ==========
 
+# Validade do state OAuth (proteção contra replay — B3)
+_STATE_TTL_SEG = 600  # 10 minutos
+
+
 def _sign_state(chat_id):
-    """Assina chat_id para o parametro state do OAuth."""
-    msg = str(chat_id).encode()
-    sig = hmac.new(OAUTH_SECRET.encode(), msg, hashlib.sha256).hexdigest()[:16]
-    return f"{chat_id}:{sig}"
+    """Assina chat_id + timestamp para o parametro state do OAuth.
+    Retorna None se OAUTH_SECRET não estiver definido (fail-closed)."""
+    if not OAUTH_SECRET:
+        return None
+    ts = int(datetime.now(TZ_RECIFE).timestamp())
+    payload = f"{chat_id}:{ts}"
+    sig = hmac.new(OAUTH_SECRET.encode(), payload.encode(), hashlib.sha256).hexdigest()[:16]
+    return f"{payload}:{sig}"
 
 
 def _verify_state(state):
-    """Verifica e extrai chat_id do state OAuth."""
+    """Verifica assinatura + expiração e extrai chat_id do state OAuth."""
+    if not OAUTH_SECRET:
+        return None
     try:
-        chat_id, sig = state.rsplit(":", 1)
-        expected = hmac.new(OAUTH_SECRET.encode(), chat_id.encode(), hashlib.sha256).hexdigest()[:16]
-        if hmac.compare_digest(sig, expected):
-            return int(chat_id)
+        chat_id, ts, sig = state.rsplit(":", 2)
+        payload = f"{chat_id}:{ts}"
+        expected = hmac.new(OAUTH_SECRET.encode(), payload.encode(), hashlib.sha256).hexdigest()[:16]
+        if not hmac.compare_digest(sig, expected):
+            return None
+        # Rejeitar state expirado (replay)
+        agora = int(datetime.now(TZ_RECIFE).timestamp())
+        if agora - int(ts) > _STATE_TTL_SEG:
+            logger.warning("State OAuth expirado")
+            return None
+        return int(chat_id)
     except Exception:
         pass
     return None
@@ -133,7 +160,7 @@ def _verify_state(state):
 
 def build_google_auth_url(chat_id):
     """Gera URL de autorizacao do Google Calendar."""
-    if not GOOGLE_CLIENT_ID or not BOT_PUBLIC_URL:
+    if not GOOGLE_CLIENT_ID or not BOT_PUBLIC_URL or not OAUTH_SECRET:
         return None
 
     params = {
@@ -150,7 +177,7 @@ def build_google_auth_url(chat_id):
 
 def build_microsoft_auth_url(chat_id):
     """Gera URL de autorizacao do Microsoft/Teams Calendar."""
-    if not MICROSOFT_CLIENT_ID or not BOT_PUBLIC_URL:
+    if not MICROSOFT_CLIENT_ID or not BOT_PUBLIC_URL or not OAUTH_SECRET:
         return None
 
     params = {

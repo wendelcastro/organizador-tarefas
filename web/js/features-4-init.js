@@ -67,7 +67,7 @@ function renderSubtasksSection(taskId, subtasks) {
     const checkDone = s.concluida ? ' done' : '';
     html += '<div class="subtask-item' + doneClass + '" data-subtask-id="' + s.id + '">'
       + '<div class="subtask-check' + checkDone + '" onclick="toggleSubtask(\'' + s.id + '\',' + !s.concluida + ',\'' + taskId + '\')"></div>'
-      + '<span class="subtask-text">' + s.titulo + '</span>'
+      + '<span class="subtask-text">' + escapeHtml(s.titulo) + '</span>'
       + '<button class="subtask-delete" onclick="deleteSubtask(\'' + s.id + '\',\'' + taskId + '\')">\u2715</button>'
       + '</div>';
   });
@@ -324,8 +324,8 @@ async function performSearch(query) {
     .slice(0, 5)
     .forEach(t => items.push({
       type: 'Tarefa', icon: '\ud83d\udccb',
-      title: t.titulo,
-      meta: (t.categoria || '') + ' \u00b7 ' + (t.prazo || 'sem data') + ' \u00b7 ' + t.status,
+      title: escapeHtml(t.titulo),
+      meta: escapeHtml(t.categoria || '') + ' \u00b7 ' + (t.prazo || 'sem data') + ' \u00b7 ' + t.status,
       onclick: "showTaskDetail('" + t.id + "')"
     }));
 
@@ -334,8 +334,8 @@ async function performSearch(query) {
     .slice(0, 5)
     .forEach(ev => items.push({
       type: 'Evento', icon: '\ud83d\udcc5',
-      title: ev.titulo,
-      meta: (ev.dia || '') + ' ' + (ev.horario_inicio || '') + ' \u00b7 ' + (ev.provider || ''),
+      title: escapeHtml(ev.titulo),
+      meta: (ev.dia || '') + ' ' + (ev.horario_inicio || '') + ' \u00b7 ' + escapeHtml(ev.provider || ''),
       onclick: ''
     }));
 
@@ -352,7 +352,7 @@ async function performSearch(query) {
         type: 'Anotação semanal', icon: '\ud83d\udcdd',
         title: 'Semana de ' + formatDate(w.semana_inicio),
         meta: (w.concluidas || 0) + '/' + (w.total_tarefas || 0) + ' tarefas \u00b7 ' + (w.taxa_conclusao || 0) + '%',
-        preview: (w.anotacao || '').substring(0, 80),
+        preview: escapeHtml((w.anotacao || '').substring(0, 80)),
         onclick: "navigateToWeek('" + w.semana_inicio + "')"
       }));
     }
@@ -377,9 +377,9 @@ async function performSearch(query) {
         }
         items.push({
           type: (typeLabels[a.tipo] || 'Anexo'), icon: icons[a.tipo] || '\ud83d\udcc4',
-          title: a.titulo || 'Sem título',
-          meta: taskName ? 'Tarefa: ' + taskName : '',
-          preview: (a.conteudo || '').substring(0, 80),
+          title: escapeHtml(a.titulo || 'Sem título'),
+          meta: taskName ? 'Tarefa: ' + escapeHtml(taskName) : '',
+          preview: escapeHtml((a.conteudo || '').substring(0, 80)),
           onclick: a.tarefa_id ? "showTaskDetail('" + a.tarefa_id + "')" : ''
         });
       });
@@ -432,8 +432,8 @@ function renderAttachmentsSection(taskId, attachments) {
     html += '<div class="attachment-item" onclick="expandAttachment(\'' + a.id + '\')">'
       + '<span class="attachment-icon">' + icon + '</span>'
       + '<div class="attachment-info">'
-      + '<div class="attachment-title">' + (a.titulo || 'Sem título') + '</div>'
-      + '<div class="attachment-preview">' + preview + '</div>'
+      + '<div class="attachment-title">' + escapeHtml(a.titulo || 'Sem título') + '</div>'
+      + '<div class="attachment-preview">' + escapeHtml(preview) + '</div>'
       + '<div class="attachment-date">' + dateStr + '</div>'
       + '</div>'
       + '<button class="attachment-delete" onclick="event.stopPropagation();deleteAttachment(\'' + a.id + '\',\'' + taskId + '\')">\u2715</button>'
@@ -600,7 +600,7 @@ async function expandAttachment(attachmentId) {
   overlay.className = 'attachment-expanded';
   overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
   overlay.innerHTML = '<div class="attachment-expanded-content">'
-    + '<div class="attachment-expanded-title">' + (attachment.titulo || 'Sem título') + '</div>'
+    + '<div class="attachment-expanded-title">' + escapeHtml(attachment.titulo || 'Sem título') + '</div>'
     + '<div class="attachment-expanded-text">' + (attachment.conteudo || '').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>'
     + '</div>'
     + '<button class="attachment-expanded-close" onclick="this.parentElement.remove()">\u2715</button>';
@@ -794,7 +794,7 @@ async function runCleanupAnalysis() {
   groups.forEach(function(group, gIdx) {
     html += '<div class="cleanup-group">';
     html += '<div class="cleanup-group-header">';
-    html += '<span class="cleanup-group-title">Grupo ' + (gIdx + 1) + ' — "' + (group[0].task.titulo || '').substring(0, 40) + '"</span>';
+    html += '<span class="cleanup-group-title">Grupo ' + (gIdx + 1) + ' — "' + escapeHtml((group[0].task.titulo || '').substring(0, 40)) + '"</span>';
     html += '<span class="cleanup-group-badge">' + group.length + ' tarefas</span>';
     html += '</div>';
 
@@ -807,8 +807,8 @@ async function runCleanupAnalysis() {
       html += '<div class="cleanup-task">';
       html += '<input type="checkbox" class="cleanup-check" data-task-id="' + t.id + '" onchange="updateCleanupCount()"' + (tIdx > 0 ? ' checked' : '') + '>';
       html += '<div class="cleanup-task-info">';
-      html += '<div class="cleanup-task-title">' + (t.titulo || '') + '</div>';
-      html += '<div class="cleanup-task-meta"><span style="color:' + catColor + '">' + (t.categoria || '') + '</span> · ' + prazoStr + (t.horario ? ' · ' + t.horario.substring(0,5) : '') + ' · ' + (t.status || '') + '</div>';
+      html += '<div class="cleanup-task-title">' + escapeHtml(t.titulo || '') + '</div>';
+      html += '<div class="cleanup-task-meta"><span style="color:' + catColor + '">' + escapeHtml(t.categoria || '') + '</span> · ' + prazoStr + (t.horario ? ' · ' + t.horario.substring(0,5) : '') + ' · ' + (t.status || '') + '</div>';
       html += '</div>';
       if (tIdx > 0) {
         html += '<span class="cleanup-task-similarity">' + item.similarity + '%</span>';
@@ -829,7 +829,7 @@ async function runCleanupAnalysis() {
     html += '<div class="cleanup-group">';
     html += '<div class="cleanup-group-header">';
     html += '<span class="cleanup-group-title">⚠️ Conflitos de horário</span>';
-    html += '<span class="cleanup-group-badge" style="background:rgba(0,117,222,0.1);color:var(--amber)">' + conflicts.length + ' conflitos</span>';
+    html += '<span class="cleanup-group-badge" style="background:rgba(185,145,91,0.1);color:var(--amber)">' + conflicts.length + ' conflitos</span>';
     html += '</div>';
 
     conflicts.forEach(function(c) {
@@ -837,7 +837,7 @@ async function runCleanupAnalysis() {
       html += '<div class="cleanup-task">';
       html += '<input type="checkbox" class="cleanup-check" data-task-id="' + c.task2.id + '" onchange="updateCleanupCount()">';
       html += '<div class="cleanup-task-info">';
-      html += '<div class="cleanup-task-title">' + c.task1.titulo + ' <span style="color:var(--text-muted)">×</span> ' + c.task2.titulo + '</div>';
+      html += '<div class="cleanup-task-title">' + escapeHtml(c.task1.titulo) + ' <span style="color:var(--text-muted)">×</span> ' + escapeHtml(c.task2.titulo) + '</div>';
       html += '<div class="cleanup-task-meta">Mesmo horário: ' + prazoStr + ' às ' + (c.task1.horario || '').substring(0,5) + '</div>';
       html += '</div>';
       html += '<div class="cleanup-task-actions">';

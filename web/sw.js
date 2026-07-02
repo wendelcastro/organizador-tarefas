@@ -1,4 +1,4 @@
-const CACHE_NAME = 'organizador-v4';
+const CACHE_NAME = 'organizador-v5';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -30,15 +30,22 @@ self.addEventListener('activate', e => {
 });
 
 self.addEventListener('fetch', e => {
-  // Skip Supabase API calls — always fetch fresh data
+  // Só cacheia navegações e assets GET. Ignora Supabase (dados sempre frescos),
+  // métodos não-GET e outros esquemas (ex.: chrome-extension).
+  if (e.request.method !== 'GET') return;
   if (e.request.url.includes('supabase.co')) return;
+  if (!e.request.url.startsWith('http')) return;
 
-  // Network-first strategy: try network, fallback to cache
+  // Network-first: tenta rede, cai para cache se offline.
   e.respondWith(
     fetch(e.request)
       .then(res => {
-        const clone = res.clone();
-        caches.open(CACHE_NAME).then(cache => cache.put(e.request, clone));
+        // Só cacheia respostas OK e "básicas/cors" — nunca 4xx/5xx, redirects
+        // opacos ou portal cativo (evita servir página quebrada offline).
+        if (res && res.ok && (res.type === 'basic' || res.type === 'cors')) {
+          const clone = res.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(e.request, clone));
+        }
         return res;
       })
       .catch(() => caches.match(e.request))

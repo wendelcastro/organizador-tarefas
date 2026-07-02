@@ -55,16 +55,16 @@ function renderTasks() {
         <div class="task-check" data-action="toggle"></div>
         <div class="task-info" data-action="detail">
           <div class="task-title-row">
-            <span class="task-title">${task.titulo}</span>
-            <span class="task-category-badge" style="background:${catBg};color:${catColor}">${task.categoria}</span>
+            <span class="task-title">${escapeHtml(task.titulo)}</span>
+            <span class="task-category-badge" style="background:${catBg};color:${catColor}">${escapeHtml(task.categoria)}</span>
             ${subBadge}${tipoBadge}
           </div>
           <div class="task-meta">
             <span class="task-priority"><span class="dot" style="background:${priColor}"></span>${PRIORITY_LABELS[task.prioridade]}</span>
             ${timeStr ? '<span>' + timeStr + '</span>' : ''}
             ${task.tempo_estimado_min ? '<span>⏱' + task.tempo_estimado_min + 'min</span>' : ''}
-            ${task.delegado_para ? '<span>👤' + task.delegado_para + '</span>' : ''}
-            ${task.recorrencia ? '<span>🔄' + task.recorrencia + '</span>' : ''}
+            ${task.delegado_para ? '<span>👤' + escapeHtml(task.delegado_para) + '</span>' : ''}
+            ${task.recorrencia ? '<span>🔄' + escapeHtml(task.recorrencia) + '</span>' : ''}
             ${meetingHTML}
           </div>
           ${getSubtaskProgressHTML(task.id)}
@@ -324,9 +324,9 @@ function renderCalendar() {
             if (item.type === 'habit') {
               const h = item.data;
               const done = day.isToday && isHabitDoneToday(h.id);
-              return `<div class="calendar-task calendar-habit ${done ? 'habit-done' : ''}" style="--cat-color:#0075de" data-task-id="${h.id}">
+              return `<div class="calendar-task calendar-habit ${done ? 'habit-done' : ''}" style="--cat-color:var(--accent)" data-task-id="${h.id}">
                 <div class="calendar-task-content">
-                  <span class="calendar-task-title">🔁 ${h.titulo}</span>
+                  <span class="calendar-task-title">🔁 ${escapeHtml(h.titulo)}</span>
                 </div>
               </div>`;
             }
@@ -337,8 +337,8 @@ function renderCalendar() {
             return `<div class="calendar-task" style="--cat-color:${CATEGORY_COLORS[t.categoria]}" data-task-id="${t.id}" draggable="true" ondragstart="handleDragStart(event)" ondragend="handleDragEnd(event)">
               <div class="calendar-task-content">
                 ${timeStr ? '<span class="calendar-task-time">🕐 ' + timeStr + (platform ? ' ' + meetIcon + ' ' + platform.label : '') + '</span>' : (platform ? '<span class="calendar-task-time">' + meetIcon + ' ' + platform.label + '</span>' : '')}
-                <span class="calendar-task-title">${t.titulo}</span>
-                <span class="calendar-task-cat">${t.categoria}${t.recorrencia ? ' · 🔄 ' + t.recorrencia : ''}</span>
+                <span class="calendar-task-title">${escapeHtml(t.titulo)}</span>
+                <span class="calendar-task-cat">${escapeHtml(t.categoria)}${t.recorrencia ? ' · 🔄 ' + escapeHtml(t.recorrencia) : ''}</span>
               </div>
             </div>`;
           }).join('')}
@@ -361,7 +361,7 @@ function renderCalendar() {
           ${noDateTasks.slice(0, 6).map(t => {
             return '<div class="calendar-task" style="--cat-color:' + (CATEGORY_COLORS[t.categoria] || 'var(--text-muted)') + '" data-task-id="' + t.id + '" draggable="true" ondragstart="handleDragStart(event)" ondragend="handleDragEnd(event)">' +
               '<div class="calendar-task-content">' +
-              '<span class="calendar-task-title">' + t.titulo + '</span>' +
+              '<span class="calendar-task-title">' + escapeHtml(t.titulo) + '</span>' +
               '</div></div>';
           }).join('')}
           ${noDateTasks.length > 6 ? '<div class="calendar-task-count">+' + (noDateTasks.length - 6) + ' mais</div>' : ''}
@@ -397,8 +397,8 @@ function showTaskDetail(id) {
   const statusLabels = { 'pendente': 'Pendente', 'em_andamento': 'Em andamento', 'concluida': 'Concluída' };
 
   let html = `
-    <span class="detail-category" style="background:${catBg};color:${catColor}">${task.categoria}</span>
-    <h2 class="detail-title">${task.titulo}</h2>
+    <span class="detail-category" style="background:${catBg};color:${catColor}">${escapeHtml(task.categoria)}</span>
+    <h2 class="detail-title">${escapeHtml(task.titulo)}</h2>
     <div class="detail-grid">
       <div>
         <div class="detail-field-label">Status</div>
@@ -422,11 +422,11 @@ function showTaskDetail(id) {
       </div>` : ''}
       ${task.delegado_para ? `<div>
         <div class="detail-field-label">Delegado para</div>
-        <div class="detail-field-value">👤 ${task.delegado_para}</div>
+        <div class="detail-field-value">👤 ${escapeHtml(task.delegado_para)}</div>
       </div>` : ''}
       ${task.recorrencia ? `<div>
         <div class="detail-field-label">Recorrência</div>
-        <div class="detail-field-value">🔄 ${task.recorrencia}</div>
+        <div class="detail-field-value">🔄 ${escapeHtml(task.recorrencia)}</div>
       </div>` : ''}
     </div>`;
 
@@ -440,7 +440,7 @@ function showTaskDetail(id) {
   }
 
   if (task.notas) {
-    html += `<div class="detail-notes">${task.notas}</div>`;
+    html += `<div class="detail-notes">${escapeHtml(task.notas)}</div>`;
   }
 
   // Placeholder for subtasks — will be loaded async
@@ -460,7 +460,7 @@ function showTaskDetail(id) {
           <div style="font-size:0.65rem;color:var(--text-secondary);line-height:1.4">Timer de 25 min de foco total. Ajuda a manter a concentração em uma tarefa por vez. O tempo é registrado automaticamente.</div>
           ${accumMin > 0 ? '<div style="font-size:0.65rem;color:var(--amber);margin-top:0.3rem">⏱ ' + accumMin + ' min acumulados nesta tarefa</div>' : ''}
         </div>
-        <button onclick="closeDetail();startPomodoro('${task.id}')" style="flex-shrink:0;padding:0.4rem 0.8rem;background:rgba(0,117,222,0.08);border:1px solid var(--amber);border-radius:50px;color:var(--amber);font-size:0.7rem;font-family:inherit;cursor:pointer;display:flex;align-items:center;gap:0.3rem;transition:var(--transition)">
+        <button onclick="closeDetail();startPomodoro('${task.id}')" style="flex-shrink:0;padding:0.4rem 0.8rem;background:rgba(185,145,91,0.08);border:1px solid var(--amber);border-radius:50px;color:var(--amber);font-size:0.7rem;font-family:inherit;cursor:pointer;display:flex;align-items:center;gap:0.3rem;transition:var(--transition)">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
           Iniciar
         </button>
@@ -648,9 +648,9 @@ function renderToday() {
         <div class="task-check" data-action="toggle"></div>
         <div class="task-info" data-action="detail">
           <div class="task-title-row">
-            <span class="task-title">${task.titulo}</span>
-            <span class="task-category-badge" style="background:${catBg};color:${catColor}">${task.categoria}</span>
-            ${isHabit ? '<span class="task-category-badge" style="background:rgba(0,117,222,0.1);color:#0075de">🔁 Hábito</span>' : ''}
+            <span class="task-title">${escapeHtml(task.titulo)}</span>
+            <span class="task-category-badge" style="background:${catBg};color:${catColor}">${escapeHtml(task.categoria)}</span>
+            ${isHabit ? '<span class="task-category-badge" style="background:rgba(185,145,91,0.12);color:var(--accent)">🔁 Hábito</span>' : ''}
           </div>
           <div class="task-meta">
             <span class="task-priority"><span class="dot" style="background:${priColor}"></span>${PRIORITY_LABELS[task.prioridade]}</span>
@@ -867,9 +867,9 @@ function renderTimeline(allTasks, hoje, todayEvents) {
       const catColor = CATEGORY_COLORS[task.categoria] || 'var(--text-muted)';
       html += `<div class="timeline-item" data-task-id="${task.id}" style="--cat-color:${catColor}">
         <span class="timeline-time">${task.horario}</span>
-        <div class="timeline-title">${task.titulo}</div>
+        <div class="timeline-title">${escapeHtml(task.titulo)}</div>
         <div class="timeline-meta">
-          <span style="color:${catColor}">${task.categoria}</span>
+          <span style="color:${catColor}">${escapeHtml(task.categoria)}</span>
           ${task.tempo_estimado_min ? '<span>⏱ ' + task.tempo_estimado_min + 'min</span>' : ''}
           ${task.prazo < hoje ? '<span style="color:var(--pri-alta)">Atrasada</span>' : ''}
         </div>
@@ -887,9 +887,9 @@ function renderTimeline(allTasks, hoje, todayEvents) {
     withoutTime.forEach(task => {
       const catColor = CATEGORY_COLORS[task.categoria] || 'var(--text-muted)';
       html += `<div class="timeline-item" data-task-id="${task.id}" style="--cat-color:${catColor}">
-        <div class="timeline-title">${task.titulo}</div>
+        <div class="timeline-title">${escapeHtml(task.titulo)}</div>
         <div class="timeline-meta">
-          <span style="color:${catColor}">${task.categoria}</span>
+          <span style="color:${catColor}">${escapeHtml(task.categoria)}</span>
           ${task.tempo_estimado_min ? '<span>⏱ ' + task.tempo_estimado_min + 'min</span>' : ''}
           ${task.prazo < hoje ? '<span style="color:var(--pri-alta)">Atrasada</span>' : ''}
         </div>
@@ -1126,7 +1126,7 @@ function renderReview() {
         <h3>Tempo pessoal</h3>
         <div class="review-big-number">${personalHighlights.length}</div>
         <div style="font-size:0.7rem;color:var(--text-secondary);margin-top:0.25rem">
-          ${personalHighlights.length > 0 ? personalHighlights.map(t => t.titulo).join(', ') : 'Nenhuma atividade pessoal registrada'}
+          ${personalHighlights.length > 0 ? personalHighlights.map(t => escapeHtml(t.titulo)).join(', ') : 'Nenhuma atividade pessoal registrada'}
         </div>
       </div>
     </div>`;

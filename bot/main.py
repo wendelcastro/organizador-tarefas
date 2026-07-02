@@ -63,7 +63,7 @@ except ImportError:
     from backports.zoneinfo import ZoneInfo
 
 from dotenv import load_dotenv
-from telegram import Update, BotCommand, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update, BotCommand, InlineKeyboardButton, InlineKeyboardMarkup, ForceReply
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
@@ -192,7 +192,11 @@ def supabase_request(method, endpoint, data=None, params=None, extra_headers=Non
 
     url = f"{SUPABASE_URL}/rest/v1/{endpoint}"
     if params:
-        url += ("&" if "?" in url else "?") + "&".join(f"{k}={v}" for k, v in params.items())
+        # URL-encode os valores preservando os operadores do PostgREST
+        # (eq. in.(...) etc). Encoda &, =, espaços — evita injeção de filtro (M1).
+        def _enc(v):
+            return urllib.parse.quote(str(v), safe="().,*:")
+        url += ("&" if "?" in url else "?") + "&".join(f"{k}={_enc(v)}" for k, v in params.items())
 
     headers = {
         "apikey": SUPABASE_KEY,
@@ -300,9 +304,26 @@ def get_user_from_update(update):
     return None
 
 
+# Rate limit de tentativas de vinculacao por chat_id (anti brute-force — M3)
+_vincular_tentativas = {}  # chat_id -> [timestamps]
+_VINCULAR_MAX = 5          # tentativas
+_VINCULAR_JANELA = 600     # segundos (10 min)
+
+
+def _vincular_rate_limited(chat_id):
+    """Retorna True se o chat_id excedeu o limite de tentativas na janela."""
+    agora = datetime.now(TZ_RECIFE).timestamp()
+    tentativas = [t for t in _vincular_tentativas.get(chat_id, []) if agora - t < _VINCULAR_JANELA]
+    tentativas.append(agora)
+    _vincular_tentativas[chat_id] = tentativas
+    return len(tentativas) > _VINCULAR_MAX
+
+
 def vincular_chat_a_usuario(chat_id, codigo, nome=None):
     """Valida um codigo de vinculacao e liga chat_id ao user_id correspondente.
     Retorna (sucesso, user_id ou mensagem_erro)."""
+    if _vincular_rate_limited(chat_id):
+        return False, "Muitas tentativas. Aguarde 10 minutos e tente novamente."
     if not codigo or len(codigo.strip()) < 4:
         return False, "Codigo invalido."
 
@@ -2950,6 +2971,60 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["_user_id"] = user_id
     set_current_user(user_id)
 
+    await processar_mensagem(update, context, texto)
+
+
+# Marcador estável embutido no prompt da reflexão noturna (usado para detectar
+# respostas via reply, de forma robusta a reinícios do bot).
+REFLEXAO_MARKER = "Como foi seu dia?"
+
+
+def _e_resposta_reflexao(update):
+    """True se a mensagem é um reply ao prompt de reflexão noturna do bot."""
+    msg = getattr(update, "message", None)
+    reply = getattr(msg, "reply_to_message", None) if msg else None
+    if not reply:
+        return False
+    autor = getattr(reply, "from_user", None)
+    if not (autor and getattr(autor, "is_bot", False)):
+        return False
+    return REFLEXAO_MARKER in (reply.text or "")
+
+
+async def _salvar_reflexao(update, texto):
+    """Salva o texto como reflexão noturna no Supabase."""
+    global _reflexao_pendente, _reflexao_timestamp
+    try:
+        hoje = datetime.now(TZ_RECIFE).strftime("%Y-%m-%d")
+        supabase_request("POST", "reflexoes", {
+            "data": hoje,
+            "pergunta": "reflexao_noturna",
+            "resposta": texto,
+        })
+        await update.message.reply_text(
+            "✨ Reflexão salva! Vai aparecer na sua revisão semanal.\n\n"
+            "Descanse bem, amanhã é um novo dia! 💪",
+        )
+    except Exception as e:
+        logger.error(f"Erro ao salvar reflexao: {e}")
+        await update.message.reply_text("Anotei mentalmente! 😊")
+    _reflexao_pendente = False
+    _reflexao_timestamp = None
+
+
+async def processar_mensagem(update, context, texto):
+    """Roteador unificado de mensagens (texto digitado e voz transcrita).
+    Respeita estados de conversa, reflexão via reply e triagem tarefa/finança.
+    Chamado tanto por handle_text quanto por handle_voice."""
+
+    # REFLEXÃO ROBUSTA: se a mensagem é resposta (reply) ao prompt da reflexão
+    # noturna, salva como reflexão. Funciona mesmo após restart do Koyeb (o
+    # marcador vive na própria mensagem, não em flag de memória) e também por voz.
+    if _e_resposta_reflexao(update):
+        await _salvar_reflexao(update, texto)
+        clear_state(context)
+        return
+
     state = get_state(context)
 
     # MODO FOCO: aceita comandos mas nao cria tarefas automaticamente
@@ -3199,7 +3274,9 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
         await msg.edit_text(f"🎤 Entendi: _{texto}_\n\nProcessando...", parse_mode="Markdown")
-        await processar_nova_tarefa(update, context, texto)
+        # Roteia pelo pipeline unificado: voz agora respeita estados de conversa,
+        # reflexão (via reply) e triagem tarefa/finança — igual ao texto digitado.
+        await processar_mensagem(update, context, texto)
 
     except Exception as e:
         logger.error(f"Erro no handler de voz: {e}")
@@ -3353,16 +3430,23 @@ async def reflexao_noturna(context):
         if n_pendentes > 0:
             msg += f" e ficaram *{n_pendentes}* pendente(s)"
         msg += ".\n\n"
+        # IMPORTANTE: o marcador "Como foi seu dia?" (REFLEXAO_MARKER) precisa
+        # estar no texto — é como o roteador reconhece a resposta via reply.
         msg += "💭 *Como foi seu dia?*\n"
         msg += "Me conta: o que fez de melhor? O que ficou pra amanhã?\n\n"
-        msg += "_Responde com texto livre — vou guardar pra sua revisão semanal._"
+        msg += "_Toque em *Responder* nesta mensagem e escreva (ou mande áudio) — "
+        msg += "vou guardar pra sua revisão semanal._"
 
+        # ForceReply vincula a próxima mensagem a este prompt. A detecção por
+        # reply é robusta a reinícios do bot (não depende de flag em memória).
         await context.bot.send_message(
             chat_id=chat_id,
             text=msg,
             parse_mode="Markdown",
+            reply_markup=ForceReply(selective=False,
+                                    input_field_placeholder="Como foi seu dia?"),
         )
-        # Ativar flag para capturar resposta (valida por 2 horas)
+        # Flag mantida como fallback secundário (caso o usuário responda sem reply).
         _reflexao_pendente = True
         _reflexao_timestamp = datetime.now(TZ_RECIFE)
     except Exception as e:
@@ -3682,7 +3766,8 @@ class HealthHandler(BaseHTTPRequestHandler):
 
         except Exception as e:
             logger.error(f"OAuth {provider} error: {e}")
-            self._respond(500, f"Erro ao conectar: {e}")
+            # Não refletir detalhes internos ao usuário (B2)
+            self._respond(500, "Erro ao conectar o calendário. Tente novamente pelo Telegram.")
 
     def _respond(self, code, message):
         """Envia resposta HTML formatada."""

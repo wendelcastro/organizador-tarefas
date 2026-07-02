@@ -449,7 +449,7 @@ async function loadWeekHistoryList() {
           <span class="history-card-rate" style="color:${rateColor}">${rate}%</span>
         </div>
         <div style="font-size:0.72rem;color:var(--text-secondary)">${h.concluidas || 0}/${h.total_tarefas || 0} concluídas</div>
-        ${h.anotacao ? '<div class="history-card-note">' + h.anotacao + '</div>' : ''}
+        ${h.anotacao ? '<div class="history-card-note">' + escapeHtml(h.anotacao) + '</div>' : ''}
       </div>`;
     }).join('');
 }
@@ -477,7 +477,7 @@ function navigateToWeek(weekStartDate) {
 function highlightSearchTerm(text, query) {
   if (!text || !query) return text || '';
   var regex = new RegExp('(' + query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'gi');
-  return text.replace(regex, '<mark style="background:rgba(0,117,222,0.2);color:var(--amber);padding:0 2px;border-radius:2px">$1</mark>');
+  return text.replace(regex, '<mark style="background:rgba(185,145,91,0.2);color:var(--amber);padding:0 2px;border-radius:2px">$1</mark>');
 }
 
 // ========== HABITS & SUBCATEGORIES ==========
@@ -550,7 +550,7 @@ async function renderHabitTracker() {
 
     habitos.forEach(h => {
       const tituloCurto = (h.titulo || '').slice(0, 24);
-      html += '<div class="habit-grid-label">🔁 ' + tituloCurto + '</div>';
+      html += '<div class="habit-grid-label">🔁 ' + escapeHtml(tituloCurto) + '</div>';
       weekDays.forEach(day => {
         const key = String(h.id) + '|' + day.date;
         if (logSet.has(key)) {
@@ -698,10 +698,10 @@ async function renderHeatmap365() {
 
   const legendHTML = '<div class="heatmap365-legend">Menos '
     + '<div class="heatmap365-legend-cell" style="background:var(--bg-glass)"></div>'
-    + '<div class="heatmap365-legend-cell" style="background:rgba(0,117,222,0.15)"></div>'
-    + '<div class="heatmap365-legend-cell" style="background:rgba(0,117,222,0.3)"></div>'
-    + '<div class="heatmap365-legend-cell" style="background:rgba(0,117,222,0.5)"></div>'
-    + '<div class="heatmap365-legend-cell" style="background:rgba(0,117,222,0.75)"></div>'
+    + '<div class="heatmap365-legend-cell" style="background:rgba(185,145,91,0.15)"></div>'
+    + '<div class="heatmap365-legend-cell" style="background:rgba(185,145,91,0.3)"></div>'
+    + '<div class="heatmap365-legend-cell" style="background:rgba(185,145,91,0.5)"></div>'
+    + '<div class="heatmap365-legend-cell" style="background:rgba(185,145,91,0.75)"></div>'
     + ' Mais</div>';
 
   container.innerHTML = '<div class="review-card" style="margin-top:0.75rem">'

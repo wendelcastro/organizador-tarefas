@@ -166,18 +166,12 @@ async function handleRegister(e) {
   btn.disabled = true;
   btn.textContent = 'Validando convite...';
 
-  // 1) Validar código de convite
+  // 1) Validar código de convite via RPC (não expõe a lista de convites — ver migration 021)
   try {
-    const { data: convite, error: cErr } = await sb
-      .from('codigos_convite')
-      .select('id,codigo,expira_em')
-      .eq('codigo', inviteCode)
-      .eq('ativo', true)
-      .is('usado_por', null)
-      .gt('expira_em', new Date().toISOString())
-      .maybeSingle();
+    const { data: conviteValido, error: cErr } = await sb
+      .rpc('validar_convite', { p_codigo: inviteCode });
 
-    if (cErr || !convite) {
+    if (cErr || !conviteValido) {
       btn.disabled = false;
       btn.textContent = 'Criar conta';
       errEl.textContent = 'Código de convite inválido, já usado ou expirado. Peça um novo ao administrador.';
@@ -203,11 +197,11 @@ async function handleRegister(e) {
       return;
     }
 
-    // 3) Marcar convite como usado
+    // 3) Marcar convite como usado (por código; a policy convites_usar valida ativo/não-usado/prazo)
     if (data?.user?.id) {
       await sb.from('codigos_convite')
         .update({ usado_por: data.user.id, usado_em: new Date().toISOString(), ativo: false })
-        .eq('id', convite.id);
+        .eq('codigo', inviteCode);
 
       // Salvar o código usado no perfil (o trigger da 016 já criou o perfil)
       await sb.from('perfis_usuario')
@@ -344,8 +338,11 @@ async function handleLogout() {
 async function vincularTelegram() {
   if (!currentUser) { alert('Faça login primeiro.'); return; }
 
-  // Gerar código de 6 dígitos
-  const codigo = Math.random().toString(36).substring(2, 8).toUpperCase();
+  // Gerar código de 8 caracteres com CSPRNG (M3: Math.random é previsível)
+  const _alfabeto = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // sem 0/O/1/I ambíguos
+  const _bytes = new Uint8Array(8);
+  crypto.getRandomValues(_bytes);
+  const codigo = Array.from(_bytes, b => _alfabeto[b % _alfabeto.length]).join('');
 
   try {
     const headers = await getAuthHeaders();
@@ -372,7 +369,7 @@ async function vincularTelegram() {
       <div style="position:fixed;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;z-index:9999" onclick="this.remove()">
         <div style="background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:var(--radius);padding:2rem;max-width:420px;width:90%;text-align:center" onclick="event.stopPropagation()">
           <div style="font-size:2.5rem;margin-bottom:0.5rem">🔗</div>
-          <h2 style="font-family:'Inter',sans-serif;font-weight:700;letter-spacing:-0.02em;font-size:1.5rem;color:var(--text-primary);margin-bottom:0.5rem">Vincular Telegram</h2>
+          <h2 style="font-family:var(--font-display);font-weight:600;letter-spacing:-0.01em;font-size:1.6rem;color:var(--text-primary);margin-bottom:0.5rem">Vincular Telegram</h2>
           <p style="font-size:0.85rem;color:var(--text-secondary);margin-bottom:1.2rem">Copie o código abaixo e envie no bot do Telegram</p>
 
           <div style="background:var(--bg-glass);border:1px dashed var(--amber);border-radius:0.75rem;padding:1rem;margin-bottom:1.2rem">
@@ -416,10 +413,10 @@ const CATEGORY_COLORS = {
   'Pessoal': 'var(--cat-pessoal)'
 };
 const CATEGORY_BG = {
-  'Trabalho': 'rgba(0,117,222,0.08)',
-  'Consultoria': 'rgba(42,157,153,0.08)',
-  'Grupo Ser': 'rgba(124,92,170,0.08)',
-  'Pessoal': 'rgba(26,174,57,0.08)'
+  'Trabalho': 'rgba(24,69,96,0.10)',      /* slate-blue */
+  'Consultoria': 'rgba(20,108,169,0.10)', /* teal-blue */
+  'Grupo Ser': 'rgba(132,46,32,0.10)',    /* burgundy */
+  'Pessoal': 'rgba(76,175,80,0.12)'       /* success green */
 };
 const PRIORITY_COLORS = { 'alta': 'var(--pri-alta)', 'media': 'var(--pri-media)', 'baixa': 'var(--pri-baixa)' };
 const PRIORITY_LABELS = { 'alta': 'Alta', 'media': 'Média', 'baixa': 'Baixa' };
@@ -486,8 +483,10 @@ async function checkCalendarConnections() {
     const headers = await getAuthHeaders();
     const uid = currentUser?.id;
     if (!uid) { calendarConnections = { google:false, microsoft:false }; return; }
+    // Segurança (H2): trazer só a coluna `chave`, NUNCA o `valor` (que contém
+    // os refresh tokens OAuth). O frontend só precisa saber se está conectado.
     const res = await fetch(
-      `${SUPABASE_URL}/rest/v1/configuracoes?user_id=eq.${uid}&chave=in.(google_calendar_tokens,microsoft_calendar_tokens)`,
+      `${SUPABASE_URL}/rest/v1/configuracoes?user_id=eq.${uid}&chave=in.(google_calendar_tokens,microsoft_calendar_tokens)&select=chave`,
       { headers }
     );
     if (res.ok) {
